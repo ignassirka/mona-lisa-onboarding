@@ -6,14 +6,14 @@ const PHYSICAL_COUNTRIES = [
   "Belarus", "United States", "United Kingdom", "Switzerland", "India", "Australia", "Japan",
 ];
 
-const physicalCountryData: Record<string, { ip: string; provider: string }> = {
-  "Belarus":        { ip: "158.6.140.191", provider: "Белтелеком" },
-  "United States":  { ip: "104.28.16.45",  provider: "Comcast" },
-  "United Kingdom": { ip: "86.11.24.132",  provider: "BT" },
-  "Switzerland":    { ip: "194.42.16.33",  provider: "Swisscom" },
-  "India":          { ip: "117.215.11.69", provider: "BSNL" },
-  "Australia":      { ip: "101.98.45.12",  provider: "Telstra" },
-  "Japan":          { ip: "118.6.12.88",   provider: "NTT" },
+export const physicalCountryData: Record<string, { ip: string; provider: string; coordinates: string }> = {
+  "Belarus":        { ip: "158.6.140.191", provider: "Белтелеком", coordinates: "53.9°N, 27.6°E" },
+  "United States":  { ip: "104.28.16.45",  provider: "Comcast",    coordinates: "38.9°N, 77.0°W" },
+  "United Kingdom": { ip: "86.11.24.132",  provider: "BT",         coordinates: "51.5°N, 0.1°W" },
+  "Switzerland":    { ip: "194.42.16.33",  provider: "Swisscom",   coordinates: "46.9°N, 7.4°E" },
+  "India":          { ip: "117.215.11.69", provider: "BSNL",       coordinates: "28.6°N, 77.2°E" },
+  "Australia":      { ip: "101.98.45.12",  provider: "Telstra",    coordinates: "33.9°S, 151.2°E" },
+  "Japan":          { ip: "118.6.12.88",   provider: "NTT",        coordinates: "35.7°N, 139.7°E" },
 };
 
 function shuffleIndices(indices: number[]): number[] {

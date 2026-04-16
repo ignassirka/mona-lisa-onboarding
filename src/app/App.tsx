@@ -10,6 +10,7 @@ const PANEL_MIN     = 200;
 const PANEL_MAX     = 400;
 
 export default function App() {
+  const [onboardingStarted, setOnboardingStarted] = useState(false);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [selectedMapLayer, setSelectedMapLayer] = useState<MapLayerOption>("none");
   const [vpnStatus, setVpnStatus] = useState<VpnStatus>("unprotected");
@@ -77,6 +78,20 @@ export default function App() {
     setConnectedCountry(null);
   }, []);
 
+  if (!onboardingStarted) {
+    return (
+      <div className="h-screen w-screen bg-[#0f0d14] flex items-center justify-center">
+        <button
+          onClick={() => setOnboardingStarted(true)}
+          className="px-[40px] py-[14px] rounded-[10px] bg-[#6d4aff] text-white text-[16px] leading-[22px] font-semibold font-['Segoe_UI_Variable',sans-serif] cursor-pointer transition-all duration-200 hover:bg-[#7c5cff] active:scale-[0.97]"
+          style={{ fontVariationSettings: "'opsz' 12" }}
+        >
+          Start onboarding
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen w-screen bg-[#0f0d14] flex items-center justify-center p-6">
       <div ref={containerRef} className="relative h-[830px] w-[1170px] rounded-[8px] overflow-hidden border border-[rgba(255,255,255,0.1)]">
@@ -93,13 +108,13 @@ export default function App() {
             onDisconnect={handleDisconnect}
             physicalCountry={physicalCountry}
             onPhysicalCountryChange={setPhysicalCountry}
-            panelWidth={panelWidth}
+            panelWidth={0}
           />
         </div>
 
-        {/* Left: Floating Panel (resizable) */}
+        {/* Left: Floating Panel (resizable) — hidden during onboarding */}
         <div
-          className="absolute top-[8px] left-[8px] bottom-[8px] z-[1000]"
+          className="hidden absolute top-[8px] left-[8px] bottom-[8px] z-[1000]"
           style={{ width: panelWidth }}
         >
           <ISPRegulationsPanel

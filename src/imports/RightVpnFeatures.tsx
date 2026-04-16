@@ -1210,7 +1210,7 @@ export default function RightVpnFeatures({ onMapLayerMouseEnter, onMapLayerMouse
                   onMouseEnter={onMapLayerMouseEnter}
                   onMouseLeave={onMapLayerMouseLeave}
                   className={clsx(
-                    "w-full rounded-[4px] transition-colors duration-150 group",
+                    "hidden w-full rounded-[4px] transition-colors duration-150 group",
                     mapLayerOpen ? "bg-[rgba(255,255,255,0.15)]" : "hover:bg-[rgba(255,255,255,0.1)]"
                   )}
                 >

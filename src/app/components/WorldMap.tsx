@@ -10,6 +10,8 @@ import MapLayers from "../../imports/MapLayers";
 import { getCountryTier, getTierColor, layerMeta } from "./layerData";
 import { getFlagUrl } from "./flagComponents";
 import StatusGradient from "../../imports/StatusGradient";
+import OnboardingOverlay from "./OnboardingOverlay";
+import type { OnboardingPhase } from "./OnboardingOverlay";
 import type { VpnStatus } from "../App";
 
 // ─── Layer accent colors for the transition flash ─────────────────────────────
@@ -377,6 +379,15 @@ export function WorldMap({
   const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [transitionLabel, setTransitionLabel] = useState<string | null>(null);
 
+  // ── Onboarding intro state ────────────────────────────────────────────────
+  const [onboardingPhase, setOnboardingPhase] = useState<OnboardingPhase>("black");
+  const postPinPhases: OnboardingPhase[] = ["show-pin", "show-details", "show-text", "simulation", "screen2", "connecting", "done"];
+  const onboardingPinShown = postPinPhases.includes(onboardingPhase);
+  const onboardingGradientShown = onboardingPinShown;
+  const postDetailsPhases: OnboardingPhase[] = ["show-details", "show-text", "simulation", "screen2", "connecting", "done"];
+  const onboardingDetailsShown = postDetailsPhases.includes(onboardingPhase);
+  const onboardingConnectingUI = onboardingPhase === "connecting" || onboardingPhase === "done";
+
   const handleMapLayerMouseEnter = useCallback(() => {
     if (mapLayersHideTimerRef.current) clearTimeout(mapLayersHideTimerRef.current);
     if (mapLayersShowTimerRef.current) clearTimeout(mapLayersShowTimerRef.current);
@@ -437,6 +448,27 @@ export function WorldMap({
     [onSelectMapLayer]
   );
 
+  // ── Onboarding phase handler ──────────────────────────────────────────────
+  const handleOnboardingPhase = useCallback((phase: OnboardingPhase) => {
+    setOnboardingPhase(phase);
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (phase === "fly-to") {
+      const loc = getPhysicalLocation(physicalCountry);
+      const targetZoom = 5;
+      const targetPx = map.project([loc.lat, loc.lng], targetZoom);
+      // Shift so the pin ends up on the right side (~62% from left) instead of center
+      const offsetPx = targetPx.subtract(L.point(200, 30));
+      const offsetLatLng = map.unproject(offsetPx, targetZoom);
+      map.flyTo(offsetLatLng, targetZoom, { duration: 2, easeLinearity: 0.35 });
+    }
+  }, [physicalCountry]);
+
+  const handleOnboardingContinue = useCallback(() => {
+    setOnboardingPhase("done");
+  }, []);
+
   // Initialize map
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -453,6 +485,12 @@ export function WorldMap({
         [-85, -200],
         [85, 200],
       ],
+      dragging: false,
+      scrollWheelZoom: false,
+      doubleClickZoom: false,
+      touchZoom: false,
+      boxZoom: false,
+      keyboard: false,
     });
 
     L.tileLayer(TILE_URL, {
@@ -490,12 +528,12 @@ export function WorldMap({
       markersRef.current.set(cm.name, marker);
     });
 
-    // User location pin – stored in ref so it can be updated reactively
+    // User location pin – starts invisible, revealed by onboarding
     const initLoc = getPhysicalLocation(physicalCountry);
     const userPin = L.marker([initLoc.lat, initLoc.lng], {
       icon: L.divIcon({
         html: createUserLocationPinHTML("unprotected"),
-        className: "user-location-pin",
+        className: "user-location-pin user-location-pin--hidden",
         iconSize: [96, 96],
         iconAnchor: [48, 48],
       }),
@@ -589,14 +627,18 @@ export function WorldMap({
     const map = mapRef.current;
     if (!pin || !map) return;
 
+    const hiddenClass = onboardingPinShown ? "" : " user-location-pin--hidden";
     pin.setIcon(
       L.divIcon({
         html: createUserLocationPinHTML(vpnStatus),
-        className: "user-location-pin",
+        className: `user-location-pin${hiddenClass}`,
         iconSize: [96, 96],
         iconAnchor: [48, 48],
       })
     );
+
+    // Skip map panning during early onboarding — allow during connect and done
+    if (onboardingPhase !== "done" && onboardingPhase !== "connecting") return;
 
     if (connectedCountry && (vpnStatus === "connecting" || vpnStatus === "protected")) {
       const target = countryMarkers.find((c) => c.name === connectedCountry);
@@ -617,7 +659,7 @@ export function WorldMap({
         duration: 1.0,
       });
     }
-  }, [vpnStatus, connectedCountry, physicalCountry]);
+  }, [vpnStatus, connectedCountry, physicalCountry, onboardingPhase]);
 
   // Reposition user pin when physical country changes (while unprotected)
   useEffect(() => {
@@ -633,6 +675,16 @@ export function WorldMap({
       duration: 1.0,
     });
   }, [physicalCountry]);
+
+  // Reveal user pin when onboarding reaches show-pin phase
+  useEffect(() => {
+    const pin = userPinRef.current;
+    if (!pin || !onboardingPinShown) return;
+    const el = pin.getElement();
+    if (el) {
+      el.classList.remove("user-location-pin--hidden");
+    }
+  }, [onboardingPinShown]);
 
   // Cleanup timer on unmount
   useEffect(() => {
@@ -675,18 +727,18 @@ export function WorldMap({
         </div>
       )}
 
-      {/* Top fading gradient — full width, above map, behind all panels */}
+      {/* Top fading gradient — fades in during onboarding */}
       <div
-        className="absolute top-0 left-0 right-0 h-[300px] pointer-events-none z-[600]"
-        style={{ transform: "scaleY(-1)" }}
+        className="absolute top-0 left-0 right-0 h-[300px] pointer-events-none z-[600] transition-opacity duration-[800ms] ease-out"
+        style={{ transform: "scaleY(-1)", opacity: onboardingGradientShown ? 1 : 0 }}
       >
         <StatusGradient vpnStatus={vpnStatus} />
       </div>
 
-      {/* Connection details overlay at bottom */}
+      {/* Connection details overlay at bottom — fades in during connecting */}
       <div
-        className="absolute bottom-0 right-0 z-[1000] pointer-events-none"
-        style={{ left: panelWidth + 16 }}
+        className="absolute bottom-0 right-0 z-[1000] pointer-events-none transition-opacity duration-[800ms] ease-out"
+        style={{ left: panelWidth + 16, opacity: onboardingConnectingUI ? 1 : 0, pointerEvents: onboardingConnectingUI ? "auto" : "none" }}
       >
         <div
           className="bg-gradient-to-t from-[#0f0d14] via-[rgba(15,13,20,0.85)] to-transparent pt-[40px]"
@@ -698,9 +750,9 @@ export function WorldMap({
         </div>
       </div>
 
-      {/* VPN Features floating panel top-right + Map Layers — wrapper keeps hover while moving across the gap */}
+      {/* VPN Features floating panel top-right + Map Layers — hidden during onboarding */}
       <div
-        className="absolute top-[8px] right-[8px] z-[1000] pointer-events-auto"
+        className="hidden absolute top-[8px] right-[8px] z-[1000] pointer-events-auto"
         onMouseEnter={handleMapLayersRegionEnter}
         onMouseLeave={handleMapLayersRegionLeave}
       >
@@ -744,10 +796,10 @@ export function WorldMap({
         </div>
       )}
 
-      {/* Connection card centered between left panel and right panel */}
+      {/* Connection card centered — fades in during connecting */}
       <div
-        className="absolute top-[24px] z-[1000] pointer-events-auto"
-        style={{ left: panelWidth + 32, right: "155px" }}
+        className="absolute top-[24px] z-[1000] pointer-events-auto transition-opacity duration-[800ms] ease-out"
+        style={{ left: panelWidth + 32, right: "155px", opacity: onboardingConnectingUI ? 1 : 0, pointerEvents: onboardingConnectingUI ? "auto" : "none" }}
       >
         <div className="flex flex-col items-center gap-[10px]">
           <ConnectionCardLeft1
@@ -780,31 +832,23 @@ export function WorldMap({
           background: transparent !important;
           border: none !important;
           overflow: visible !important;
+          transition: opacity 0.6s ease-out !important;
         }
         .user-location-pin > div {
           overflow: visible !important;
+        }
+        .user-location-pin--hidden {
+          opacity: 0 !important;
         }
         @keyframes layerLabelFadeIn {
           0%   { opacity: 0; transform: translateY(-4px); }
           100% { opacity: 1; transform: translateY(0); }
         }
         .diamond-marker {
-          background: transparent !important;
-          border: none !important;
-          cursor: pointer !important;
-          transition: transform 0.3s ease;
-        }
-        .diamond-marker:hover {
-          transform: scale(1.3);
-          z-index: 1000 !important;
+          display: none !important;
         }
         .circle-dot-marker {
-          background: transparent !important;
-          border: none !important;
-          cursor: pointer !important;
-        }
-        .circle-dot-marker:hover {
-          z-index: 1000 !important;
+          display: none !important;
         }
 
         /* ── Default state ──────────────────────────────────── */
@@ -864,6 +908,16 @@ export function WorldMap({
           cursor: grabbing !important;
         }
       `}</style>
+
+      {/* Onboarding intro overlay */}
+      <OnboardingOverlay
+        physicalCountry={physicalCountry}
+        vpnStatus={vpnStatus}
+        mapRef={mapRef}
+        onPhaseChange={handleOnboardingPhase}
+        onConnect={onConnect}
+        onContinue={handleOnboardingContinue}
+      />
     </div>
   );
 }
