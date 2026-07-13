@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import { motion } from "motion/react";
+import { TRANSITION_TIMING, delaySec } from "../transitionTiming";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import ConnectionDetails from "../../imports/ConnectionDetails";
@@ -41,7 +43,7 @@ interface CountryMarker {
   lng: number;
 }
 
-const countryMarkers: CountryMarker[] = [
+export const countryMarkers: CountryMarker[] = [
   { name: "Albania", lat: 41.2, lng: 20.2 },
   { name: "Algeria", lat: 28.0, lng: 3.0 },
   { name: "Angola", lat: -11.2, lng: 17.9 },
@@ -346,6 +348,20 @@ interface WorldMapProps {
   physicalCountry: string;
   onPhysicalCountryChange: (country: string) => void;
   panelWidth: number;
+  /** Skip the v1 onboarding intro and open directly in the connected "done" state. */
+  skipOnboarding?: boolean;
+  /** Initial map center — override the default [30, 20] to pre-position for a seamless transition. */
+  initialCenter?: [number, number];
+  /** Initial map zoom — override the default 3. */
+  initialZoom?: number;
+  /**
+   * When true, the 4 main panels (connection card, details, feature rail, left panel)
+   * play their directional slide-in entrance animation.
+   * When false/undefined, panels appear immediately (no animation).
+   */
+  showEntrance?: boolean;
+  /** Controlled NetShield enabled state — synced with the right rail. */
+  netShieldEnabled?: boolean;
 }
 
 export function WorldMap({
@@ -360,6 +376,11 @@ export function WorldMap({
   physicalCountry,
   onPhysicalCountryChange,
   panelWidth,
+  skipOnboarding = false,
+  initialCenter,
+  initialZoom,
+  showEntrance = false,
+  netShieldEnabled = true,
 }: WorldMapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -379,8 +400,11 @@ export function WorldMap({
   const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [transitionLabel, setTransitionLabel] = useState<string | null>(null);
 
+  // Respect prefers-reduced-motion for entrance animations
+  const reducedMotion = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
   // ── Onboarding intro state ────────────────────────────────────────────────
-  const [onboardingPhase, setOnboardingPhase] = useState<OnboardingPhase>("black");
+  const [onboardingPhase, setOnboardingPhase] = useState<OnboardingPhase>(skipOnboarding ? "done" : "black");
   const postPinPhases: OnboardingPhase[] = ["show-pin", "show-details", "show-text", "simulation", "screen2", "connecting", "done"];
   const onboardingPinShown = postPinPhases.includes(onboardingPhase);
   const onboardingGradientShown = onboardingPinShown;
@@ -474,8 +498,8 @@ export function WorldMap({
     if (!containerRef.current || mapRef.current) return;
 
     const map = L.map(containerRef.current, {
-      center: [30, 20],
-      zoom: 3,
+      center: initialCenter ?? [30, 20],
+      zoom: initialZoom ?? 3,
       minZoom: 2,
       maxZoom: 7,
       zoomControl: false,
@@ -735,10 +759,17 @@ export function WorldMap({
         <StatusGradient vpnStatus={vpnStatus} />
       </div>
 
-      {/* Connection details overlay at bottom — fades in during connecting */}
-      <div
-        className="absolute bottom-0 right-0 z-[1000] pointer-events-none transition-opacity duration-[800ms] ease-out"
-        style={{ left: panelWidth + 16, opacity: onboardingConnectingUI ? 1 : 0, pointerEvents: onboardingConnectingUI ? "auto" : "none" }}
+      {/* Connection details overlay at bottom — slides up from bottom on entrance */}
+      <motion.div
+        className="vpn-connection-details absolute bottom-0 right-0 z-[1000]"
+        style={{
+          left: panelWidth + 16,
+          opacity: !showEntrance ? (onboardingConnectingUI ? 1 : 0) : undefined,
+          pointerEvents: onboardingConnectingUI ? "auto" : "none",
+        }}
+        initial={showEntrance ? (reducedMotion ? { opacity: 0, y: 0 } : { opacity: 0, y: 40 }) : false}
+        animate={showEntrance ? { opacity: onboardingConnectingUI ? 1 : 0, y: 0 } : undefined}
+        transition={showEntrance ? { duration: TRANSITION_TIMING.connectionDetails.duration / 1000, delay: delaySec(TRANSITION_TIMING.connectionDetails.start), ease: [0.22, 1, 0.36, 1] } : undefined}
       >
         <div
           className="bg-gradient-to-t from-[#0f0d14] via-[rgba(15,13,20,0.85)] to-transparent pt-[40px]"
@@ -748,11 +779,18 @@ export function WorldMap({
             <ConnectionDetails vpnStatus={vpnStatus} connectedCountry={connectedCountry} physicalCountry={physicalCountry} onPhysicalCountryChange={onPhysicalCountryChange} />
           </div>
         </div>
-      </div>
+      </motion.div>
 
-      {/* VPN Features floating panel top-right + Map Layers — hidden during onboarding */}
-      <div
-        className="hidden absolute top-[8px] right-[8px] z-[1000] pointer-events-auto"
+      {/* VPN Features floating panel top-right — slides in from right on entrance */}
+      <motion.div
+        className="vpn-right-rail absolute top-[8px] right-[8px] z-[1000]"
+        style={{
+          opacity: !showEntrance ? (onboardingConnectingUI ? 1 : 0) : undefined,
+          pointerEvents: onboardingConnectingUI ? "auto" : "none",
+        }}
+        initial={showEntrance ? (reducedMotion ? { opacity: 0, x: 0 } : { opacity: 0, x: 40 }) : false}
+        animate={showEntrance ? { opacity: onboardingConnectingUI ? 1 : 0, x: 0 } : undefined}
+        transition={showEntrance ? { duration: TRANSITION_TIMING.featureRail.duration / 1000, delay: delaySec(TRANSITION_TIMING.featureRail.start), ease: [0.22, 1, 0.36, 1] } : undefined}
         onMouseEnter={handleMapLayersRegionEnter}
         onMouseLeave={handleMapLayersRegionLeave}
       >
@@ -773,10 +811,11 @@ export function WorldMap({
               mapLayerOpen={showMapLayers}
               onFeatureHover={handleFeatureHover}
               onFeatureLeave={handleFeatureLeave}
+              netShieldEnabled={netShieldEnabled}
             />
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Feature flyout — fixed overlay so it's above everything and aligned to the hovered row */}
       {hoveredFeature && flyoutPos && (
@@ -796,10 +835,18 @@ export function WorldMap({
         </div>
       )}
 
-      {/* Connection card centered — fades in during connecting */}
-      <div
-        className="absolute top-[24px] z-[1000] pointer-events-auto transition-opacity duration-[800ms] ease-out"
-        style={{ left: panelWidth + 32, right: "155px", opacity: onboardingConnectingUI ? 1 : 0, pointerEvents: onboardingConnectingUI ? "auto" : "none" }}
+      {/* Connection card (top) — slides down from top on entrance */}
+      <motion.div
+        className="vpn-connection-card absolute top-[24px] z-[1000]"
+        style={{
+          left: panelWidth + 32,
+          right: "155px",
+          opacity: !showEntrance ? (onboardingConnectingUI ? 1 : 0) : undefined,
+          pointerEvents: onboardingConnectingUI ? "auto" : "none",
+        }}
+        initial={showEntrance ? (reducedMotion ? { opacity: 0, y: 0 } : { opacity: 0, y: -40 }) : false}
+        animate={showEntrance ? { opacity: onboardingConnectingUI ? 1 : 0, y: 0 } : undefined}
+        transition={showEntrance ? { duration: TRANSITION_TIMING.connectionCard.duration / 1000, delay: delaySec(TRANSITION_TIMING.connectionCard.start), ease: [0.22, 1, 0.36, 1] } : undefined}
       >
         <div className="flex flex-col items-center gap-[10px]">
           <ConnectionCardLeft1
@@ -823,7 +870,7 @@ export function WorldMap({
             </div>
           )}
         </div>
-      </div>
+      </motion.div>
 
       {/* Custom CSS for leaflet overrides */}
       <style>{`
@@ -909,15 +956,17 @@ export function WorldMap({
         }
       `}</style>
 
-      {/* Onboarding intro overlay */}
-      <OnboardingOverlay
-        physicalCountry={physicalCountry}
-        vpnStatus={vpnStatus}
-        mapRef={mapRef}
-        onPhaseChange={handleOnboardingPhase}
-        onConnect={onConnect}
-        onContinue={handleOnboardingContinue}
-      />
+      {/* Onboarding intro overlay — skipped entirely when arriving from v2 */}
+      {!skipOnboarding && (
+        <OnboardingOverlay
+          physicalCountry={physicalCountry}
+          vpnStatus={vpnStatus}
+          mapRef={mapRef}
+          onPhaseChange={handleOnboardingPhase}
+          onConnect={onConnect}
+          onContinue={handleOnboardingContinue}
+        />
+      )}
     </div>
   );
 }

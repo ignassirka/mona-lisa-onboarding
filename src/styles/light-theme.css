@@ -1,0 +1,287 @@
+/* ─── Light theme overrides ────────────────────────────────────────────────────
+ * Applied when data-theme="light" is on the root wrapper.
+ * Strategy: use semantic class names (.vpn-*) we control for reliable targeting.
+ * Panels are made opaque so dark map tiles don't bleed through the blur.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/* ── Outer container ─────────────────────────────────────────────────────── */
+
+/* `.vpn-app-outer` now shows the native Windows wallpaper (set inline in
+ * App.tsx) regardless of theme — a real desktop's wallpaper doesn't change
+ * with an app's theme, so no light-theme override here anymore. */
+
+[data-theme="light"] .vpn-app-container {
+  border-color: rgba(0, 0, 0, 0.14) !important;
+}
+
+/* ── Left panel (ISPRegulationsPanel) ───────────────────────────────────── */
+
+/* Target the panel root div — opaque so the dark map doesn't bleed through */
+[data-theme="light"] .vpn-left-panel > div:first-child {
+  background: rgba(245, 244, 248, 0.98) !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* All text inside left panel → dark */
+[data-theme="light"] .vpn-left-panel {
+  color: #1c1b24 !important;
+}
+[data-theme="light"] .vpn-left-panel * {
+  color: #1c1b24;
+}
+/* Force override on elements with explicit white color classes */
+[data-theme="light"] .vpn-left-panel [class~="text-white"] {
+  color: #1c1b24 !important;
+}
+
+/* Card/pill backgrounds inside left panel */
+[data-theme="light"] .vpn-left-panel [class~="bg-[rgba(255,255,255,0.05)]"],
+[data-theme="light"] .vpn-left-panel [class~="bg-[rgba(255,255,255,0.08)]"],
+[data-theme="light"] .vpn-left-panel [class~="bg-[rgba(255,255,255,0.1)]"],
+[data-theme="light"] .vpn-left-panel [class~="bg-[rgba(255,255,255,0.2)]"] {
+  background: rgba(0, 0, 0, 0.06) !important;
+}
+[data-theme="light"] .vpn-left-panel [class~="bg-[rgba(22,20,28,0.75)]"],
+[data-theme="light"] .vpn-left-panel [class~="bg-[rgba(15,13,20,0.9)]"],
+[data-theme="light"] .vpn-left-panel [class~="bg-[#16141c]"],
+[data-theme="light"] .vpn-left-panel [class~="bg-[#0f0d14]"] {
+  background: rgba(235, 234, 240, 0.98) !important;
+}
+
+/* Borders inside left panel */
+[data-theme="light"] .vpn-left-panel [class~="border-[rgba(255,255,255,0.1)]"],
+[data-theme="light"] .vpn-left-panel [class~="border-[rgba(255,255,255,0.2)]"] {
+  border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Hover states in left panel */
+[data-theme="light"] .vpn-left-panel [class~="hover:bg-[rgba(255,255,255,0.1)]"]:hover {
+  background: rgba(0, 0, 0, 0.06) !important;
+}
+
+/* ── Right feature rail ───────────────────────────────────────────────────── */
+
+/* Target the feature rail root via the class we just added */
+[data-theme="light"] .vpn-feature-rail {
+  background: rgba(245, 244, 248, 0.98) !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+  box-shadow: -2px 0 12px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* All text → dark */
+[data-theme="light"] .vpn-feature-rail {
+  color: #1c1b24 !important;
+}
+[data-theme="light"] .vpn-feature-rail * {
+  color: #1c1b24;
+}
+[data-theme="light"] .vpn-feature-rail [class~="text-white"] {
+  color: #1c1b24 !important;
+}
+
+/* The small teal notification dot — keep it teal */
+[data-theme="light"] .vpn-feature-rail [class~="text-[#2cffcc]"] {
+  color: #0a8a7a !important;
+}
+
+/* Separator line */
+[data-theme="light"] .vpn-feature-rail [class~="border-[rgba(255,255,255,0.1)]"],
+[data-theme="light"] .vpn-feature-rail [class~="border-[rgba(255,255,255,0.2)]"] {
+  border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Hover states */
+[data-theme="light"] .vpn-feature-rail [class~="hover:bg-[rgba(255,255,255,0.1)]"]:hover {
+  background: rgba(0, 0, 0, 0.06) !important;
+}
+
+/* Active/selected map layer highlight */
+[data-theme="light"] .vpn-feature-rail [class~="bg-[rgba(255,255,255,0.15)]"] {
+  background: rgba(0, 0, 0, 0.08) !important;
+}
+
+/* SVG stroke/fill in the separator */
+[data-theme="light"] .vpn-feature-rail [class~="stroke-[rgba(255,255,255,0.1)]"] {
+  stroke: rgba(0, 0, 0, 0.1) !important;
+}
+[data-theme="light"] .vpn-feature-rail line {
+  stroke: rgba(0, 0, 0, 0.1) !important;
+}
+
+/* ── Connection card (top center) ───────────────────────────────────────── */
+
+[data-theme="light"] .vpn-connection-card {
+  color: #1c1b24 !important;
+}
+[data-theme="light"] .vpn-connection-card * {
+  color: #1c1b24;
+}
+[data-theme="light"] .vpn-connection-card [class~="text-white"] {
+  color: #1c1b24 !important;
+}
+[data-theme="light"] .vpn-connection-card [class~="text-[rgba(255,255,255,0.7)]"] {
+  color: rgba(0, 0, 0, 0.6) !important;
+}
+
+/* Card background */
+[data-theme="light"] .vpn-connection-card [class~="bg-[rgba(255,255,255,0.05)]"] {
+  background: rgba(245, 244, 248, 0.95) !important;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.12) !important;
+}
+[data-theme="light"] .vpn-connection-card [class~="bg-[rgba(22,20,28,0.75)]"],
+[data-theme="light"] .vpn-connection-card [class~="bg-[rgba(22,20,28,0.9)]"] {
+  background: rgba(245, 244, 248, 0.97) !important;
+}
+
+/* Border */
+[data-theme="light"] .vpn-connection-card [class~="border-[rgba(255,255,255,0.1)]"] {
+  border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Disconnect button */
+[data-theme="light"] .vpn-connection-card [class~="bg-[rgba(255,255,255,0.05)]"] {
+  background: rgba(0, 0, 0, 0.06) !important;
+}
+
+/* Protected status badge (green/teal) — keep it */
+[data-theme="light"] .vpn-connection-card [class~="text-[#2cffcc]"] {
+  color: #0a8a7a !important;
+}
+
+/* ── Connection details (bottom) ────────────────────────────────────────── */
+
+/* The gradient vignette */
+[data-theme="light"] .vpn-connection-details .bg-gradient-to-t {
+  background: linear-gradient(to top,
+    rgba(235, 234, 240, 1),
+    rgba(235, 234, 240, 0.85) 40%,
+    transparent
+  ) !important;
+}
+
+[data-theme="light"] .vpn-connection-details {
+  color: #1c1b24 !important;
+}
+[data-theme="light"] .vpn-connection-details * {
+  color: #1c1b24;
+}
+[data-theme="light"] .vpn-connection-details [class~="text-white"] {
+  color: #1c1b24 !important;
+}
+[data-theme="light"] .vpn-connection-details [class~="text-[rgba(255,255,255,0.7)]"],
+[data-theme="light"] .vpn-connection-details [class~="text-[rgba(255,255,255,0.6)]"],
+[data-theme="light"] .vpn-connection-details [class~="text-[rgba(255,255,255,0.5)]"] {
+  color: rgba(0, 0, 0, 0.6) !important;
+}
+
+/* Card/pill backgrounds in details */
+[data-theme="light"] .vpn-connection-details [class~="bg-[rgba(255,255,255,0.05)]"],
+[data-theme="light"] .vpn-connection-details [class~="bg-[rgba(255,255,255,0.06)]"] {
+  background: rgba(0, 0, 0, 0.06) !important;
+}
+[data-theme="light"] .vpn-connection-details [class~="bg-[rgba(16,14,24,0.9)]"] {
+  background: rgba(245, 244, 248, 0.97) !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Border */
+[data-theme="light"] .vpn-connection-details [class~="border-[rgba(255,255,255,0.12)]"],
+[data-theme="light"] .vpn-connection-details [class~="border-[rgba(255,255,255,0.1)]"] {
+  border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Traffic graph — teal/pink colors should stay */
+[data-theme="light"] .vpn-connection-details [class~="text-[#2cffcc]"] {
+  color: #0a8a7a !important;
+}
+
+/* ── Status gradient base layer — swap dark #16141c → white on light ─────── */
+/* StatusGradient renders two divs: one bg-[#16141c] base + one color overlay.
+   In light mode the base should fade to white so the teal/red reads over white. */
+[data-theme="light"] .vpn-app-container [class~="bg-[#16141c]"] {
+  background: #ffffff !important;
+}
+
+/* Bottom vignette — the dark-to-transparent gradient fading from #0f0d14 */
+[data-theme="light"] .vpn-connection-details .bg-gradient-to-t,
+[data-theme="light"] .vpn-app-container .bg-gradient-to-t {
+  background: linear-gradient(to top,
+    rgba(235, 234, 240, 1),
+    rgba(235, 234, 240, 0.9) 40%,
+    transparent
+  ) !important;
+}
+
+/* ── Teal protected-state elements — keep readable on light ──────────────── */
+
+[data-theme="light"] .vpn-connection-card .text-\[\#2cffcc\],
+[data-theme="light"] .vpn-connection-details .text-\[\#2cffcc\] {
+  color: #0a8a7a !important;
+}
+
+/* ── Left panel — hardcoded white SVG fills (nav icons + indicator) ─────── */
+/* ClockIcon, EarthIcon, TerminalIcon, ChipIndicator all use fill="white"    */
+
+[data-theme="light"] .vpn-left-panel path[fill="white"] {
+  fill: #1c1b24 !important;
+}
+[data-theme="light"] .vpn-left-panel path[fill="White"] {
+  fill: #1c1b24 !important;
+}
+/* Search bar icon paths */
+[data-theme="light"] .vpn-left-panel input::placeholder {
+  color: rgba(0, 0, 0, 0.4) !important;
+}
+/* Inline fillOpacity paths — target via opacity attribute */
+[data-theme="light"] .vpn-left-panel path[fill-opacity] {
+  fill: #1c1b24 !important;
+}
+
+/* "All" tab underline indicator — hardcoded bg-white div */
+[data-theme="light"] .vpn-left-panel [class~="bg-white"] {
+  background: #1c1b24 !important;
+}
+
+/* Country names — make sure inline opacity text elements are dark */
+[data-theme="light"] .vpn-left-panel span,
+[data-theme="light"] .vpn-left-panel p,
+[data-theme="light"] .vpn-left-panel div[class~="text-white"] {
+  color: #1c1b24 !important;
+}
+
+/* "All", "Secure Core", "P2P", "Tor" filter tabs — muted text */
+[data-theme="light"] .vpn-left-panel [class~="text-[rgba(255,255,255,0.5)]"],
+[data-theme="light"] .vpn-left-panel [class~="text-[rgba(255,255,255,0.4)]"],
+[data-theme="light"] .vpn-left-panel [class~="text-[rgba(255,255,255,0.3)]"] {
+  color: rgba(0, 0, 0, 0.45) !important;
+}
+
+/* Keyboard shortcuts (ctrl+1, ctrl+2 ...) */
+[data-theme="light"] .vpn-left-panel [class~="text-[rgba(255,255,255,0.7)]"] {
+  color: rgba(0, 0, 0, 0.55) !important;
+}
+
+/* Hover row backgrounds in country list */
+[data-theme="light"] .vpn-left-panel [class~="hover:bg-[rgba(255,255,255,0.05)]"]:hover {
+  background: rgba(0, 0, 0, 0.05) !important;
+}
+
+/* ── Disconnect / Connect button ────────────────────────────────────────── */
+/* The button uses bg-[#4a4658] with border-[rgba(255,255,255,0.1)]          */
+
+[data-theme="light"] .vpn-connection-card [class~="bg-[#4a4658]"] {
+  background: rgba(0, 0, 0, 0.08) !important;
+  border-color: rgba(0, 0, 0, 0.15) !important;
+}
+
+/* ── Map area — lighten the dark Leaflet tiles in light mode ──────────────
+ * Target the individual tile <img> elements directly so the filter
+ * bypasses the isolate stacking context on the Leaflet container div.
+ * The pin (marker-pane) and vector overlays stay unaffected.
+ * ─────────────────────────────────────────────────────────────────────────── */
+[data-theme="light"] .leaflet-tile {
+  /* invert(1) + hue-rotate(180deg) converts the dark CARTO tiles into a true
+     light map while preserving hues; the rest tunes it to a soft light-gray. */
+  filter: invert(1) hue-rotate(180deg) brightness(0.98) contrast(0.86) saturate(0.7) !important;
+}

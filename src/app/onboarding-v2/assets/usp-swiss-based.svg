@@ -1,0 +1,71 @@
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="Sign in">
+<path d="M-2410 -765C-2410 -800.346 -2381.35 -829 -2346 -829H18375C18410.3 -829 18439 -800.346 18439 -765V363C18439 398.346 18410.3 427 18375 427H-2346C-2381.35 427 -2410 398.346 -2410 363V-765Z" fill="white"/>
+<path d="M-2346 -829V-825H18375V-829V-833H-2346V-829ZM18439 -765H18435V363H18439H18443V-765H18439ZM18375 427V423H-2346V427V431H18375V427ZM-2410 363H-2406V-765H-2410H-2414V363H-2410ZM-2346 427V423C-2379.14 423 -2406 396.137 -2406 363H-2410H-2414C-2414 400.555 -2383.56 431 -2346 431V427ZM18439 363H18435C18435 396.137 18408.1 423 18375 423V427V431C18412.6 431 18443 400.555 18443 363H18439ZM18375 -829V-825C18408.1 -825 18435 -798.137 18435 -765H18439H18443C18443 -802.555 18412.6 -833 18375 -833V-829ZM-2346 -829V-833C-2383.56 -833 -2414 -802.555 -2414 -765H-2410H-2406C-2406 -798.137 -2379.14 -825 -2346 -825V-829Z" fill="black" fill-opacity="0.1"/>
+<g id="&#240;&#159;&#150;&#188;&#239;&#184;&#143; Visual on the right side">
+<path d="M-283 -697C-283 -714.673 -268.673 -729 -251 -729H1707C1724.67 -729 1739 -714.673 1739 -697V295C1739 312.673 1724.67 327 1707 327H-251C-268.673 327 -283 312.673 -283 295V-697Z" fill="#EFEFEF"/>
+<foreignObject x="-423" y="-869" width="980" height="1230"><div xmlns="http://www.w3.org/1999/xhtml" style="backdrop-filter:blur(120px);clip-path:url(#bgblur_0_4_1304_clip_path);height:100%;width:100%"></div></foreignObject><g id="Localization - EN" filter="url(#filter0_dd_4_1304)" data-figma-bg-blur-radius="240">
+<rect x="-183" y="-629" width="500" height="750" rx="8" fill="#16141C"/>
+<rect x="-182.5" y="-628.5" width="499" height="749" rx="7.5" stroke="white" stroke-opacity="0.2"/>
+<g id="Main wrapper">
+<g id="Split screen">
+<g id="Sign in visual">
+<g id="Inner wrapper">
+<g id="USP points">
+<g id="Bullet point">
+<g id="Frame 3465484">
+<g clip-path="url(#clip1_4_1304)">
+<g id="Flag - rounded">
+<g clip-path="url(#clip2_4_1304)">
+<g id="Vector">
+<path d="M30 -0.00384521H-6V23.9924H30V-0.00384521Z" fill="#D80027"/>
+<path d="M30 -0.00384521H-6V23.9924H30V-0.00384521Z" fill="url(#paint0_linear_4_1304)" fill-opacity="0.3"/>
+<path d="M30 -0.00384521H-6V23.9924H30V-0.00384521Z" fill="url(#paint1_linear_4_1304)" fill-opacity="0.4"/>
+</g>
+<path id="Vector_2" d="M19.0424 9.64865H14.3511V4.9574H9.64865V9.64865H4.9574V14.3511H9.64865V19.0424H14.3511V14.3511H19.0424V9.64865Z" fill="#F0F0F0"/>
+</g>
+</g>
+</g>
+</g>
+</g>
+</g>
+</g>
+</g>
+</g>
+</g>
+</g>
+</g>
+</g>
+<defs>
+<filter id="filter0_dd_4_1304" x="-423" y="-869" width="980" height="1230" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+<feOffset dy="2"/>
+<feGaussianBlur stdDeviation="16"/>
+<feComposite in2="hardAlpha" operator="out"/>
+<feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.37 0"/>
+<feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_4_1304"/>
+<feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+<feOffset dy="32"/>
+<feGaussianBlur stdDeviation="32"/>
+<feComposite in2="hardAlpha" operator="out"/>
+<feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.37 0"/>
+<feBlend mode="normal" in2="effect1_dropShadow_4_1304" result="effect2_dropShadow_4_1304"/>
+<feBlend mode="normal" in="SourceGraphic" in2="effect2_dropShadow_4_1304" result="shape"/>
+</filter>
+<clipPath id="bgblur_0_4_1304_clip_path" transform="translate(423 869)"><rect x="-183" y="-629" width="500" height="750" rx="8"/>
+</clipPath><linearGradient id="paint0_linear_4_1304" x1="32.9991" y1="-0.00384505" x2="13.1364" y2="31.6118" gradientUnits="userSpaceOnUse">
+<stop stop-color="white"/>
+<stop offset="1" stop-color="white" stop-opacity="0"/>
+</linearGradient>
+<linearGradient id="paint1_linear_4_1304" x1="12" y1="-0.00384521" x2="12" y2="10.5001" gradientUnits="userSpaceOnUse">
+<stop stop-color="white"/>
+<stop offset="1" stop-color="white" stop-opacity="0"/>
+</linearGradient>
+<clipPath id="clip1_4_1304">
+<rect width="24" height="24" rx="3" fill="white"/>
+</clipPath>
+<clipPath id="clip2_4_1304">
+<rect x="-6" width="36" height="24" rx="4.5" fill="white"/>
+</clipPath>
+</defs>
+</svg>

@@ -1,0 +1,66 @@
+<svg width="33" height="20" viewBox="0 0 33 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect width="33" height="20" fill="#F5F5F5"/>
+<foreignObject x="-405" y="-660" width="1482" height="1232"><div xmlns="http://www.w3.org/1999/xhtml" style="backdrop-filter:blur(120px);clip-path:url(#bgblur_0_19363_13449_clip_path);height:100%;width:100%"></div></foreignObject><g id="Tuned for..." filter="url(#filter0_dd_19363_13449)" data-figma-bg-blur-radius="240">
+<rect x="-164" y="-419" width="1000" height="750" rx="8" fill="#16141C"/>
+<rect x="-164.5" y="-419.5" width="1001" height="751" rx="8.5" stroke="#4A4658"/>
+<g id="Main wrapper">
+<g id="Main area">
+<g id="Frame 944441782">
+<g id="Frame 143725331">
+<g id="Settings row" filter="url(#filter1_d_19363_13449)">
+<rect x="-15.5" y="-17.5" width="703" height="55" rx="7.5" stroke="white" stroke-opacity="0.1" shape-rendering="crispEdges"/>
+<g id="Frame 944441778">
+<g id="VPN subscription badge">
+<rect x="0.5" y="0.5" width="31.2917" height="19" rx="6.16667" stroke="url(#paint0_radial_19363_13449)"/>
+<g id="Group 192">
+<g id="ic-brand-proton-vpn-filled">
+<path id="Icon" fill-rule="evenodd" clip-rule="evenodd" d="M6.0075 6.56807C5.47517 5.61677 6.24733 4.4634 7.32969 4.5931L16.3271 5.67129C17.3026 5.78819 17.8209 6.88419 17.2924 7.71242L12.7451 14.838C12.2366 15.6348 11.062 15.6008 10.6005 14.776L6.0075 6.56807ZM7.23054 5.42052C6.82466 5.37188 6.5351 5.80439 6.73472 6.16113L6.96255 6.56827L14.1417 7.53293C14.6024 7.59483 14.8408 8.11623 14.5863 8.50523L11.0613 13.893L11.3277 14.3691C11.4816 14.644 11.8731 14.6553 12.0426 14.3898L16.5899 7.26413C16.7881 6.95354 16.5937 6.54254 16.2279 6.4987L7.23054 5.42052Z" fill="white"/>
+</g>
+<g id="Vector">
+<path d="M20 10.3125C20 10.0248 20.2332 9.79163 20.5208 9.79163H26.7708C27.0585 9.79163 27.2917 10.0248 27.2917 10.3125C27.2917 10.6001 27.0585 10.8333 26.7708 10.8333H20.5208C20.2332 10.8333 20 10.6001 20 10.3125Z" fill="white"/>
+<path d="M23.6458 6.66663C23.9335 6.66663 24.1667 6.89981 24.1667 7.18746L24.1667 13.4375C24.1667 13.7251 23.9335 13.9583 23.6458 13.9583C23.3582 13.9583 23.125 13.7251 23.125 13.4375L23.125 7.18746C23.125 6.89981 23.3582 6.66663 23.6458 6.66663Z" fill="white"/>
+</g>
+</g>
+</g>
+</g>
+</g>
+</g>
+</g>
+</g>
+</g>
+</g>
+<defs>
+<filter id="filter0_dd_19363_13449" x="-405" y="-660" width="1482" height="1232" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+<feOffset dy="2"/>
+<feGaussianBlur stdDeviation="16"/>
+<feComposite in2="hardAlpha" operator="out"/>
+<feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.37 0"/>
+<feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_19363_13449"/>
+<feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+<feOffset dy="32"/>
+<feGaussianBlur stdDeviation="32"/>
+<feComposite in2="hardAlpha" operator="out"/>
+<feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.37 0"/>
+<feBlend mode="normal" in2="effect1_dropShadow_19363_13449" result="effect2_dropShadow_19363_13449"/>
+<feBlend mode="normal" in="SourceGraphic" in2="effect2_dropShadow_19363_13449" result="shape"/>
+</filter>
+<clipPath id="bgblur_0_19363_13449_clip_path" transform="translate(405 660)"><rect x="-164" y="-419" width="1000" height="750" rx="8"/>
+</clipPath><filter id="filter1_d_19363_13449" x="-20" y="-18" width="712" height="64" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+<feOffset dy="4"/>
+<feGaussianBlur stdDeviation="2"/>
+<feComposite in2="hardAlpha" operator="out"/>
+<feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0"/>
+<feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_19363_13449"/>
+<feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_19363_13449" result="shape"/>
+</filter>
+<radialGradient id="paint0_radial_19363_13449" cx="0" cy="0" r="1" gradientTransform="matrix(25.3097 4.5 -4.16087 30.7242 6.98198 7.5)" gradientUnits="userSpaceOnUse">
+<stop stop-color="#6E4BFF"/>
+<stop offset="0.355428" stop-color="#547AEC"/>
+<stop offset="1" stop-color="#2FCCCF"/>
+</radialGradient>
+</defs>
+</svg>

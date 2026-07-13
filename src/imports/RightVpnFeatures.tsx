@@ -786,11 +786,13 @@ type RightVpnFeaturesProps = {
   mapLayerOpen?: boolean;
   onFeatureHover?: (feature: VpnFeatureType, top: number, left: number) => void;
   onFeatureLeave?: () => void;
+  /** Controlled NetShield enabled state. Defaults to true (On). */
+  netShieldEnabled?: boolean;
 };
 
-export default function RightVpnFeatures({ onMapLayerMouseEnter, onMapLayerMouseLeave, selectedMapLayer = "none", mapLayerOpen = false, onFeatureHover, onFeatureLeave }: RightVpnFeaturesProps) {
+export default function RightVpnFeatures({ onMapLayerMouseEnter, onMapLayerMouseLeave, selectedMapLayer = "none", mapLayerOpen = false, onFeatureHover, onFeatureLeave, netShieldEnabled = true }: RightVpnFeaturesProps) {
   return (
-      <div className="font-segoe-ui backdrop-blur-[16px] content-stretch flex flex-col items-start min-h-px min-w-px relative rounded-[8px] size-full" data-name="Features">
+      <div className="vpn-feature-rail font-segoe-ui backdrop-blur-[16px] content-stretch flex flex-col items-start min-h-px min-w-px relative rounded-[8px] size-full" data-name="Features">
         <div aria-hidden="true" className="absolute border border-[rgba(255,255,255,0.1)] border-solid inset-0 pointer-events-none rounded-[8px]" />
         <div className="relative shrink-0 w-full" data-name="Features bar">
           <div className="flex flex-col items-center size-full">
@@ -843,7 +845,7 @@ export default function RightVpnFeatures({ onMapLayerMouseEnter, onMapLayerMouse
                       </div>
                     </div>
                   </div>
-                  <BackgroundImage1 additionalClassNames="min-w-full text-center w-[min-content]">NetShield</BackgroundImage1>
+                  <BackgroundImage1 additionalClassNames={`min-w-full text-center w-[min-content]${netShieldEnabled ? "" : " opacity-40"}`}>NetShield</BackgroundImage1>
                 </FeatureButtonBackgroundImage>
                 </div>
                 <div className="w-full rounded-[4px] transition-colors duration-150 hover:bg-[rgba(255,255,255,0.1)]" onMouseEnter={(e) => { const r = e.currentTarget.getBoundingClientRect(); onFeatureHover?.("killswitch", r.top, r.left); }} onMouseLeave={() => onFeatureLeave?.()}>
