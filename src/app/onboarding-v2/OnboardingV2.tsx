@@ -166,6 +166,11 @@ export type ResultLayout = "stacked" | "split-by-status" | "card-grid" | "compac
 
 interface OnboardingV2Props {
   onExit?: () => void;
+  /** Fired by the window chrome's "X" close control — distinct from
+   * `onExit` (which hands off to the main app once onboarding completes
+   * normally): this returns to the prototype's initial start screen (the
+   * 3-button screen), same as closing the real app window mid-onboarding. */
+  onClose?: () => void;
   variant?: OnboardingVariant;
   /** Result layout for the JTBD tuning stage. */
   resultLayout?: ResultLayout;
@@ -193,7 +198,7 @@ function PadlockClosed() {
   );
 }
 
-export default function OnboardingV2({ onExit, variant = "hybrid", resultLayout = "stacked", tone = "straightforward", onStageChange }: OnboardingV2Props) {
+export default function OnboardingV2({ onExit, onClose, variant = "hybrid", resultLayout = "stacked", tone = "straightforward", onStageChange }: OnboardingV2Props) {
   const { geo, isLive } = useIpDetection();
   const [phase, setPhase] = useState<Phase>("unprotected");
   const [scrambleActive, setScrambleActive] = useState(false);
@@ -345,7 +350,7 @@ export default function OnboardingV2({ onExit, variant = "hybrid", resultLayout 
           focusOffsetY={variant === "hybrid" ? hybridPinOffsetY : 0}
         />
 
-        <WindowChrome />
+        <WindowChrome onClose={onClose} />
 
         {/* Prototype utility — bypass stage 1 and land on JTBD selection
             directly. Rendered above all four connection-stage variants since

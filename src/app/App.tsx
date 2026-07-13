@@ -249,6 +249,16 @@ function AppInner() {
     setConnectedCountry(null);
   }, []);
 
+  // Called when the window chrome's "X" is clicked mid-onboarding — closes
+  // the window straight back to the prototype's initial start screen (the
+  // 3-button screen), skipping the normal onExit→main-app handoff entirely.
+  // `OnboardingV2` fully unmounts (its early-return branches don't render
+  // it once `appState` is "start"), so its internal phase/selection state
+  // is naturally reset the next time onboarding is started again.
+  const handleCloseOnboarding = useCallback(() => {
+    setAppState("start");
+  }, []);
+
   // Called when user exits onboarding. Fires the crossfade transition.
   const handleEnterApp = useCallback(() => {
     setVpnStatus("protected");
@@ -435,7 +445,7 @@ function AppInner() {
             exit={{ opacity: 0 }}
             transition={{ duration: TRANSITION_TIMING.mapCrossfade.duration / 1000, ease: "easeInOut" }}
           >
-            <OnboardingV2 onExit={handleEnterApp} variant={variant} resultLayout={resultLayout} tone={tone} onStageChange={setCurrentStage} />
+            <OnboardingV2 onExit={handleEnterApp} onClose={handleCloseOnboarding} variant={variant} resultLayout={resultLayout} tone={tone} onStageChange={setCurrentStage} />
           </motion.div>
         )}
       </AnimatePresence>
