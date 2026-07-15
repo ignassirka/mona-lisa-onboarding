@@ -221,3 +221,36 @@ export const JTBD_PLUS_WELCOME: Record<JTBDKey, PlusWelcomeCopy> = {
     subheading: "Your download setup is now fully unlocked. Here's everything tuned for you.",
   },
 };
+
+// ── Multiple mode ("Selection" prototype control) — additive; every Single-
+// mode export above is untouched. Both stage-3 screens (`VPNPlusUpsell`,
+// `PlusWelcomeState`) only activate the code below once `selectedJtbds.length
+// >= 2` (the same "1 selected → exactly as today" gate `TunedResult` already
+// uses), so Single mode's rendering never changes. ──────────────────────
+
+/** Upsell-only display cap for Multiple mode's highlighted paid features —
+ * intentionally independent from the result screen's own `paidFeatureCap`
+ * (`tuned-result/timing.ts`, currently 1): the upsell is a persuasive
+ * marketing screen that highlights more of the SAME ranked union (confirmed
+ * at checkpoint) than the minimal in-app result/welcome teaser does. Both
+ * always draw from the same `rankPaidFeatures` order, so there's never a
+ * disagreement about which feature ranks highest — only how many of that
+ * one ranked list each screen chooses to reveal. */
+export const UPSELL_MULTIPLE_HIGHLIGHT_CAP = 3;
+
+/** Upsell subtitle, Multiple mode (2+ selected) — "Based on your {count}
+ * picks, here is what VPN Plus turns on." Full i18n string, not built via
+ * concatenation. Single mode's own "Based on your {jtbdWord} pick…" string
+ * (inline in `VPNPlusUpsell.tsx`) is untouched; this is never called for
+ * exactly 1 selection (see the gate note above). */
+export function upsellSubtitleMultiple(count: number): string {
+  return `Based on your ${count} picks, here is what VPN Plus turns on.`;
+}
+
+/** Plus-welcome subtitle, Multiple mode (2+ selected) — "Your setup for
+ * {count} interests is now fully unlocked. Here's everything protecting
+ * you." Full i18n string. `JTBD_PLUS_WELCOME[jtbdKey].subheading` (Single
+ * mode) is untouched; this is never called for exactly 1 selection. */
+export function plusWelcomeSubtitleMultiple(count: number): string {
+  return `Your setup for ${count} interests is now fully unlocked. Here's everything protecting you.`;
+}

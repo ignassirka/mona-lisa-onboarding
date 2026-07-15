@@ -3,18 +3,24 @@ import EnabledFeatureRow from "../../components/EnabledFeatureRow";
 import PaidFeatureRow from "../../components/PaidFeatureRow";
 import MaterializingSlot from "../MaterializingSlot";
 import PhaseOnePlaceholder from "../PhaseOnePlaceholder";
+import ProfilesSummaryRow from "../ProfilesSummaryRow";
 import TransformingPaidCell from "../TransformingPaidCell";
-import { TUNED_RESULT_COPY, narrateEnabling, narrateChecking } from "../copy";
+import { TUNED_RESULT_COPY, narrateEnabling, narrateChecking, narratePreparingPlusPreview } from "../copy";
 import { TUNED_RESULT_TIMING as T, sec } from "../timing";
 import { toneOutcome } from "../../lib/jtbdTuningToneCopy";
+import { outcomeForEnabled, outcomeForPaid, type TuningResultLike, type ProfilePreview, type MergedPaidFeature } from "../../lib/jtbdMerge";
 import type { ToneOfVoice } from "../../lib/toneOfVoice";
 import type { RowStage } from "../useTunedMaterialization";
-import type { JTBDTuningResult } from "../../lib/jtbdTuningResult";
 import checkmarkUrl from "../../assets/checkmark-circle-filled.svg";
 import vpnPlusBadgeUrl from "../../assets/vpn-plus-badge.svg";
 
 interface SplitByStatusLayoutProps {
-  result: JTBDTuningResult;
+  result: TuningResultLike;
+  /** Multiple mode only — renders in the right column instead of the 2
+   * locked paid rows. See `StackedLayout`'s doc for the exact contract. */
+  profiles?: ProfilePreview[] | null;
+  /** Multiple mode only — see `StackedLayout`'s doc for the exact contract. */
+  paidFeatures?: MergedPaidFeature[] | null;
   paidUnlocked: boolean;
   rowStages: RowStage[];
   rowMounted: boolean[];
@@ -46,17 +52,34 @@ const PAID_TILE_CLASS = "relative flex w-full flex-col gap-[6px] rounded-[8px] b
  * the shared boundary beat (matching where Stacked/Compact List's divider
  * would land). Resolved visuals reuse `EnabledFeatureRow`/`PaidFeatureRow`'s
  * existing `layout="stacked"` mode verbatim. */
-export default function SplitByStatusLayout({ result, paidUnlocked, rowStages, rowMounted, boundaryVisible, reduced, tone, unlockTransition }: SplitByStatusLayoutProps) {
+export default function SplitByStatusLayout({
+  result,
+  profiles,
+  paidFeatures,
+  paidUnlocked,
+  rowStages,
+  rowMounted,
+  boundaryVisible,
+  reduced,
+  tone,
+  unlockTransition,
+}: SplitByStatusLayoutProps) {
   const leftHeaderVisible = rowMounted[0];
   // The right-column header tracks the LIVE unlock value during stage 3's
-  // transition, not the settled final state — see prop doc above.
-  const rightHeaderUnlocked = unlockTransition ? unlockTransition.unlocked : paidUnlocked;
+  // transition, not the settled final state — see prop doc above. In stage
+  // 2 (no `unlockTransition`), Multiple mode's header always reads as the
+  // Plus-preview caption (never the "active" checkmark header) since
+  // nothing has unlocked yet there; in stage 3 (`unlockTransition` present),
+  // it tracks the live unlock value regardless of mode, so the header
+  // flips to "Also active with Plus" in sync with the profiles/feature
+  // rows below it.
+  const rightHeaderUnlocked = unlockTransition ? unlockTransition.unlocked : profiles ? false : paidUnlocked;
 
   const renderEnabledRow = (i: number) => {
     const feature = result.enabled[i];
     const stage = rowStages[i];
     if (!rowMounted[i] || !stage) return null;
-    const toneFeature = { ...feature, outcome: toneOutcome(tone, result.jtbdKey, "enabled", i) };
+    const toneFeature = { ...feature, outcome: outcomeForEnabled(tone, result, i, feature) };
     return (
       <MaterializingSlot
         key={`enabled-${i}`}
@@ -110,6 +133,70 @@ export default function SplitByStatusLayout({ result, paidUnlocked, rowStages, r
     );
   };
 
+  // Multiple mode: the Plus section's one-line profiles summary — same
+  // contract as `StackedLayout`'s version, rendered in the right column.
+  // In stage 3 (`unlockTransition` present), tracks the live unlock value —
+  // see `rightHeaderUnlocked`'s doc above for the same rule.
+  const renderProfilesSummaryRow = () => {
+    const i = result.enabled.length;
+    const stage = rowStages[i];
+    if (!rowMounted[i] || !stage) return null;
+    return (
+      <MaterializingSlot
+        key="profiles-summary"
+        stage={stage}
+        reduced={reduced}
+        className="w-full"
+        phase1Content={<div className={PAID_TILE_CLASS}><PhaseOnePlaceholder narration={narratePreparingPlusPreview()} /></div>}
+        resolvedContent={<ProfilesSummaryRow profiles={profiles!} unlocked={unlockTransition?.unlocked ?? paidUnlocked} layout="stacked" />}
+      />
+    );
+  };
+
+  // Multiple mode: the capped/ranked Plus feature rows — reuses the same
+  // `PaidFeatureRow`/`TransformingPaidCell` components `renderPaidRow`
+  // above already uses (including the stage-3 locked→unlocked transition).
+  const renderPlusFeatureRow = (pIdx: number) => {
+    const i = result.enabled.length + 1 + pIdx;
+    const feature = paidFeatures![pIdx];
+    const stage = rowStages[i];
+    if (!rowMounted[i] || !stage) return null;
+    const narration = paidUnlocked ? narrateEnabling(feature.featureName) : narrateChecking(feature.featureName);
+    const toneFeature = { ...feature, outcome: outcomeForPaid(tone, feature) };
+
+    if (unlockTransition) {
+      return (
+        <MaterializingSlot
+          key={`plus-feature-${feature.featureName}`}
+          stage={stage}
+          reduced={reduced}
+          className="w-full"
+          phase1Content={null}
+          resolvedContent={
+            <TransformingPaidCell
+              feature={toneFeature}
+              unlocked={unlockTransition.unlocked}
+              showChip={unlockTransition.showChip}
+              index={pIdx}
+              layout="stacked"
+            />
+          }
+        />
+      );
+    }
+
+    return (
+      <MaterializingSlot
+        key={`plus-feature-${feature.featureName}`}
+        stage={stage}
+        reduced={reduced}
+        className="w-full"
+        phase1Content={<div className={PAID_TILE_CLASS}><PhaseOnePlaceholder narration={narration} /></div>}
+        resolvedContent={<PaidFeatureRow feature={toneFeature} unlocked={paidUnlocked} layout="stacked" />}
+      />
+    );
+  };
+
   return (
     <div className="flex w-full max-w-[704px] gap-[24px] @max-[900px]:flex-col @max-[900px]:gap-[16px]">
       <div className="flex w-[58%] flex-col gap-[10px] @max-[900px]:w-full">
@@ -131,7 +218,7 @@ export default function SplitByStatusLayout({ result, paidUnlocked, rowStages, r
         {result.enabled.map((_, i) => renderEnabledRow(i))}
       </div>
 
-      {/* Right column deliberately ends after its 2 rows — the empty space
+      {/* Right column deliberately ends after its rows — the empty space
           below is deliberate negative space, not filled. */}
       <div className="flex w-[42%] flex-col gap-[10px] @max-[900px]:w-full">
         <AnimatePresence>
@@ -153,7 +240,14 @@ export default function SplitByStatusLayout({ result, paidUnlocked, rowStages, r
             </motion.div>
           )}
         </AnimatePresence>
-        {result.paid.map((_, i) => renderPaidRow(i))}
+        {profiles ? (
+          <>
+            {renderProfilesSummaryRow()}
+            {paidFeatures?.map((_, i) => renderPlusFeatureRow(i))}
+          </>
+        ) : (
+          result.paid.map((_, i) => renderPaidRow(i))
+        )}
       </div>
     </div>
   );

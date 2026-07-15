@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { motion } from "motion/react";
 import chipSvgPaths from "../../imports/svg-6mqrghog0w";
 import tabSvgPaths from "../../imports/svg-gr3yl27tf4";
 import searchSvgPaths from "../../imports/svg-m0k6r02h9x";
@@ -14,6 +15,9 @@ import icPlus20 from "../../imports/profile-icons/ic-plus-20.svg";
 import icInfoCircle from "../../imports/profile-icons/ic-info-circle-filled.svg";
 import icArrowRightLeft from "../../imports/profile-icons/ic-arrow-right-arrow-left.svg";
 import recentsEmptyIcon from "../../imports/recents-empty-icon.svg";
+import checkmarkCircleFilled from "../onboarding-v2/assets/checkmark-circle-filled.svg";
+import { JTBD_PROFILE_LABEL, type JtbdId } from "../onboarding-v2/lib/jtbdData";
+import { useReducedMotion } from "../onboarding-v2/versions/lib/useReducedMotion";
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
@@ -337,6 +341,33 @@ const profilesList: ProfileEntry[] = [
   { id: "work-school",  title: "Work and school",       subtitle: "Fastest country",                icon: profileIconBusiness },
 ];
 
+// Maps each onboarding JTBD to the existing profile entry (above) that best
+// matches its intent — no new profile entries/artwork invented, just
+// reordering/filtering the SAME 6 that already exist. Mirrors the mapping
+// the tuning-result data already implies (e.g. travel's paid "Home country
+// profile" already uses this exact "business" glyph).
+const JTBD_TO_PROFILE_ID: Record<JtbdId, string> = {
+  streaming: "streaming-us",
+  gaming: "gaming",
+  downloading: "p2p",
+  bypass: "anticensors",
+  privacy: "max-security",
+  travel: "work-school",
+};
+
+// ─── Onboarding-profiles banner (i18n-ready copy; centralized here per the
+// project's established precedent — no i18n framework exists yet). ─────────
+const PROFILES_ONBOARDING_BANNER_COPY = {
+  message: "We created these profiles from what you told us matters. Switch between them anytime.",
+  dismissLabel: "Dismiss",
+} as const;
+
+/** Persists whether the user has dismissed the onboarding-profiles banner —
+ * once set, it never reappears on any future visit/launch. Separate key
+ * from every other one-time flag in the app (`makeYoursModalShown`,
+ * `welcomeBannerShown`), confirmed at checkpoint. */
+const PROFILES_ONBOARDING_BANNER_DISMISSED_KEY = "profilesOnboardingBannerDismissed";
+
 // ─── Three-dots icon ──────────────────────────────────────────────────────────
 
 function ThreeDotsIcon() {
@@ -447,6 +478,14 @@ type CountryBrowserProps = {
   onVpnConnect?: (country: string) => void;
   onVpnDisconnect?: () => void;
   physicalCountry?: string;
+  /** The JTBDs selected in onboarding (`App.tsx`'s `onboardingJtbds`), first-
+   * selected first. When present and non-empty: the Profiles tab is
+   * selected by default (instead of Countries) and the Profiles list is
+   * generated from these intents (via `JTBD_TO_PROFILE_ID`) rather than
+   * showing all 6 defaults. Omitted/empty (e.g. onboarding was skipped, or
+   * `skipOnboarding` bypassed onboarding entirely) falls back to this
+   * component's entire pre-existing behavior, byte-for-byte. */
+  onboardingJtbds?: JtbdId[];
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -457,10 +496,52 @@ export function CountryBrowser({
   onVpnConnect,
   onVpnDisconnect,
   physicalCountry = "Belarus",
+  onboardingJtbds,
 }: CountryBrowserProps = {}) {
-  const [activeNav, setActiveNav] = useState<NavItem>("countries");
+  const hasOnboardingIntents = !!onboardingJtbds && onboardingJtbds.length > 0;
+  const [activeNav, setActiveNav] = useState<NavItem>(hasOnboardingIntents ? "profiles" : "countries");
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const reducedMotion = useReducedMotion();
+
+  // Onboarding-profiles banner — shown only while there's at least one
+  // onboarding-created profile in the list (`hasOnboardingIntents` IS that
+  // signal in this prototype: every displayed profile is either entirely
+  // onboarding-derived or entirely the static default set — see Phase 0
+  // discovery, no per-profile marker needed) AND the user hasn't dismissed
+  // it before.
+  const [bannerDismissed, setBannerDismissed] = useState(
+    () => typeof localStorage !== "undefined" && localStorage.getItem(PROFILES_ONBOARDING_BANNER_DISMISSED_KEY) === "true",
+  );
+  const showOnboardingBanner = hasOnboardingIntents && !bannerDismissed;
+  const dismissOnboardingBanner = () => {
+    localStorage.setItem(PROFILES_ONBOARDING_BANNER_DISMISSED_KEY, "true");
+    setBannerDismissed(true);
+  };
+
+  // Profile items generated from the onboarding selection, in selection
+  // order — reorders/filters the SAME 6 hardcoded profiles above (server
+  // targeting/icon/P2P tag untouched), never invents new ones, but renames
+  // each to the exact intent name the user picked during onboarding
+  // (`JTBD_PROFILE_LABEL` — the same short label the tuning stage's picker/
+  // profile-preview already use for this JTBD) rather than the profile's
+  // own generic default title — e.g. `travel` reads "Travel", not "Work and
+  // school". Falls back to the full default list (default titles) when
+  // there's no onboarding selection to draw from.
+  const displayedProfiles = useMemo(() => {
+    if (!hasOnboardingIntents) return profilesList;
+    const byId = new Map(profilesList.map((p) => [p.id, p]));
+    const seen = new Set<string>();
+    const mapped: ProfileEntry[] = [];
+    for (const jtbd of onboardingJtbds!) {
+      const profile = byId.get(JTBD_TO_PROFILE_ID[jtbd]);
+      if (profile && !seen.has(profile.id)) {
+        seen.add(profile.id);
+        mapped.push({ ...profile, title: JTBD_PROFILE_LABEL[jtbd] });
+      }
+    }
+    return mapped.length > 0 ? mapped : profilesList;
+  }, [hasOnboardingIntents, onboardingJtbds]);
 
   const filteredCountries = useMemo(() => {
     let list: string[];
@@ -727,13 +808,47 @@ export function CountryBrowser({
             <span
               style={{ ...fontSemibold, fontSize: 14, lineHeight: "20px", color: "rgba(255,255,255,0.7)" }}
             >
-              Profiles ({profilesList.length})
+              Profiles ({displayedProfiles.length})
             </span>
             <img src={icInfoCircle} alt="info" width={16} height={16} className="shrink-0" />
           </div>
 
+          {/* Onboarding-profiles banner — inline note, not a floating toast;
+              sits directly beneath the title, above the first row. Never
+              blocks selecting a profile or "New profile" below it. */}
+          {showOnboardingBanner && (
+            <motion.div
+              className="shrink-0 flex items-start rounded-[8px]"
+              style={{ gap: 8, padding: 12, margin: "0 8px 8px", background: "rgba(255,255,255,0.05)" }}
+              initial={reducedMotion ? undefined : { opacity: 0 }}
+              animate={reducedMotion ? undefined : { opacity: 1 }}
+              transition={{ duration: 0.2 }}
+            >
+              <img src={checkmarkCircleFilled} alt="" width={16} height={16} className="shrink-0 mt-[2px]" />
+              <span
+                className="flex-1"
+                style={{ ...fontRegular, fontSize: 13, lineHeight: "18px", color: "rgba(255,255,255,0.7)" }}
+              >
+                {PROFILES_ONBOARDING_BANNER_COPY.message}
+              </span>
+              <button
+                type="button"
+                onClick={dismissOnboardingBanner}
+                aria-label={PROFILES_ONBOARDING_BANNER_COPY.dismissLabel}
+                className="shrink-0 flex items-center justify-center rounded-[4px] cursor-pointer transition-colors duration-150"
+                style={{ width: 20, height: 20, background: "transparent" }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.08)"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M1 1L9 9M9 1L1 9" stroke="white" strokeOpacity="0.6" strokeWidth="1.3" strokeLinecap="round" />
+                </svg>
+              </button>
+            </motion.div>
+          )}
+
           {/* Profile rows */}
-          {profilesList.map((profile) => (
+          {displayedProfiles.map((profile) => (
             <ProfileRow key={profile.id} profile={profile} />
           ))}
 

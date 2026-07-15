@@ -6,9 +6,13 @@ import {
   UPSELL_PRICING,
   UPSELL_EVERYTHING_ELSE,
   UPSELL_TRUST_SIGNALS,
+  UPSELL_MULTIPLE_HIGHLIGHT_CAP,
+  upsellSubtitleMultiple,
   type UpsellBenefit,
 } from "../lib/jtbdUpsell";
+import { mergePaidFeatures, rankPaidFeatures, capList } from "../lib/jtbdMerge";
 import type { JTBDKey } from "../lib/jtbdTuningResult";
+import type { SelectionMode } from "../lib/jtbdData";
 import heroUrl from "../assets/upsell-hero.jpg";
 import sparkleUrl from "../assets/upsell-sparkle.svg";
 import logoNetflix from "../assets/streaming-netflix.png";
@@ -41,6 +45,14 @@ const USP_ICONS: Record<string, string> = {
 
 interface VPNPlusUpsellProps {
   jtbdKey: JTBDKey;
+  /** "Selection" prototype control — defaults to `"single"`, which is this
+   * component's entire pre-existing behavior, byte-for-byte. `"multiple"`
+   * only changes anything once `selectedJtbds.length >= 2` (same "1
+   * selected → exactly as today" gate `TunedResult` uses). */
+  selectionMode?: SelectionMode;
+  /** Multiple mode only — the full ordered selection (first-selected
+   * first). Ignored in single mode. */
+  selectedJtbds?: JTBDKey[];
   /** Get VPN Plus → upgrade flow (out of scope) */
   onUpgrade: () => void;
   /** Continue free → next step (out of scope) */
@@ -118,8 +130,38 @@ function BenefitCard({ benefit }: { benefit: UpsellBenefit }) {
   );
 }
 
-export default function VPNPlusUpsell({ jtbdKey, onUpgrade, onContinueFree, onBack }: VPNPlusUpsellProps) {
+export default function VPNPlusUpsell({
+  jtbdKey,
+  selectionMode = "single",
+  selectedJtbds,
+  onUpgrade,
+  onContinueFree,
+  onBack,
+}: VPNPlusUpsellProps) {
   const upsell = JTBD_UPSELL[jtbdKey];
+
+  // Multiple mode only changes anything once 2+ JTBDs are actually
+  // selected — with exactly 1, this screen behaves identically to Single
+  // mode (same convention `TunedResult` uses).
+  const isMultipleActive = selectionMode === "multiple" && (selectedJtbds?.length ?? 0) >= 2;
+
+  // Multiple mode: reuse the result screen's SAME paid-feature engine
+  // (deduped union → `FEATURES_RANK` order) rather than the single-JTBD
+  // `JTBD_UPSELL[jtbdKey].benefits` — this is what keeps the upsell's
+  // highlighted features, the result screen's capped Plus section, and the
+  // welcome's unlocked items all drawing from one consistent ranked list.
+  // Capped independently at `UPSELL_MULTIPLE_HIGHLIGHT_CAP` (3) — a
+  // deliberately larger reveal than the result/welcome screens' own cap,
+  // confirmed at checkpoint: no disagreement on ranking, just how much of
+  // the same ranked list each screen shows.
+  const benefits: UpsellBenefit[] = isMultipleActive
+    ? capList(rankPaidFeatures(mergePaidFeatures(selectedJtbds!)), UPSELL_MULTIPLE_HIGHLIGHT_CAP).displayed.map((feature) => ({
+        outcome: feature.outcome,
+        featureName: feature.featureName,
+        learnMore: true,
+        tooltip: feature.tooltip,
+      }))
+    : upsell.benefits;
 
   return (
     // `@container` lets the split-screen respond to the panel's own width
@@ -157,7 +199,13 @@ export default function VPNPlusUpsell({ jtbdKey, onUpgrade, onContinueFree, onBa
                 What VPN Plus unlocks for you
               </h1>
               <p className="font-['Segoe_UI_Variable',sans-serif] text-[14px] leading-[19px] text-[rgba(255,255,255,0.7)]">
-                Based on your <span className="font-semibold text-white">{upsell.jtbdWord}</span> pick, here is what VPN Plus turns on.
+                {isMultipleActive ? (
+                  upsellSubtitleMultiple(selectedJtbds!.length)
+                ) : (
+                  <>
+                    Based on your <span className="font-semibold text-white">{upsell.jtbdWord}</span> pick, here is what VPN Plus turns on.
+                  </>
+                )}
               </p>
             </motion.div>
 
@@ -180,7 +228,7 @@ export default function VPNPlusUpsell({ jtbdKey, onUpgrade, onContinueFree, onBa
             )}
 
             <div className="flex flex-col gap-[8px]">
-              {upsell.benefits.map((benefit, i) => (
+              {benefits.map((benefit, i) => (
                 <BenefitCard key={`benefit-${i}`} benefit={benefit} />
               ))}
             </div>

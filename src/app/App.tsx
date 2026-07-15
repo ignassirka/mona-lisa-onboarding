@@ -4,6 +4,7 @@ import { ISPRegulationsPanel } from "./components/ISPRegulationsPanel";
 import { WorldMap } from "./components/WorldMap";
 import OnboardingV2, { CONNECTION_GROUPS, connectionGroupForVariant, ONBOARDING_STAGES, STAGE_ORDER, STAGE_VERSIONS, type OnboardingStage, type OnboardingVariant, type ResultLayout } from "./onboarding-v2/OnboardingV2";
 import { STAGE_SUPPORTS_TONE, TONE_OPTIONS, type ToneOfVoice } from "./onboarding-v2/lib/toneOfVoice";
+import type { JtbdId, SelectionMode } from "./onboarding-v2/lib/jtbdData";
 import MakeYoursModal from "./components/MakeYoursModal";
 import FlowOverview from "./components/FlowOverview";
 import PrdOverview from "./components/PrdOverview";
@@ -24,6 +25,12 @@ const NL_LNG = 4.9;
 const NL_ZOOM = 4;
 
 const SHOWN_KEY = "makeYoursModalShown";
+// Dedicated flag for the post-onboarding welcome banner — decoupled from
+// `SHOWN_KEY` (which specifically gates the "Set it up your way" modal's own
+// re-display) even though today both are cleared together on every
+// `startOnboarding` (so the banner replays alongside the modal on each
+// prototype demo run, not literally "once ever").
+const WELCOME_BANNER_SHOWN_KEY = "welcomeBannerShown";
 
 // "overview" — the informational "Flow overview" screen, reachable only
 // from the start screen's secondary button; "prd" — the informational "PRD
@@ -37,23 +44,31 @@ function PrototypeControls({
   variant,
   resultLayout,
   tone,
+  selectionMode,
   onVariantChange,
   onResultLayoutChange,
   onToneChange,
+  onSelectionModeChange,
   preStart = false,
 }: {
   stage: OnboardingStage;
   variant: OnboardingVariant;
   resultLayout: ResultLayout;
   tone: ToneOfVoice;
+  selectionMode: SelectionMode;
   onVariantChange: (v: OnboardingVariant) => void;
   onResultLayoutChange: (v: ResultLayout) => void;
   onToneChange: (t: ToneOfVoice) => void;
+  onSelectionModeChange: (m: SelectionMode) => void;
   /** Shown on the initial black start screen, before onboarding begins —
    * lets the Version/Layout/Tone controls below pick stage 1's content
    * ahead of time, without implying a real (numbered) stage is active yet. */
   preStart?: boolean;
 }) {
+  // "Selection" — Single (default, untouched) / Multiple JTBD picking. Only
+  // meaningful for the "tuning" stage's JTBD picker + result; shown there
+  // (and pre-start, so it can be picked ahead of time like Tone/Layout are).
+  const showSelectionSelect = preStart || stage === "tuning";
   const stageNumber = STAGE_ORDER.indexOf(stage) + 1;
   const stageName = ONBOARDING_STAGES[stage].name;
   const isConnection = stage === "connection";
@@ -166,6 +181,23 @@ function PrototypeControls({
           </label>
         </>
       )}
+
+      {showSelectionSelect && (
+        <>
+          <span className="h-[16px] w-px bg-[rgba(255,255,255,0.15)]" />
+          <label className={`flex items-center gap-[6px] ${textClass}`}>
+            Selection:
+            <select
+              value={selectionMode}
+              onChange={(e) => onSelectionModeChange(e.target.value as SelectionMode)}
+              className={selectClass}
+            >
+              <option value="single" className={optionClass}>Single</option>
+              <option value="multiple" className={optionClass}>Multiple</option>
+            </select>
+          </label>
+        </>
+      )}
     </div>
   );
 }
@@ -187,6 +219,14 @@ function AppInner() {
   const [handleHovered, setHandleHovered] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [showEntrance, setShowEntrance] = useState(false);
+  // The JTBDs the user actually ended up selecting in onboarding (Single
+  // mode: 1-item array; Multiple mode: the full ordered selection; empty if
+  // onboarding was skipped) — drives the main app's Profiles tab default
+  // and which profile items it generates. See `handleEnterApp`.
+  const [onboardingJtbds, setOnboardingJtbds] = useState<JtbdId[]>([]);
+  // Fires the calm, auto-dismissing welcome banner exactly once, right
+  // after the "Set it up your way" modal closes. See `handleModalClose`.
+  const [showWelcomeBanner, setShowWelcomeBanner] = useState(false);
 
   // Which onboarding content variant the user picked on the start screen
   const [variant, setVariant] = useState<OnboardingVariant>("hybrid");
@@ -194,6 +234,14 @@ function AppInner() {
   const [resultLayout, setResultLayout] = useState<ResultLayout>("stacked");
   // Tone of voice for connection-stage copy (prototype control)
   const [tone, setTone] = useState<ToneOfVoice>("straightforward");
+  // "Selection" prototype control (prototype-only, tuning stage) — defaults
+  // to "multiple" (confirmed: Multiple mode is now the default prototype
+  // experience). "single" remains fully supported/selectable in the HUD
+  // dropdown and is still every underlying component's own default prop
+  // value (see `JtbdGridPanel`/`TunedResult`'s `selectionMode = "single"`),
+  // so nothing about Single mode's behavior changed — only which one this
+  // top-level state starts as.
+  const [selectionMode, setSelectionMode] = useState<SelectionMode>("multiple");
 
   // Prototype controls: current stage of the flow, shown in the HUD above the window
   const [currentStage, setCurrentStage] = useState<OnboardingStage>("connection");
@@ -259,13 +307,25 @@ function AppInner() {
     setAppState("start");
   }, []);
 
+  // Fires once the "Set it up your way" modal closes (Apply or Not now,
+  // both funnel through the SAME `onClose` prop) — the final beat of
+  // onboarding, and the trigger for the welcome banner.
+  const handleModalClose = useCallback(() => {
+    setShowModal(false);
+    if (!localStorage.getItem(WELCOME_BANNER_SHOWN_KEY)) {
+      localStorage.setItem(WELCOME_BANNER_SHOWN_KEY, "true");
+      setShowWelcomeBanner(true);
+    }
+  }, []);
+
   // Called when user exits onboarding. Fires the crossfade transition.
-  const handleEnterApp = useCallback(() => {
+  const handleEnterApp = useCallback((selectedJtbds: JtbdId[] = []) => {
     setVpnStatus("protected");
     setConnectedCountry("Netherlands");
     setShowEntrance(true);
     setAppState("transitioning");
     setCurrentStage("personalization");
+    setOnboardingJtbds(selectedJtbds);
 
     // After the last panel finishes sliding in, show the modal (once)
     const totalDuration = TRANSITION_TIMING.leftPanel.start + TRANSITION_TIMING.leftPanel.duration + 400;
@@ -307,6 +367,7 @@ function AppInner() {
             initialZoom={NL_ZOOM}
             showEntrance={showEntrance}
             netShieldEnabled={netShieldEnabled}
+            showWelcomeBanner={showWelcomeBanner}
           />
         </div>
 
@@ -332,6 +393,7 @@ function AppInner() {
             vpnConnectedCountry={connectedCountry}
             vpnStatus={vpnStatus}
             physicalCountry={physicalCountry}
+            onboardingJtbds={onboardingJtbds}
           />
           <div
             className="absolute top-0 bottom-0 right-0 w-[8px] z-[10] cursor-col-resize flex items-stretch justify-center"
@@ -352,7 +414,7 @@ function AppInner() {
           See ONBOARDING_STAGES in onboarding-v2/OnboardingV2.tsx for the full stage breakdown. */}
       <MakeYoursModal
         open={showModal}
-        onClose={() => setShowModal(false)}
+        onClose={handleModalClose}
       />
     </div>
   );
@@ -362,6 +424,8 @@ function AppInner() {
   if (appState === "start") {
     const startOnboarding = () => {
       localStorage.removeItem(SHOWN_KEY);
+      localStorage.removeItem(WELCOME_BANNER_SHOWN_KEY);
+      setShowWelcomeBanner(false);
       setCurrentStage("connection");
       setAppState("onboarding");
     };
@@ -398,9 +462,11 @@ function AppInner() {
           variant={variant}
           resultLayout={resultLayout}
           tone={tone}
+          selectionMode={selectionMode}
           onVariantChange={setVariant}
           onResultLayoutChange={setResultLayout}
           onToneChange={setTone}
+          onSelectionModeChange={setSelectionMode}
           preStart
         />
       </div>
@@ -425,9 +491,11 @@ function AppInner() {
         variant={variant}
         resultLayout={resultLayout}
         tone={tone}
+        selectionMode={selectionMode}
         onVariantChange={setVariant}
         onResultLayoutChange={setResultLayout}
         onToneChange={setTone}
+        onSelectionModeChange={setSelectionMode}
       />
 
       {appState !== "onboarding" && (
@@ -445,7 +513,15 @@ function AppInner() {
             exit={{ opacity: 0 }}
             transition={{ duration: TRANSITION_TIMING.mapCrossfade.duration / 1000, ease: "easeInOut" }}
           >
-            <OnboardingV2 onExit={handleEnterApp} onClose={handleCloseOnboarding} variant={variant} resultLayout={resultLayout} tone={tone} onStageChange={setCurrentStage} />
+            <OnboardingV2
+              onExit={handleEnterApp}
+              onClose={handleCloseOnboarding}
+              variant={variant}
+              resultLayout={resultLayout}
+              tone={tone}
+              selectionMode={selectionMode}
+              onStageChange={setCurrentStage}
+            />
           </motion.div>
         )}
       </AnimatePresence>

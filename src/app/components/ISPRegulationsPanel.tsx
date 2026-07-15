@@ -25,6 +25,7 @@ import IspRegulations from "../../imports/IspRegulations";
 import Identity from "../../imports/Identity";
 import P2P from "../../imports/P2P";
 import { CountryBrowser, CountryRow } from "./CountryBrowser";
+import type { JtbdId } from "../onboarding-v2/lib/jtbdData";
 import searchSvgPaths from "../../imports/svg-m0k6r02h9x";
 
 // ─── Layer Icon (colored Figma components) ────────────────────────────────────
@@ -515,6 +516,7 @@ export function ISPRegulationsPanel({
   vpnConnectedCountry,
   vpnStatus = "unprotected",
   physicalCountry = "Belarus",
+  onboardingJtbds,
 }: {
   externalSelectedCountry?: string | null;
   onCountryChange?: (name: string | null) => void;
@@ -525,6 +527,10 @@ export function ISPRegulationsPanel({
   vpnConnectedCountry?: string | null;
   vpnStatus?: "unprotected" | "connecting" | "protected";
   physicalCountry?: string;
+  /** The JTBDs selected in onboarding (see `App.tsx`'s `onboardingJtbds`) —
+   * threaded straight through to `CountryBrowser`, which defaults to the
+   * Profiles tab and generates profile items for them when present. */
+  onboardingJtbds?: JtbdId[];
 } = {}) {
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
 
@@ -567,6 +573,7 @@ export function ISPRegulationsPanel({
           vpnConnectedCountry={vpnConnectedCountry}
           onVpnConnect={onVpnConnect}
           onVpnDisconnect={onVpnDisconnect}
+          onboardingJtbds={onboardingJtbds}
           physicalCountry={physicalCountry}
         />
       ) : (

@@ -18,6 +18,13 @@ export const TUNED_RESULT_COPY = {
   alsoActiveWithPlusHeader: "Also active with Plus",
 } as const;
 
+/** Multiple mode only — the Plus section's profiles row intro text
+ * (`ProfilesSummaryRow`). Fixed/tone-constant: each selected interest's own
+ * pill (icon + name) on the row's right side carries the per-interest
+ * detail, so this line stays a plain, unparameterized label — same
+ * precedent as `TUNED_RESULT_COPY.plusHeader`. */
+export const PROFILES_INTRO_TEXT = "One-click profiles for your interest";
+
 /** The JTBD word used in "Tuning for {jtbd}…" / "Tuned for {jtbd}" — the
  * existing `jtbdLabel` (from `JTBD_TUNING_RESULT`) lowercased. For "bypass",
  * `jtbdLabel` is already the project's agreed gerund short form
@@ -54,6 +61,42 @@ export function titleComplete(tone: ToneOfVoice, jtbdLabel: string): string {
  * derived from row progression / data by the caller, never hardcoded here. */
 export function counterSubtext(applied: number, total: number): string {
   return `Applying ${applied} of ${total} settings`;
+}
+
+// ── Multiple mode (Selection: Multiple) — additive; Single mode's functions
+// above are all untouched. ──────────────────────────────────────────────
+
+/** Header title, 2+ selected, Phases 1 & 3 — tone-varying, falls back to
+ * `straightforward` (same pattern as `titleDuring`). */
+export function titleDuringMultiple(tone: ToneOfVoice, count: number): string {
+  const t = TUNING_COPY[tone] ?? TUNING_COPY.straightforward;
+  return (t.titleDuringMultiple ?? TUNING_COPY.straightforward.titleDuringMultiple!)(count);
+}
+
+/** Header title, 2+ selected, Phase 4 (complete). */
+export function titleCompleteMultiple(tone: ToneOfVoice, count: number): string {
+  const t = TUNING_COPY[tone] ?? TUNING_COPY.straightforward;
+  return (t.titleCompleteMultiple ?? TUNING_COPY.straightforward.titleCompleteMultiple!)(count);
+}
+
+/** Header subtext, Phase 4, Multiple mode — "{free} settings applied ·
+ * {paid} features with VPN Plus". Both counts are the TRUE merged totals
+ * (never the capped/displayed row counts) — confirmed at checkpoint
+ * alongside the curated-list caps themselves; see
+ * docs/features/onboarding-v2.md → "Multiple-mode result curation". The
+ * profiles count was dropped from this sentence (confirmed at a later
+ * checkpoint) — profiles are still shown in the Plus section itself
+ * (`ProfilesSummaryRow`), just no longer tallied in this summary line. */
+export function summarySubtextMultiple(tone: ToneOfVoice, applied: number, features: number): string {
+  const t = TUNING_COPY[tone] ?? TUNING_COPY.straightforward;
+  return (t.summarySubtextMultiple ?? TUNING_COPY.straightforward.summarySubtextMultiple!)(applied, features);
+}
+
+/** Phase-1 narration for the Multiple-mode Plus section's one-line
+ * profiles-summary row (`ProfilesSummaryRow`) — tone-CONSTANT, same
+ * precedent as `narrateChecking`/`narrateEnabling`. */
+export function narratePreparingPlusPreview(): string {
+  return "Preparing your Plus preview\u2026";
 }
 
 /** Header subtext, Phase 4 (complete): the summary line — tone-varying

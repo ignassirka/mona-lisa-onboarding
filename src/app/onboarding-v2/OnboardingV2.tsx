@@ -7,6 +7,7 @@ import InfoCard, { FlagValue, MaskedValue, type InfoRow } from "./components/Inf
 import JtbdGridPanel from "./JtbdGridPanel";
 import TunedResult from "./tuned-result/TunedResult";
 import VPNPlusUpsell from "./components/VPNPlusUpsell";
+import SimulatedWebCheckout from "./components/checkout/SimulatedWebCheckout";
 import LoaderScreen from "./components/LoaderScreen";
 import PlusWelcomeState from "./components/PlusWelcomeState";
 import ControlPanelOverlay from "./components/ControlPanelOverlay";
@@ -18,14 +19,23 @@ import { useIpDetection } from "./lib/useIpDetection";
 import { VPN_SERVER } from "./lib/server";
 import { ENTRANCE_TIMING, sec } from "./lib/entranceTiming";
 import { CONNECTION_COPY, type ToneOfVoice } from "./lib/toneOfVoice";
-import type { JtbdId } from "./lib/jtbdData";
+import type { JtbdId, SelectionMode } from "./lib/jtbdData";
 import type { PinStatus } from "./lib/mapKit";
 import windowsWallpaperUrl from "../assets/windows-wallpaper.png";
 
 // No separate "tuning" (loader) phase — the consolidated result step
 // (`TunedResult`) opens with its own centered intro and IS the
 // perceived-progress surface; the picker advances straight to `tuned`.
-type Phase = "unprotected" | "connecting" | "protected" | "jtbd" | "tuned" | "upsell" | "checkout" | "plus-welcome";
+type Phase =
+  | "unprotected"
+  | "connecting"
+  | "protected"
+  | "jtbd"
+  | "tuned"
+  | "upsell"
+  | "web-checkout"
+  | "checkout"
+  | "plus-welcome";
 
 /** The onboarding flow is sliced into four named stages (see docs/features/onboarding-v2.md).
  * The first three live inside this component's phase machine; "personalization" is the
@@ -35,7 +45,7 @@ export type OnboardingStage = "connection" | "tuning" | "upgrade" | "personaliza
 export const ONBOARDING_STAGES: Record<OnboardingStage, { name: string; phases: Phase[] }> = {
   connection: { name: "Establishing VPN connection", phases: ["unprotected", "connecting", "protected"] },
   tuning: { name: "Personalized JTBD tuning", phases: ["jtbd", "tuned"] },
-  upgrade: { name: "Upgrade to Plus", phases: ["upsell", "checkout", "plus-welcome"] },
+  upgrade: { name: "Upgrade to Plus", phases: ["upsell", "web-checkout", "checkout", "plus-welcome"] },
   personalization: { name: "Final personalization", phases: [] }, // lives in App.tsx (MakeYoursModal), not this phase machine
 };
 
@@ -46,6 +56,7 @@ const PHASE_STAGE: Record<Phase, Exclude<OnboardingStage, "personalization">> = 
   jtbd: "tuning",
   tuned: "tuning",
   upsell: "upgrade",
+  "web-checkout": "upgrade",
   checkout: "upgrade",
   "plus-welcome": "upgrade",
 };
@@ -165,7 +176,13 @@ export function connectionGroupForVariant(variant: OnboardingVariant): Connectio
 export type ResultLayout = "stacked" | "split-by-status" | "card-grid" | "compact-list";
 
 interface OnboardingV2Props {
-  onExit?: () => void;
+  /** Fired once onboarding completes normally (Continue free / Start using
+   * VPN Plus) — receives the ordered list of JTBDs the user actually ended
+   * up with (Single mode: the one pick, as a 1-item array; Multiple mode:
+   * the full ordered selection), so the main app can default to the
+   * Profiles tab and generate profile items for them. Empty/omitted when
+   * onboarding is abandoned via Skip (no real intent was ever committed). */
+  onExit?: (selectedJtbds?: JtbdId[]) => void;
   /** Fired by the window chrome's "X" close control — distinct from
    * `onExit` (which hands off to the main app once onboarding completes
    * normally): this returns to the prototype's initial start screen (the
@@ -176,6 +193,11 @@ interface OnboardingV2Props {
   resultLayout?: ResultLayout;
   /** Tone of voice for the connection stage copy (content only). */
   tone?: ToneOfVoice;
+  /** "Selection" prototype control — defaults to `"single"`, which is the
+   * ENTIRE stage's pre-existing behavior, byte-for-byte. `"multiple"` lets
+   * the JTBD picker select 1–6 intents; see docs/features/onboarding-v2.md
+   * → "Multiple-mode tuning". */
+  selectionMode?: SelectionMode;
   /** Fired whenever the active stage changes, so prototype controls (App.tsx) can display it. */
   onStageChange?: (stage: OnboardingStage) => void;
 }
@@ -198,11 +220,37 @@ function PadlockClosed() {
   );
 }
 
-export default function OnboardingV2({ onExit, onClose, variant = "hybrid", resultLayout = "stacked", tone = "straightforward", onStageChange }: OnboardingV2Props) {
+export default function OnboardingV2({
+  onExit,
+  onClose,
+  variant = "hybrid",
+  resultLayout = "stacked",
+  tone = "straightforward",
+  selectionMode = "single",
+  onStageChange,
+}: OnboardingV2Props) {
   const { geo, isLive } = useIpDetection();
   const [phase, setPhase] = useState<Phase>("unprotected");
   const [scrambleActive, setScrambleActive] = useState(false);
   const [selectedJtbd, setSelectedJtbd] = useState<JtbdId | null>(null);
+  // Multiple mode only — ordered selection (first-selected first). Single
+  // mode never reads or writes this; toggling a JTBD in/out preserves every
+  // other pick's relative order, which is what drives the merge engine's
+  // "first-selected wins" rules.
+  const [selectedJtbds, setSelectedJtbds] = useState<JtbdId[]>([]);
+  const toggleSelectedJtbd = useCallback((id: JtbdId) => {
+    setSelectedJtbds((prev) => (prev.includes(id) ? prev.filter((j) => j !== id) : [...prev, id]));
+  }, []);
+  // The single value every downstream phase (Tuned Result, Upsell, Plus
+  // Welcome) actually keys off — single mode's own `selectedJtbd`, or
+  // Multiple mode's first-selected JTBD (confirmed at checkpoint: stage 3
+  // stays entirely unchanged, keyed off this one value exactly as single
+  // mode keys off its own single pick).
+  const effectiveJtbdKey: JtbdId | null = selectionMode === "multiple" ? selectedJtbds[0] ?? null : selectedJtbd;
+  // The full ordered selection `onExit` hands off to the main app — Single
+  // mode's own one pick as a 1-item array (or `[]` if somehow none), or
+  // Multiple mode's full ordered list.
+  const effectiveSelectedJtbds: JtbdId[] = selectionMode === "multiple" ? selectedJtbds : selectedJtbd ? [selectedJtbd] : [];
   // True once "Skip to job selection" is used: the user never actually
   // connects, so the persistent map must keep reading as unprotected (red,
   // real location) instead of the usual protected/teal it shows once the
@@ -547,9 +595,12 @@ export default function OnboardingV2({ onExit, onClose, variant = "hybrid", resu
               <JtbdGridPanel
                 selected={selectedJtbd}
                 onSelect={setSelectedJtbd}
-                onContinue={() => selectedJtbd && setPhase("tuned")}
-                onSkip={() => onExit?.()}
+                onContinue={() => effectiveJtbdKey && setPhase("tuned")}
+                onSkip={() => onExit?.([])}
                 tone={tone}
+                selectionMode={selectionMode}
+                selectedMultiple={selectedJtbds}
+                onToggleMultiple={toggleSelectedJtbd}
               />
             </motion.div>
           )}
@@ -563,7 +614,7 @@ export default function OnboardingV2({ onExit, onClose, variant = "hybrid", resu
             selector remounts it, replaying the full intro + materialization
             in the newly chosen arrangement (confirmed prototype behavior). */}
         <AnimatePresence>
-          {phase === "tuned" && selectedJtbd && (
+          {phase === "tuned" && effectiveJtbdKey && (
             <motion.div
               key="tuned"
               className="absolute inset-0 z-[1000]"
@@ -574,7 +625,9 @@ export default function OnboardingV2({ onExit, onClose, variant = "hybrid", resu
             >
               <TunedResult
                 key={resultLayout}
-                jtbdKey={selectedJtbd}
+                jtbdKey={effectiveJtbdKey}
+                selectionMode={selectionMode}
+                selectedJtbds={selectedJtbds}
                 userPlan="free"
                 layout={resultLayout}
                 tone={tone}
@@ -588,7 +641,7 @@ export default function OnboardingV2({ onExit, onClose, variant = "hybrid", resu
         {/* ══════════════════ Stage 3: Upgrade to Plus ══════════════════ */}
         {/* ── VPN Plus upsell (state 7) ── */}
         <AnimatePresence>
-          {phase === "upsell" && selectedJtbd && (
+          {phase === "upsell" && effectiveJtbdKey && (
             <motion.div
               key="upsell"
               className="absolute inset-0 z-[1000]"
@@ -598,10 +651,33 @@ export default function OnboardingV2({ onExit, onClose, variant = "hybrid", resu
               transition={{ duration: 0.4 }}
             >
               <VPNPlusUpsell
-                jtbdKey={selectedJtbd}
-                onUpgrade={() => setPhase("checkout")}
-                onContinueFree={() => onExit?.()}
+                jtbdKey={effectiveJtbdKey}
+                selectionMode={selectionMode}
+                selectedJtbds={selectedJtbds}
+                onUpgrade={() => setPhase("web-checkout")}
+                onContinueFree={() => onExit?.(effectiveSelectedJtbds)}
                 onBack={() => setPhase("tuned")}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ── Simulated web checkout (new — between the upsell CTA and the
+            existing checkout loader; see docs/features/onboarding-v2.md) ── */}
+        <AnimatePresence>
+          {phase === "web-checkout" && effectiveJtbdKey && (
+            <motion.div
+              key="web-checkout"
+              className="absolute inset-0 z-[1000]"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <SimulatedWebCheckout
+                jtbdKey={effectiveJtbdKey}
+                billingCountry={geo.country}
+                onReturnToApp={() => setPhase("checkout")}
               />
             </motion.div>
           )}
@@ -609,7 +685,7 @@ export default function OnboardingV2({ onExit, onClose, variant = "hybrid", resu
 
         {/* ── Checkout loader (state 8) ── */}
         <AnimatePresence>
-          {phase === "checkout" && selectedJtbd && (
+          {phase === "checkout" && effectiveJtbdKey && (
             <motion.div
               key="checkout"
               className="absolute inset-0 z-[1000]"
@@ -630,7 +706,7 @@ export default function OnboardingV2({ onExit, onClose, variant = "hybrid", resu
 
         {/* ── VPN Plus welcome / transformation (state 9) ── */}
         <AnimatePresence>
-          {phase === "plus-welcome" && selectedJtbd && (
+          {phase === "plus-welcome" && effectiveJtbdKey && (
             <motion.div
               key="plus-welcome"
               className="absolute inset-0 z-[1000]"
@@ -639,7 +715,15 @@ export default function OnboardingV2({ onExit, onClose, variant = "hybrid", resu
               exit={{ opacity: 0 }}
               transition={{ duration: 0.5 }}
             >
-              <PlusWelcomeState key={resultLayout} jtbdKey={selectedJtbd} layout={resultLayout} tone={tone} onEnterApp={() => onExit?.()} />
+              <PlusWelcomeState
+                key={resultLayout}
+                jtbdKey={effectiveJtbdKey}
+                selectionMode={selectionMode}
+                selectedJtbds={selectedJtbds}
+                layout={resultLayout}
+                tone={tone}
+                onEnterApp={() => onExit?.(effectiveSelectedJtbds)}
+              />
             </motion.div>
           )}
         </AnimatePresence>

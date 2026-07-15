@@ -2,20 +2,21 @@
  *
  * Entrance order: map pin (the shared map's own zoom/gradient/pin/bracket
  * timing — `ENTRANCE_TIMING.pinAppear`/`bracketsStart`, unchanged) → location
- * chip → padlock icon → title → subtext → activity cards (one by one) → CTA.
- * Everything from the chip onward is Hybrid's own dedicated timeline (not
- * `ENTRANCE_TIMING`'s padlock/headline/subtext beats — those are reused by
- * v1/v2 in their own, different order, so Hybrid needs its own values to
- * reorder around the chip). */
+ * chip → [beat] → activity cards (staggered) → padlock icon → title → subtext
+ * → CTA. The chip→cards beat is Hybrid's causal Act 1 sequence; icon/title/
+ * subtext run in parallel with it. */
 export const HYBRID_TIMING = {
   // ── Opening entrance (Act 1) ──
   chipAppear: 2300, // chip fades in once the pin + reticle brackets have settled
+  chipEntranceDuration: 500, // LocationChip fade/slide duration — chip is "settled" after this
+  beatAfterChipSettle: 450, // pause after chip settles before cards cascade (causal beat)
   padlockAppear: 2700, // padlock icon, after the chip
   headlineAppear: 3000, // title
   subtextAppear: 3300, // subtitle
-  cardsStart: 3700, // first activity card starts fading in, after the subtext settles
-  cardStagger: 150, // gap between each activity card's entrance
-  ctaAppear: 4450, // CTA button appears once the 3 cards have settled
+  /** chipAppear + chipEntranceDuration + beatAfterChipSettle */
+  cardsStart: 3250, // first activity card — after chip settles + beat
+  cardStagger: 175, // gap between each activity card's entrance (~150–200ms)
+  ctaAppear: 4250, // CTA button appears once the 3 cards have settled
 
   // ── Act 2 — connecting transforms (fire together, lightly staggered so
   // the "going dark" reads as one coordinated moment, not three separate ones) ──

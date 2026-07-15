@@ -4,6 +4,7 @@ import { TRANSITION_TIMING, delaySec } from "../transitionTiming";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import ConnectionDetails from "../../imports/ConnectionDetails";
+import WelcomeBanner from "./WelcomeBanner";
 import RightVpnFeatures from "../../imports/RightVpnFeatures";
 import type { MapLayerOption, VpnFeatureType } from "../../imports/RightVpnFeatures";
 import VpnFeatureFlyout from "./VpnFeatureFlyout";
@@ -362,6 +363,10 @@ interface WorldMapProps {
   showEntrance?: boolean;
   /** Controlled NetShield enabled state — synced with the right rail. */
   netShieldEnabled?: boolean;
+  /** Flips true once, right after the "Set it up your way" modal closes —
+   * fires the calm, auto-dismissing welcome banner just below the
+   * connection card. See `WelcomeBanner.tsx`. */
+  showWelcomeBanner?: boolean;
 }
 
 export function WorldMap({
@@ -381,6 +386,7 @@ export function WorldMap({
   initialZoom,
   showEntrance = false,
   netShieldEnabled = true,
+  showWelcomeBanner = false,
 }: WorldMapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -871,6 +877,19 @@ export function WorldMap({
           )}
         </div>
       </motion.div>
+
+      {/* Welcome banner — sits directly below the connection card (same
+          horizontal bounds, so it reads as centered under it/the Disconnect
+          button rather than centered on the whole map area), fires once
+          right after the "Set it up your way" modal closes. Non-blocking:
+          `WelcomeBanner` itself is `pointer-events-none`, so it never traps
+          clicks on the card/button above it. */}
+      <div
+        className="absolute top-[150px] z-[1400]"
+        style={{ left: panelWidth + 32, right: "155px" }}
+      >
+        <WelcomeBanner trigger={showWelcomeBanner} />
+      </div>
 
       {/* Custom CSS for leaflet overrides */}
       <style>{`

@@ -291,3 +291,45 @@ export const JTBD_TUNING_RESULT: Record<JTBDKey, JTBDTuningResult> = {
     tip: "For torrenting and file-sharing, connect to a P2P server first - that is part of Plus.",
   },
 };
+
+/** Editorial priority for Multiple-mode's capped/ranked FREE settings list
+ * (lower number = higher priority) — confirmed at checkpoint. Protection-
+ * critical settings (Kill Switch, Smart Protocol, Stealth protocol,
+ * Alternative Routing) rank highest; the core encryption/security settings
+ * next; niceties (WireGuard Kernel, the informational "Device support" row)
+ * rank lowest. Covers every unique `settingsName` across all 6 JTBDs (10
+ * total). See `lib/jtbdMerge.ts` → `rankFreeSettings`, and
+ * `tuned-result/timing.ts` → `freeRowCap` for the display cap this feeds. */
+export const SETTINGS_RANK: Record<string, number> = {
+  "Kill Switch": 1,
+  "Smart Protocol": 2,
+  "Stealth protocol": 3,
+  "Alternative Routing": 4,
+  "Encrypted connection": 5,
+  "NAT type": 6,
+  "Hidden IP": 7,
+  "LAN setting": 8,
+  "WireGuard Kernel": 9,
+  "Device support": 10,
+};
+
+/** Editorial priority for Multiple-mode's capped/ranked PAID (VPN Plus)
+ * features list (lower number = higher pitch value) — confirmed at
+ * checkpoint. Covers every unique `featureName` across all 6 JTBDs (12
+ * total). See `lib/jtbdMerge.ts` → `rankPaidFeatures`, and
+ * `tuned-result/timing.ts` → `paidFeatureCap` for the display cap this
+ * feeds. */
+export const FEATURES_RANK: Record<string, number> = {
+  NetShield: 1,
+  "Secure Core": 2,
+  "Streaming servers": 3,
+  "VPN Accelerator": 4,
+  "Server breadth": 5,
+  "P2P servers": 6,
+  "Port Forwarding": 7,
+  "Moderate NAT": 8,
+  "Fastest outside-country": 9,
+  "Network warning": 10,
+  "Home country profile": 11,
+  "Bypass profile": 12,
+};

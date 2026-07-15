@@ -111,7 +111,7 @@ export default function HybridSplit({ phase, geo, isLive, onProtect, onContinue,
             confirmed rail arrangement. Reserves the full 3-card height up
             front (`min-h`, matching the Centered layout's own reservation) so
             the CTA below doesn't drift as cards reveal progressively. */}
-        <div className="mt-[20px] flex min-h-[164px] w-full flex-col gap-[8px]">
+        <div className="mx-auto mt-[20px] flex min-h-[164px] w-full max-w-[440px] flex-col gap-[8px]">
           {HYBRID_CARDS.slice(0, revealedCount).map((entry, i) => (
             <ActivityEntry
               key={entry.id}

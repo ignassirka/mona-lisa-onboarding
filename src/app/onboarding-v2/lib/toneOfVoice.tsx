@@ -110,6 +110,26 @@ export interface TuningCopy {
   /** Tuned-result header subtext, Phase 4 (complete) — counts are derived by
    * the caller and passed in; only the wording around them varies. */
   summarySubtext: (applied: number, locked: number) => string;
+
+  // ── Multiple-mode ("Selection" prototype control) additions — OPTIONAL so
+  // only `straightforward` needs real content; the other 3 tones fall back
+  // to `straightforward`'s via the same `?? TUNING_COPY.straightforward`
+  // pattern already used everywhere else in this file (confirmed at
+  // checkpoint: full per-tone variants for these are out of scope). Single-
+  // mode's own fields above are completely untouched. ──
+  /** Picker title/subtitle when 2+ JTBDs are selectable (Multiple mode). */
+  pickerTitleMultiple?: string;
+  pickerSubtitleMultiple?: string;
+  /** Header title, 2+ selected, Phases 1 & 3: "Tuning for {count} interests…". */
+  titleDuringMultiple?: (count: number) => string;
+  /** Header title, 2+ selected, Phase 4: "Tuned for your {count} interests". */
+  titleCompleteMultiple?: (count: number) => string;
+  /** Header subtext, Phase 4, Multiple mode — "{free} settings applied ·
+   * {paid} features with VPN Plus" (both counts are the TRUE merged totals,
+   * derived by the caller — see `tuned-result/copy.ts` →
+   * `summarySubtextMultiple`'s doc; the profiles count was dropped from this
+   * sentence per a later checkpoint). */
+  summarySubtextMultiple?: (applied: number, features: number) => string;
 }
 
 /** All tuning-stage structural copy, keyed by tone. `straightforward`
@@ -124,6 +144,12 @@ export const TUNING_COPY: Record<ToneOfVoice, TuningCopy> = {
     titleComplete: (word) => `Tuned for ${word}`,
     summarySubtext: (applied, locked) =>
       locked > 0 ? `${applied} settings applied \u00b7 ${locked} available with VPN Plus` : `${applied} settings applied.`,
+    pickerTitleMultiple: "Pick what matters to you",
+    pickerSubtitleMultiple: "Choose as many as apply. We'll tune Proton VPN for all of them.",
+    titleDuringMultiple: (count) => `Tuning for ${count} interests\u2026`,
+    titleCompleteMultiple: (count) => `Tuned for your ${count} interests`,
+    summarySubtextMultiple: (applied, features) =>
+      `${applied} settings applied \u00b7 ${features} ${features === 1 ? "feature" : "features"} with VPN Plus`,
   },
   reassuring: {
     pickerTitle: "What would help you most right now?",

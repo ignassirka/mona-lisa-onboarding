@@ -79,7 +79,7 @@ export default function ActivityFeed({ phase, visibleLabel, redactingLabel, seal
   return (
     <div
       ref={listRef}
-      className={`ob2v4-scroll relative flex w-full flex-col gap-[10px] overflow-y-auto pr-[4px] ${fillHeight ? "h-full" : "max-h-[440px]"}`}
+      className={`ob2v4-scroll relative mx-auto flex w-full max-w-[440px] flex-col gap-[10px] overflow-y-auto pr-[4px] ${fillHeight ? "h-full" : "max-h-[440px]"}`}
     >
       {!reduced && <FeedScanline top={scanlineTop} visible={scanlineVisible} />}
 

@@ -178,7 +178,7 @@ export default function Hybrid({ phase, geo, isLive, onProtect, onContinue, tone
           experience". The region reserves the full 3-card height up front
           (`min-h`) so the chip above it doesn't drift down/up as cards reveal
           progressively — that stability is what keeps the pin centered. */}
-      <div className="mt-[14px] flex min-h-[164px] w-full max-w-[560px] flex-col gap-[8px]">
+      <div className="mt-[14px] flex min-h-[164px] w-full max-w-[440px] flex-col gap-[8px]">
         {HYBRID_CARDS.slice(0, revealedCount).map((entry, i) => (
           <ActivityEntry
             key={entry.id}

@@ -40,6 +40,34 @@ export const TUNED_RESULT_TIMING = {
   titleCompleteCrossfade: 300,
   subtextCrossfade: 250,
 
+  // ── Multiple mode ("Selection" prototype control) pacing guard — the
+  // merged free list can exceed the single-mode fixed 3 rows (up to ~10
+  // unique settings across all 6 JTBDs); past `pacingGuardRowThreshold`
+  // total rows, `spinnerHold` is compressed to `spinnerHoldCompressed` so
+  // total passive materialization time stays under ~12s. Single mode's
+  // totalRows is always 5 (3 enabled + 2 paid), so this never activates
+  // there — purely additive. ──
+  pacingGuardRowThreshold: 6,
+  spinnerHoldCompressed: 700,
+
+  // ── Multiple mode result curation — display caps for the FREE and PLUS
+  // sections (see `lib/jtbdMerge.ts` → `rankFreeSettings`/`rankPaidFeatures`/
+  // `capList`). The merged/deduped union can be as large as 10 free settings
+  // or 12 paid features across 6 selected JTBDs; capping the DISPLAYED rows
+  // keeps the screen height stable from 1 to 6 interests, while the
+  // completion counts (`TunedResult.tsx`) still reflect the true,
+  // uncapped totals — only what's shown is curated, never the numbers.
+  // `paidFeatureCap` (1) + the profiles-summary row = 2 total Plus-section
+  // rows, confirmed at checkpoint ("profile and something else depending on
+  // the selection"). Neither section shows a "+more" overflow footnote
+  // (confirmed at checkpoint) — anything beyond the caps is simply not
+  // listed. The completion subtext (`TunedResult.tsx`) counts against these
+  // same caps (the DISPLAYED rows), not the true merged-union totals —
+  // confirmed at a checkpoint, superseding the original "always true
+  // totals" rule: the count must match what's actually on screen. ──
+  freeRowCap: 4,
+  paidFeatureCap: 1,
+
   // ── Stage 3 ("Upgrade to Plus" → VPN Plus Welcome) — the locked→unlocked
   // transition on the result's 2 Plus items, reused as-is across all 4
   // layouts via `TransformingPaidCell`. Centralized here (previously local

@@ -39,6 +39,10 @@ export function useTunedMaterialization({ jtbdKey, totalRows, boundaryIndex, red
   const introToRowsDelayMs = reduced ? T.reducedIntroHold : T.centerHold + T.moveToTop;
   const introDoneDelayMs = reduced ? T.reducedIntroHold : T.centerHold;
   const hasBoundary = boundaryIndex > 0 && boundaryIndex < totalRows;
+  // Pacing guard (Multiple mode only in practice — single mode's totalRows
+  // is always 5, below the threshold): compress the per-row spinner phase
+  // once the merged list gets long, so total passive time stays bounded.
+  const spinnerHold = totalRows > T.pacingGuardRowThreshold ? T.spinnerHoldCompressed : T.spinnerHold;
 
   useEffect(() => {
     const id = window.setTimeout(() => setIntroDone(true), introDoneDelayMs);
@@ -89,7 +93,7 @@ export function useTunedMaterialization({ jtbdKey, totalRows, boundaryIndex, red
           mountRow(i);
           setStage(i, "spinner");
         }, t);
-        t += T.spinnerHold;
+        t += spinnerHold;
         schedule(() => setStage(i, "resolved"), t);
         t += T.resolveDuration + T.rowGap;
       }
@@ -106,7 +110,7 @@ export function useTunedMaterialization({ jtbdKey, totalRows, boundaryIndex, red
     introToRowsDelayMs +
     (reduced
       ? totalRows * reducedCadence + (hasBoundary ? reducedCadence : 0)
-      : totalRows * (T.spinnerHold + T.resolveDuration + T.rowGap) + (hasBoundary ? T.boundaryIn + T.rowGap : 0));
+      : totalRows * (spinnerHold + T.resolveDuration + T.rowGap) + (hasBoundary ? T.boundaryIn + T.rowGap : 0));
   // No tip anywhere in the tuned-result step (removed across all layouts) —
   // Continue fades in directly after the last item resolves.
   const continueDelayMs = rowsEndMs + (reduced ? reducedCadence : T.continueGapAfterTip);

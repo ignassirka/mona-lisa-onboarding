@@ -2,13 +2,15 @@ import { motion, AnimatePresence, type Variants } from "motion/react";
 import MaterializingSlot from "../MaterializingSlot";
 import PhaseOnePlaceholder from "../PhaseOnePlaceholder";
 import BoundaryDivider from "../BoundaryDivider";
+import ProfilesSummaryRow from "../ProfilesSummaryRow";
+import CircleSlashIcon from "../CircleSlashIcon";
 import { UnlockedChip } from "../TransformingPaidCell";
-import { narrateEnabling, narrateChecking } from "../copy";
+import { narrateEnabling, narrateChecking, narratePreparingPlusPreview } from "../copy";
 import { toneOutcome } from "../../lib/jtbdTuningToneCopy";
+import { outcomeForEnabled, outcomeForPaid, type TuningResultLike, type ProfilePreview, type MergedPaidFeature } from "../../lib/jtbdMerge";
 import { TUNED_RESULT_TIMING as T, sec } from "../timing";
 import type { ToneOfVoice } from "../../lib/toneOfVoice";
 import type { RowStage } from "../useTunedMaterialization";
-import type { JTBDTuningResult } from "../../lib/jtbdTuningResult";
 import checkmarkUrl from "../../assets/checkmark-circle-filled.svg";
 import vpnPlusBadgeUrl from "../../assets/vpn-plus-badge.svg";
 
@@ -26,25 +28,18 @@ const settleVariants: Variants = {
   show: { opacity: 1, scale: 1, transition: { duration: 0.3, ease: "easeOut" } },
 };
 
-/** Locked-row "unavailable" glyph — a plain filled SVG (not a `lucide-react`
- * icon; its opacity is baked into the fill, not `currentColor`-driven) since
- * no icon in the existing set matched the requested "needs Plus" mark. */
-function CircleSlashIcon({ size = 20 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path
-        fillRule="evenodd"
-        clipRule="evenodd"
-        d="M4.27309 5.15697C3.16697 6.46365 2.5 8.15394 2.5 10C2.5 14.1421 5.85786 17.5 10 17.5C11.8461 17.5 13.5363 16.833 14.843 15.7269L4.27309 5.15697ZM15.7269 14.843L5.15697 4.27309C6.46365 3.16697 8.15394 2.5 10 2.5C14.1421 2.5 17.5 5.85786 17.5 10C17.5 11.8461 16.833 13.5363 15.7269 14.843ZM10 18.75C14.8325 18.75 18.75 14.8325 18.75 10C18.75 5.16751 14.8325 1.25 10 1.25C5.16751 1.25 1.25 5.16751 1.25 10C1.25 14.8325 5.16751 18.75 10 18.75Z"
-        fill="white"
-        fillOpacity="0.7"
-      />
-    </svg>
-  );
-}
-
 interface StackedLayoutProps {
-  result: JTBDTuningResult;
+  result: TuningResultLike;
+  /** Multiple mode only (`null`/`undefined` in single mode, its default) —
+   * feeds the Plus section's one-line profiles summary (`ProfilesSummaryRow`)
+   * INSTEAD of `result.paid` (which is always `[]` in Multiple mode, so the
+   * existing paid-row rendering below simply no-ops). See
+   * docs/features/onboarding-v2.md → "Multiple-mode result curation". */
+  profiles?: ProfilePreview[] | null;
+  /** Multiple mode only — the capped/ranked union of the selected JTBDs' paid
+   * features (top `paidFeatureCap` by `FEATURES_RANK`), rendered below the
+   * profiles summary. `undefined` in single mode. */
+  paidFeatures?: MergedPaidFeature[] | null;
   paidUnlocked: boolean;
   rowStages: RowStage[];
   rowMounted: boolean[];
@@ -71,8 +66,19 @@ const ROW_CLASS = "flex w-full max-w-[800px] items-center gap-[16px] py-[12px]";
  * reference this layout was originally built from). This is the exact
  * visual the former "Visual Tuning" version rendered — now just one of 4
  * selectable layouts for the single, consolidated result step. */
-export default function StackedLayout({ result, paidUnlocked, rowStages, rowMounted, boundaryVisible, reduced, tone, unlockTransition }: StackedLayoutProps) {
-  const showBoundary = !paidUnlocked;
+export default function StackedLayout({
+  result,
+  profiles,
+  paidFeatures,
+  paidUnlocked,
+  rowStages,
+  rowMounted,
+  boundaryVisible,
+  reduced,
+  tone,
+  unlockTransition,
+}: StackedLayoutProps) {
+  const showBoundary = !paidUnlocked || !!profiles;
 
   const renderEnabledRow = (i: number) => {
     const feature = result.enabled[i];
@@ -90,7 +96,7 @@ export default function StackedLayout({ result, paidUnlocked, rowStages, rowMoun
             <div className="flex min-w-0 flex-1 items-center gap-[8px]">
               <motion.img variants={popVariants} src={checkmarkUrl} alt="" className="size-[20px] shrink-0" />
               <span className="font-['Segoe_UI_Variable',sans-serif] font-semibold text-white" style={{ fontFeatureSettings: '"fina" 1, "init" 1' }}>
-                {toneOutcome(tone, result.jtbdKey, "enabled", i)}
+                {outcomeForEnabled(tone, result, i, feature)}
               </span>
             </div>
             <span className="flex shrink-0 items-end justify-center gap-[4px] whitespace-nowrap rounded-[4px] bg-[rgba(255,255,255,0.05)] px-[12px] pb-[7px] pt-[5px] text-[14px] leading-[20px]">
@@ -247,18 +253,189 @@ export default function StackedLayout({ result, paidUnlocked, rowStages, rowMoun
     );
   };
 
+  // Multiple mode: the Plus section's one-line profiles summary — sits at
+  // the boundary index (right after the capped free rows), materializing via
+  // the same two-phase reveal as every other row. In stage 3
+  // (`unlockTransition` present), switches to its `unlocked` visual in sync
+  // with the paid feature row(s) below it.
+  const renderProfilesSummaryRow = () => {
+    const i = result.enabled.length;
+    const stage = rowStages[i];
+    if (!rowMounted[i] || !stage) return null;
+    return (
+      <MaterializingSlot
+        key="profiles-summary"
+        stage={stage}
+        reduced={reduced}
+        className={ROW_CLASS}
+        phase1Content={<PhaseOnePlaceholder narration={narratePreparingPlusPreview()} />}
+        resolvedContent={<ProfilesSummaryRow profiles={profiles!} unlocked={unlockTransition?.unlocked ?? paidUnlocked} layout="row" />}
+      />
+    );
+  };
+
+  // Multiple mode: the capped/ranked Plus feature rows — same "locked
+  // vs. Plus-active" visual language as `renderPaidRow` above (Stacked's own
+  // established look for this section, including the stage-3 locked→
+  // unlocked transition), just sourced from the merged union instead of a
+  // single JTBD's 2 paid features.
+  const renderPlusFeatureRow = (pIdx: number) => {
+    const i = result.enabled.length + 1 + pIdx;
+    const feature = paidFeatures![pIdx];
+    const stage = rowStages[i];
+    if (!rowMounted[i] || !stage) return null;
+
+    if (unlockTransition) {
+      const { unlocked, showChip } = unlockTransition;
+      const stagger = pIdx * sec(T.unlockTransformStagger);
+      return (
+        <MaterializingSlot
+          key={`plus-feature-${feature.featureName}`}
+          stage={stage}
+          reduced={reduced}
+          className={ROW_CLASS}
+          phase1Content={null}
+          resolvedContent={
+            <div className="relative flex w-full items-center gap-[16px]">
+              <UnlockedChip show={unlocked && showChip} stagger={stagger} className="-top-[9px] left-0" />
+              <div className="flex min-w-0 flex-1 items-center gap-[8px]">
+                <div className="relative size-[20px] shrink-0">
+                  <AnimatePresence mode="wait" initial={false}>
+                    {unlocked ? (
+                      <motion.img
+                        key="check"
+                        src={checkmarkUrl}
+                        alt=""
+                        className="absolute inset-0 size-[20px]"
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.5, ease: "easeInOut", delay: stagger }}
+                      />
+                    ) : (
+                      <motion.img
+                        key="badge"
+                        src={vpnPlusBadgeUrl}
+                        alt="Proton VPN Plus"
+                        className="absolute top-0 h-[20px] w-[33px]"
+                        initial={{ opacity: 1 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.3, delay: stagger }}
+                      />
+                    )}
+                  </AnimatePresence>
+                </div>
+                <motion.span
+                  className="font-['Segoe_UI_Variable',sans-serif] font-semibold"
+                  style={{ fontFeatureSettings: '"fina" 1, "init" 1' }}
+                  animate={{ color: unlocked ? "rgba(255,255,255,1)" : "rgba(255,255,255,0.5)" }}
+                  transition={{ duration: 0.5, ease: "easeInOut", delay: stagger }}
+                >
+                  {outcomeForPaid(tone, feature)}
+                </motion.span>
+              </div>
+              <span className="flex shrink-0 items-center gap-[8px]">
+                <motion.img
+                  src={feature.asset}
+                  alt=""
+                  className="size-[20px] shrink-0 object-contain"
+                  animate={{ opacity: unlocked ? 1 : 0.5 }}
+                  transition={{ duration: 0.5, ease: "easeInOut", delay: stagger }}
+                />
+                <motion.span
+                  className="whitespace-nowrap font-['Segoe_UI_Variable',sans-serif] text-[14px] font-semibold leading-[20px]"
+                  style={{ fontFeatureSettings: '"fina" 1, "init" 1' }}
+                  animate={{ color: unlocked ? "rgba(255,255,255,1)" : "rgba(255,255,255,0.5)" }}
+                  transition={{ duration: 0.5, ease: "easeInOut", delay: stagger }}
+                >
+                  {feature.featureName}
+                </motion.span>
+              </span>
+            </div>
+          }
+        />
+      );
+    }
+
+    if (paidUnlocked) {
+      return (
+        <MaterializingSlot
+          key={`plus-feature-${feature.featureName}`}
+          stage={stage}
+          reduced={reduced}
+          className={ROW_CLASS}
+          phase1Content={<PhaseOnePlaceholder narration={narrateEnabling(feature.featureName)} />}
+          resolvedContent={
+            <div className="flex w-full items-center gap-[16px]">
+              <div className="flex min-w-0 flex-1 items-center gap-[8px]">
+                <motion.img variants={popVariants} src={checkmarkUrl} alt="" className="size-[20px] shrink-0" />
+                <span className="font-['Segoe_UI_Variable',sans-serif] font-semibold text-white" style={{ fontFeatureSettings: '"fina" 1, "init" 1' }}>
+                  {outcomeForPaid(tone, feature)}
+                </span>
+              </div>
+              <span className="flex shrink-0 items-center gap-[8px]">
+                <img src={feature.asset} alt="" className="size-[20px] shrink-0 object-contain" />
+                <span className="whitespace-nowrap font-['Segoe_UI_Variable',sans-serif] text-[14px] font-semibold leading-[20px] text-white" style={{ fontFeatureSettings: '"fina" 1, "init" 1' }}>
+                  {feature.featureName}
+                </span>
+              </span>
+            </div>
+          }
+        />
+      );
+    }
+
+    return (
+      <MaterializingSlot
+        key={`plus-feature-${feature.featureName}`}
+        stage={stage}
+        reduced={reduced}
+        className={ROW_CLASS}
+        phase1Content={<PhaseOnePlaceholder narration={narrateChecking(feature.featureName)} />}
+        resolvedContent={
+          <div className="flex w-full items-center gap-[16px]">
+            <div className="flex min-w-0 flex-1 items-center gap-[8px]">
+              <motion.span variants={settleVariants} className="flex size-[20px] shrink-0 items-center justify-center">
+                <CircleSlashIcon size={20} />
+              </motion.span>
+              <span className="font-['Segoe_UI_Variable',sans-serif] font-semibold text-[rgba(255,255,255,0.5)]" style={{ fontFeatureSettings: '"fina" 1, "init" 1' }}>
+                {outcomeForPaid(tone, feature)}
+              </span>
+            </div>
+            <span className="flex shrink-0 items-end justify-center gap-[8px] whitespace-nowrap rounded-[4px] bg-[rgba(255,255,255,0.05)] px-[12px] pb-[7px] pt-[5px]">
+              <img src={feature.asset} alt="" className="size-[20px] shrink-0 object-contain opacity-50" />
+              <span className="font-['Segoe_UI_Variable',sans-serif] text-[14px] font-semibold leading-[20px] text-[rgba(255,255,255,0.5)]" style={{ fontFeatureSettings: '"fina" 1, "init" 1' }}>
+                {feature.featureName}
+              </span>
+            </span>
+          </div>
+        }
+      />
+    );
+  };
+
   return (
     <div className="flex w-full max-w-[704px] flex-col items-center gap-[16px]">
       <div className="flex w-full flex-col items-center">{result.enabled.map((_, i) => renderEnabledRow(i))}</div>
 
-      {/* Divider + locked rows share a tighter internal gap than the 16px
-          between the free-rows block and this one — otherwise the 16px
-          wrapper gap stacks on top of the header row's own padding and the
-          first locked row's own top padding, reading as an oversized gap
+      {/* Divider + locked rows/profile previews share a tighter internal gap
+          than the 16px between the free-rows block and this one — otherwise
+          the 16px wrapper gap stacks on top of the header row's own padding
+          and the first row's own top padding, reading as an oversized gap
           under "Available with VPN Plus". */}
       <div className="flex w-full flex-col items-center gap-[2px]">
         {showBoundary && <BoundaryDivider visible={boundaryVisible} reduced={reduced} />}
-        <div className="flex w-full flex-col items-center">{result.paid.map((_, i) => renderPaidRow(i))}</div>
+        <div className="flex w-full flex-col items-center gap-[8px]">
+          {profiles ? (
+            <>
+              {renderProfilesSummaryRow()}
+              {paidFeatures?.map((_, i) => renderPlusFeatureRow(i))}
+            </>
+          ) : (
+            result.paid.map((_, i) => renderPaidRow(i))
+          )}
+        </div>
       </div>
     </div>
   );

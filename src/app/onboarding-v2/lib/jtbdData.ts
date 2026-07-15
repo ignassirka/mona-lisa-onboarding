@@ -6,6 +6,12 @@ export type JtbdId =
   | "streaming"
   | "bypass";
 
+/** The "Selection" prototype control (`App.tsx`) — `"single"` (default) is
+ * the stage's entire pre-existing behavior, untouched; `"multiple"` lets the
+ * picker select 1–6 JTBDs and merges their free tunes + previews a profile
+ * per pick. See docs/features/onboarding-v2.md → "Multiple-mode tuning". */
+export type SelectionMode = "single" | "multiple";
+
 export interface JtbdOption {
   id: JtbdId;
   label: string;
@@ -51,6 +57,20 @@ export const JTBD_CONTINUE_LABEL: Record<JtbdId, string> = {
   gaming: "Tune for gaming",
   streaming: "Tune for streaming",
   bypass: "Tune for access",
+};
+
+/** Short, capitalized preview label per JTBD — used ONLY by Multiple-mode's
+ * profile-preview bridge (`lib/jtbdMerge.ts`) as the one-tap "profile name"
+ * shown per selected intent. Matches the project's existing short-form
+ * mapping (`bypass` → "Access", same word `JTBD_CONTINUE_LABEL.bypass`
+ * already uses) rather than inventing new naming. */
+export const JTBD_PROFILE_LABEL: Record<JtbdId, string> = {
+  downloading: "Downloading",
+  travel: "Travel",
+  privacy: "Privacy",
+  gaming: "Gaming",
+  streaming: "Streaming",
+  bypass: "Access",
 };
 
 type CountryCopy = Record<JtbdId, string>;

@@ -1,23 +1,50 @@
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { motion, AnimatePresence } from "motion/react";
+import { Settings2 } from "lucide-react";
 import Spinner from "../components/Spinner";
 import { useReducedMotion } from "../versions/lib/useReducedMotion";
 import { JTBD_ICONS } from "../versions/lib/jtbdIcons";
 import { JTBD_TUNING_RESULT, type JTBDKey } from "../lib/jtbdTuningResult";
+import { mergeFreeSettings, mergePaidFeatures, rankFreeSettings, rankPaidFeatures, capList, buildProfilePreviews, type TuningResultLike } from "../lib/jtbdMerge";
 import { useTunedMaterialization } from "./useTunedMaterialization";
 import { TUNED_RESULT_TIMING as T, sec } from "./timing";
-import { TUNED_RESULT_COPY, titleDuring, titleComplete, counterSubtext, summarySubtext, introSubtext } from "./copy";
+import {
+  TUNED_RESULT_COPY,
+  titleDuring,
+  titleComplete,
+  counterSubtext,
+  summarySubtext,
+  introSubtext,
+  titleDuringMultiple,
+  titleCompleteMultiple,
+  summarySubtextMultiple,
+} from "./copy";
 import StackedLayout from "./layouts/StackedLayout";
 import CompactListLayout from "./layouts/CompactListLayout";
 import SplitByStatusLayout from "./layouts/SplitByStatusLayout";
 import CardGridLayout from "./layouts/CardGridLayout";
 import type { ResultLayout } from "../OnboardingV2";
 import type { ToneOfVoice } from "../lib/toneOfVoice";
+import type { SelectionMode } from "../lib/jtbdData";
 
 interface TunedResultProps {
+  /** Single mode: the one picked JTBD. Multiple mode: the FIRST-selected
+   * JTBD (still used as the icon/title fallback when exactly 1 JTBD is
+   * selected in Multiple mode — see `selectionMode` doc below). */
   jtbdKey: JTBDKey;
   userPlan: "free" | "plus";
   layout: ResultLayout;
+  /** "Selection" prototype control — defaults to `"single"`, which is this
+   * component's ENTIRE pre-existing behavior, byte-for-byte. `"multiple"`
+   * only changes anything once `selectedJtbds.length >= 2` — with exactly 1
+   * selection it behaves identically to single mode (per the confirmed
+   * design: "1 selected → exactly as today" for every phase of this
+   * screen), using `jtbdKey` (`selectedJtbds[0]`) exactly as single mode
+   * would. */
+  selectionMode?: SelectionMode;
+  /** Required (and used) only when `selectionMode === "multiple"` — the
+   * full ordered selection, first-selected first. */
+  selectedJtbds?: JTBDKey[];
   /** Tone of voice for all of this stage's copy — the picker (`JtbdGridPanel`),
    * this header (intro/counter/completion), and every layout's per-JTBD
    * outcome/tip text. Defaults to `"straightforward"`, matching the stage's
@@ -55,21 +82,88 @@ interface TunedResultProps {
  * newly selected arrangement — confirmed as the desired prototype behavior
  * (so reviewers can see the full intro + materialization in any layout they
  * pick, not just its static end state). */
-export default function TunedResult({ jtbdKey, userPlan, layout, tone = "straightforward", onContinue, onBack }: TunedResultProps) {
+export default function TunedResult({
+  jtbdKey,
+  userPlan,
+  layout,
+  selectionMode = "single",
+  selectedJtbds,
+  tone = "straightforward",
+  onContinue,
+  onBack,
+}: TunedResultProps) {
   const reduced = useReducedMotion();
-  const result = JTBD_TUNING_RESULT[jtbdKey];
   const paidUnlocked = userPlan === "plus";
-  const totalRows = result.enabled.length + result.paid.length;
+  const single = JTBD_TUNING_RESULT[jtbdKey];
+
+  // Multiple mode only changes anything once 2+ JTBDs are actually selected
+  // — with exactly 1, every phase of this screen behaves identically to
+  // single mode (confirmed design: "1 selected → exactly as today").
+  const isMultipleActive = selectionMode === "multiple" && (selectedJtbds?.length ?? 0) >= 2;
+
+  // The FULL merged/deduped unions — never truncated. These feed the
+  // completion counts (true totals) AND the ranked/capped lists below (the
+  // capping step operates on these, never on a pre-truncated list). See
+  // docs/features/onboarding-v2.md → "Multiple-mode result curation".
+  const mergedEnabledFull = isMultipleActive ? mergeFreeSettings(selectedJtbds!) : null;
+  const mergedPaidFull = isMultipleActive ? mergePaidFeatures(selectedJtbds!) : null;
+  const profiles = isMultipleActive ? buildProfilePreviews(selectedJtbds!) : null;
+
+  // Ranked-then-capped DISPLAY lists — screen height stays stable from 1 to
+  // 6 selected interests regardless of how large the full unions above get.
+  // Only what's rendered is curated; `mergedEnabledFull`/`mergedPaidFull`
+  // above (never these) feed the completion counts.
+  const freeCapped = isMultipleActive ? capList(rankFreeSettings(mergedEnabledFull!), T.freeRowCap) : null;
+  const paidCapped = isMultipleActive ? capList(rankPaidFeatures(mergedPaidFull!), T.paidFeatureCap) : null;
+
+  // `result` feeds the 4 layouts' `enabled`/`paid` rendering — `enabled` is
+  // the CAPPED free list (so the existing per-row rendering, which iterates
+  // `result.enabled`, automatically only renders the capped rows with zero
+  // changes to that logic). Multiple mode's `paid: []` makes the existing
+  // paid-row rendering no-op; the new capped Plus-features list is a
+  // separate `paidFeatures` prop (see below), alongside `profiles`.
+  const result: TuningResultLike = isMultipleActive
+    ? { jtbdKey: single.jtbdKey, jtbdLabel: single.jtbdLabel, enabled: freeCapped!.displayed, paid: [], tip: null }
+    : single;
+
+  // Multiple mode: capped free rows, +1 row for the Plus section's one-line
+  // profiles summary, + capped Plus feature rows. Neither section shows a
+  // "+X/+Y more" overflow footnote (confirmed at checkpoint) — anything
+  // beyond the caps is simply not listed.
+  const totalRows = isMultipleActive
+    ? freeCapped!.displayed.length + 1 + paidCapped!.displayed.length
+    : result.enabled.length + result.paid.length;
+  const boundaryIndex = isMultipleActive ? freeCapped!.displayed.length : result.enabled.length;
 
   const { introDone, rowStages, rowMounted, boundaryVisible, appliedSoFar, rowsComplete, continueDelayMs } = useTunedMaterialization({
-    jtbdKey,
+    jtbdKey: isMultipleActive ? selectedJtbds!.join(",") : jtbdKey,
     totalRows,
-    boundaryIndex: result.enabled.length,
+    boundaryIndex,
     reduced,
   });
 
-  const appliedCount = paidUnlocked ? totalRows : result.enabled.length;
-  const lockedCount = paidUnlocked ? 0 : result.paid.length;
+  // Completion counts. Single mode (unchanged): the true, uncapped totals.
+  // Multiple mode: counts against the DISPLAYED/capped rows instead — the
+  // subtext must match what's actually on screen (confirmed at checkpoint,
+  // superseding the earlier "always true totals" rule) — so this is always
+  // `freeRowCap` (4) once 2+ interests are selected, never the size of the
+  // full merged union.
+  const appliedCount = paidUnlocked ? totalRows : (isMultipleActive ? freeCapped!.displayed.length : result.enabled.length);
+  // Single mode: locked paid-feature count. Multiple mode: the true total
+  // profile-preview count (always shown, even for Plus users — the previews
+  // just render "Included with your plan" instead of the Plus upsell
+  // caption; see `ProfilePreviewItem`). Both are named generically since the
+  // summary sentence's own wording (`summarySubtext` vs
+  // `summarySubtextMultiple`) is what actually differs, not this count.
+  const lockedOrPreviewCount = isMultipleActive ? profiles!.length : paidUnlocked ? 0 : result.paid.length;
+  // Multiple mode only — the "{features} features with VPN Plus" count feeds
+  // `summarySubtextMultiple`. Counts EVERY row actually shown in the Plus
+  // section — the capped feature row(s) (`paidFeatureCap`, 1) PLUS the
+  // profiles row itself (always exactly 1 row, however many interests it
+  // lists) — so with the current 1-feature cap this is always 2, matching
+  // what's on screen (1 feature row + 1 profiles row).
+  const truePaidFeatureCount = isMultipleActive ? paidCapped!.displayed.length + 1 : 0;
+  const selectionCount = selectedJtbds?.length ?? 1;
 
   return (
     // Transparent overlay — same protected teal-top gradient background as
@@ -139,6 +233,17 @@ export default function TunedResult({ jtbdKey, userPlan, layout, tone = "straigh
                   >
                     <Spinner size={40} />
                   </motion.div>
+                ) : isMultipleActive ? (
+                  <motion.div
+                    key="category-icon"
+                    className="absolute flex h-[32px] w-[48px] items-center justify-center"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: sec(reduced ? 200 : T.iconCrossfade) }}
+                  >
+                    <Settings2 size={28} strokeWidth={1.75} className="text-white" />
+                  </motion.div>
                 ) : (
                   <motion.img
                     key="category-icon"
@@ -170,7 +275,13 @@ export default function TunedResult({ jtbdKey, userPlan, layout, tone = "straigh
                   exit={{ opacity: 0 }}
                   transition={{ duration: sec(T.titleCompleteCrossfade) }}
                 >
-                  {rowsComplete ? titleComplete(tone, result.jtbdLabel) : titleDuring(tone, result.jtbdLabel)}
+                  {isMultipleActive
+                    ? rowsComplete
+                      ? titleCompleteMultiple(tone, selectionCount)
+                      : titleDuringMultiple(tone, selectionCount)
+                    : rowsComplete
+                      ? titleComplete(tone, result.jtbdLabel)
+                      : titleDuring(tone, result.jtbdLabel)}
                 </motion.span>
               </AnimatePresence>
             </h1>
@@ -187,7 +298,9 @@ export default function TunedResult({ jtbdKey, userPlan, layout, tone = "straigh
                   {!introDone
                     ? introSubtext(tone)
                     : rowsComplete
-                      ? summarySubtext(tone, appliedCount, lockedCount)
+                      ? isMultipleActive
+                        ? summarySubtextMultiple(tone, appliedCount, truePaidFeatureCount)
+                        : summarySubtext(tone, appliedCount, lockedOrPreviewCount)
                       : counterSubtext(appliedSoFar, totalRows)}
                 </motion.span>
               </AnimatePresence>
@@ -203,15 +316,56 @@ export default function TunedResult({ jtbdKey, userPlan, layout, tone = "straigh
               rejoin the normal flow the moment `introDone` flips. */}
           <div className={`flex w-full flex-col items-center gap-[24px] ${!reduced && !introDone ? "invisible absolute inset-x-0" : "relative"}`}>
             {layout === "stacked" && (
-              <StackedLayout result={result} paidUnlocked={paidUnlocked} rowStages={rowStages} rowMounted={rowMounted} boundaryVisible={boundaryVisible} reduced={reduced} tone={tone} />
+              <StackedLayout
+                result={result}
+                profiles={profiles}
+                paidFeatures={paidCapped?.displayed}
+                paidUnlocked={paidUnlocked}
+                rowStages={rowStages}
+                rowMounted={rowMounted}
+                boundaryVisible={boundaryVisible}
+                reduced={reduced}
+                tone={tone}
+              />
             )}
             {layout === "compact-list" && (
-              <CompactListLayout result={result} paidUnlocked={paidUnlocked} rowStages={rowStages} rowMounted={rowMounted} boundaryVisible={boundaryVisible} reduced={reduced} tone={tone} />
+              <CompactListLayout
+                result={result}
+                profiles={profiles}
+                paidFeatures={paidCapped?.displayed}
+                paidUnlocked={paidUnlocked}
+                rowStages={rowStages}
+                rowMounted={rowMounted}
+                boundaryVisible={boundaryVisible}
+                reduced={reduced}
+                tone={tone}
+              />
             )}
             {layout === "split-by-status" && (
-              <SplitByStatusLayout result={result} paidUnlocked={paidUnlocked} rowStages={rowStages} rowMounted={rowMounted} boundaryVisible={boundaryVisible} reduced={reduced} tone={tone} />
+              <SplitByStatusLayout
+                result={result}
+                profiles={profiles}
+                paidFeatures={paidCapped?.displayed}
+                paidUnlocked={paidUnlocked}
+                rowStages={rowStages}
+                rowMounted={rowMounted}
+                boundaryVisible={boundaryVisible}
+                reduced={reduced}
+                tone={tone}
+              />
             )}
-            {layout === "card-grid" && <CardGridLayout result={result} paidUnlocked={paidUnlocked} rowStages={rowStages} rowMounted={rowMounted} reduced={reduced} tone={tone} />}
+            {layout === "card-grid" && (
+              <CardGridLayout
+                result={result}
+                profiles={profiles}
+                paidFeatures={paidCapped?.displayed}
+                paidUnlocked={paidUnlocked}
+                rowStages={rowStages}
+                rowMounted={rowMounted}
+                reduced={reduced}
+                tone={tone}
+              />
+            )}
 
             <motion.button
               initial={{ opacity: 0, y: reduced ? 0 : 10 }}
