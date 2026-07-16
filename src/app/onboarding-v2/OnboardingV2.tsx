@@ -183,8 +183,14 @@ interface OnboardingV2Props {
    * Profiles tab and generate profile items for them. Empty/omitted when
    * onboarding is abandoned via Skip (no real intent was ever committed).
    * The second argument is the session plan: `"free"` for Continue free and
-   * all Skip exits; `"plus"` only after in-session checkout → Plus Welcome. */
-  onExit?: (selectedJtbds?: JtbdId[], plan?: import("../lib/sessionPlan").SessionPlan) => void;
+   * all Skip exits; `"plus"` only after in-session checkout → Plus Welcome.
+   * The third argument can set `vpnConnected: false` (e.g. JTBD **Go to app
+   * directly**) to land in the main app without an active VPN session. */
+  onExit?: (
+    selectedJtbds?: JtbdId[],
+    plan?: import("../lib/sessionPlan").SessionPlan,
+    options?: import("../lib/sessionPlan").OnboardingExitOptions,
+  ) => void;
   /** Fired by the window chrome's "X" close control — distinct from
    * `onExit` (which hands off to the main app once onboarding completes
    * normally): this returns to the prototype's initial start screen (the
@@ -416,8 +422,8 @@ export default function OnboardingV2({
               transition={{ duration: 0.3 }}
               onClick={handleSkipConnection}
               aria-label="I'll do it later — skip to job selection"
-              className="absolute right-[20px] top-[52px] z-[1050] flex items-center gap-[6px] rounded-[4px] px-[8px] py-[6px] font-['Segoe_UI_Variable',sans-serif] text-[14px] leading-[20px] text-[rgba(255,255,255,0.6)] outline-none transition-colors duration-150 hover:bg-[rgba(255,255,255,0.06)] hover:text-white focus-visible:ring-1 focus-visible:ring-white/30"
-              style={{ fontVariationSettings: "'opsz' 11" }}
+              className="absolute right-[20px] top-[52px] z-[1050] flex items-center gap-[6px] rounded-[4px] px-[8px] py-[6px] font-['Segoe_UI_Variable',sans-serif] text-[14px] font-semibold leading-[20px] text-[rgba(255,255,255,0.6)] outline-none transition-colors duration-150 hover:bg-[rgba(255,255,255,0.06)] hover:text-white focus-visible:ring-1 focus-visible:ring-white/30"
+              style={{ fontVariationSettings: "'opsz' 10.5", fontFeatureSettings: "'fina', 'init'" }}
             >
               I'll do it later
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -599,7 +605,7 @@ export default function OnboardingV2({
                 selected={selectedJtbd}
                 onSelect={setSelectedJtbd}
                 onContinue={() => effectiveJtbdKey && setPhase("tuned")}
-                onSkip={() => onExit?.([], "free")}
+                onSkip={() => onExit?.([], "free", { vpnConnected: false })}
                 tone={tone}
                 selectionMode={selectionMode}
                 selectedMultiple={selectedJtbds}

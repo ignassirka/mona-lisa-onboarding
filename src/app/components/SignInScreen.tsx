@@ -23,10 +23,24 @@ export const SIGN_IN_COPY = {
 
 /** Centralized timing (ms). */
 export const SIGN_IN_TIMING = {
-  entranceDuration: 250,
+  /** Soft fade for the ambient gradient + glyph grid. */
+  backgroundEntranceDuration: 1400,
+  /** Logo and sign-in card slide-up + fade. */
+  contentEntranceDuration: 1200,
+  /** Stagger after mount — logo follows the background. */
+  logoEntranceDelay: 750,
+  /** Stagger after mount — card follows the logo. */
+  panelEntranceDelay: 1100,
+  /** Subtle upward travel for logo / card (px). */
+  logoEntranceTravel: 10,
+  panelEntranceTravel: 12,
   /** How long the "Signing in…" button loader holds before advancing. */
   loadingDurationMs: 2000,
 } as const;
+
+/** Gentle deceleration — slow settle, no snap. */
+const backgroundEase = [0.33, 0, 0.2, 1] as const;
+const contentEase = [0.16, 1, 0.3, 1] as const;
 
 const sec = (ms: number): number => ms / 1000;
 
@@ -82,18 +96,20 @@ export default function SignInScreen({ onSignIn, onClose }: SignInScreenProps) {
     // Same "desktop behind the window" convention as `OnboardingV2`'s own
     // outer wrapper — the native Windows wallpaper, centered, 24px padding.
     <div className="flex h-screen w-screen items-center justify-center bg-cover bg-center p-[24px]" style={{ backgroundImage: `url(${windowsWallpaperUrl})` }}>
-      <motion.div
+      <div
         className="relative overflow-hidden rounded-[8px] border border-[rgba(255,255,255,0.2)] bg-[#16141c] shadow-[0px_2px_32px_0px_rgba(0,0,0,0.37),0px_32px_64px_0px_rgba(0,0,0,0.37)]"
         style={{ width: 1100, height: 750 }}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: reduced ? 0 : sec(SIGN_IN_TIMING.entranceDuration) }}
       >
-        {/* Ambient background gradient, confined to the window box — a
-            soft purple glow behind the centered card, matching this app's
-            brand accent (#6d4aff). Layered blurred orbs + radial washes
-            so the halo reads clearly without overpowering the form. */}
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        {/* Ambient background gradient — fades in first. */}
+        <motion.div
+          className="pointer-events-none absolute inset-0 overflow-hidden"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{
+            duration: reduced ? 0 : sec(SIGN_IN_TIMING.backgroundEntranceDuration),
+            ease: backgroundEase,
+          }}
+        >
           <div
             className="absolute left-1/2 top-[28%] h-[640px] w-[920px] -translate-x-1/2 -translate-y-1/2 rounded-full"
             style={{
@@ -115,11 +131,20 @@ export default function SignInScreen({ onSignIn, onClose }: SignInScreenProps) {
                 "radial-gradient(ellipse 820px 640px at 50% 32%, rgba(109,74,255,0.28), transparent 74%), radial-gradient(ellipse 1040px 780px at 50% 100%, rgba(45,220,204,0.12), transparent 70%)",
             }}
           />
-        </div>
+        </motion.div>
 
-        {/* Ciphertext glyph grid — above the gradient wash, below the
-            sign-in content. Canvas-backed, pointer-events-none. */}
-        <SignInEncryptionGrid width={1100} height={750} reduced={reduced} className="z-[1]" />
+        {/* Ciphertext glyph grid — fades in with the ambient background. */}
+        <motion.div
+          className="pointer-events-none absolute inset-0 z-[1]"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{
+            duration: reduced ? 0 : sec(SIGN_IN_TIMING.backgroundEntranceDuration),
+            ease: backgroundEase,
+          }}
+        >
+          <SignInEncryptionGrid width={1100} height={750} reduced={reduced} className="size-full" />
+        </motion.div>
 
         <WindowChrome onClose={onClose} />
 
@@ -127,14 +152,29 @@ export default function SignInScreen({ onSignIn, onClose }: SignInScreenProps) {
             between the logo lockup and the card). Nudged upward so the
             block reads optically centered below the title bar. */}
         <div className="relative flex h-full w-full -translate-y-[56px] flex-col items-center justify-center gap-[32px] z-10">
-          {/* Logo mark, centered top — no text wordmark (confirmed);
-              height matches Figma's "Logo marks" component exactly (45px). */}
-          <img src={protonVpnLogoUrl} alt={SIGN_IN_COPY.wordmark} className="h-[45px] w-auto object-contain" />
+          <motion.img
+            src={protonVpnLogoUrl}
+            alt={SIGN_IN_COPY.wordmark}
+            className="h-[45px] w-auto object-contain"
+            initial={{ opacity: 0, y: reduced ? 0 : SIGN_IN_TIMING.logoEntranceTravel }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{
+              duration: reduced ? 0 : sec(SIGN_IN_TIMING.contentEntranceDuration),
+              delay: reduced ? 0 : sec(SIGN_IN_TIMING.logoEntranceDelay),
+              ease: contentEase,
+            }}
+          />
 
-          {/* Sign in card — Figma "Left": 450px wide, 32px padding, 24px
-              gap, rounded-8, rgba(22,20,28,0.6) fill, rgba(255,255,255,0.04)
-              1px border, 0/0/200/rgba(24,22,32,1) shadow, 52px blur. */}
-          <div className="flex w-[450px] flex-col gap-[24px] rounded-[8px] border border-[rgba(255,255,255,0.04)] bg-[rgba(22,20,28,0.6)] p-[32px] shadow-[0px_0px_200px_0px_rgba(24,22,32,1)] backdrop-blur-[52px]">
+          <motion.div
+            className="flex w-[450px] flex-col gap-[24px] rounded-[8px] border border-[rgba(255,255,255,0.04)] bg-[rgba(22,20,28,0.6)] p-[32px] shadow-[0px_0px_200px_0px_rgba(24,22,32,1)] backdrop-blur-[52px]"
+            initial={{ opacity: 0, y: reduced ? 0 : SIGN_IN_TIMING.panelEntranceTravel }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{
+              duration: reduced ? 0 : sec(SIGN_IN_TIMING.contentEntranceDuration),
+              delay: reduced ? 0 : sec(SIGN_IN_TIMING.panelEntranceDelay),
+              ease: contentEase,
+            }}
+          >
             {/* Heading — Figma "Heading wrapper": 8px gap; title
                 Titles/Title (28px/36px, weight 600, centered); subtitle
                 Body/Body (14px/20px, weight 400, centered, rgba(255,255,255,0.7)). */}
@@ -186,9 +226,9 @@ export default function SignInScreen({ onSignIn, onClose }: SignInScreenProps) {
                 {SIGN_IN_COPY.createAccount}
               </button>
             </div>
-          </div>
+          </motion.div>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 }

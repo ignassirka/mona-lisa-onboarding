@@ -292,7 +292,7 @@ export function CountryRow(props: CountryRowProps) {
           </span>
         )}
         <div className="shrink-0" style={{ width: 30, height: 20 }}>
-          {isFastest ? <Fastest /> : <CountryFlag name={name} />}
+          {isFastest ? <Fastest variant="unprotected" /> : <CountryFlag name={name} />}
         </div>
         <span
           style={{ ...fontRegular, fontSize: 16, lineHeight: "20px", color: "white" }}

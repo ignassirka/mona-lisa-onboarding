@@ -5,6 +5,7 @@ import {
   JTBD_WINK_COPY,
   JTBD_CONTINUE_LABEL,
   JTBD_CONTINUE_LABEL_DEFAULT,
+  JTBD_GO_TO_APP_LABEL,
   type JtbdId,
   type SelectionMode,
 } from "./lib/jtbdData";
@@ -23,7 +24,7 @@ interface JtbdGridPanelProps {
   onContinue: () => void;
   onSkip: () => void;
   /** Tone of voice for the title/subtitle only — the 6 tile labels, the wink
-   * line, and the Continue/Skip labels stay constant across tones (confirmed
+   * line, and the Continue / Go to app directly labels stay constant across tones (confirmed
    * via checkpoint). Defaults to `"straightforward"`. */
   tone?: ToneOfVoice;
   /** "Selection" prototype control (`App.tsx`) — defaults to `"single"`,
@@ -75,7 +76,7 @@ const EASE = [0.25, 0.46, 0.45, 0.94] as const;
  * Tone of voice: the stage now supports the same 4-tone system as the
  * connection stage (`ToneOfVoice`, `lib/toneOfVoice.tsx`) — only the title
  * and subtitle vary here (`TUNING_COPY[tone]`); the 6 tile labels, the wink
- * line, and the Continue/Skip labels are kept constant across tones
+ * line, and the Continue / Go to app directly labels are kept constant across tones
  * (confirmed via checkpoint — same precedent as `browsing.continue` staying
  * "Continue" in every tone at the connection stage). */
 export default function JtbdGridPanel({
@@ -119,10 +120,16 @@ export default function JtbdGridPanel({
       transition={{ duration: 0.5, ease: EASE }}
     >
       <button
+        type="button"
         onClick={onSkip}
-        className="absolute right-[20px] top-[52px] z-30 rounded-[4px] px-[8px] py-[4px] font-['Segoe_UI_Variable',sans-serif] text-[13px] leading-[18px] text-[rgba(255,255,255,0.5)] outline-none transition-colors hover:text-white focus-visible:ring-1 focus-visible:ring-white/30"
+        aria-label={JTBD_GO_TO_APP_LABEL}
+        className="absolute right-[20px] top-[52px] z-30 flex items-center gap-[6px] rounded-[4px] px-[8px] py-[6px] font-['Segoe_UI_Variable',sans-serif] text-[14px] font-semibold leading-[20px] text-[rgba(255,255,255,0.6)] outline-none transition-colors duration-150 hover:bg-[rgba(255,255,255,0.06)] hover:text-white focus-visible:ring-1 focus-visible:ring-white/30"
+        style={{ fontVariationSettings: "'opsz' 10.5", fontFeatureSettings: "'fina', 'init'" }}
       >
-        Skip
+        {JTBD_GO_TO_APP_LABEL}
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
       </button>
 
       <div className="text-center">

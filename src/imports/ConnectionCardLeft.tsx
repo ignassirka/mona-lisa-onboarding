@@ -527,7 +527,7 @@ const FREE_CONNECTION_CARD_COPY = {
 function FreeServerIconPair() {
   return (
     <div className="h-[36px] w-[54px] shrink-0" data-name="Fastest-free-server">
-      <Fastest />
+      <Fastest variant="free-server" />
     </div>
   );
 }
@@ -610,11 +610,11 @@ export default function ConnectionCardLeft1({
                 />
               ) : showFreeIconPair ? (
                 <FreeServerIconPair />
-              ) : (
+              ) : showDisconnectedFastest ? (
                 <div className="h-[36px] relative shrink-0 w-[54px]" data-name="Fastest">
-                  <Fastest />
+                  <Fastest variant="unprotected" />
                 </div>
-              )}
+              ) : null}
               <div style={titleStyle} className="flex flex-col font-['Segoe_UI_Variable',sans-serif] font-semibold justify-end leading-[0] shrink-0 text-[28px] text-center text-white whitespace-nowrap">
                 <p className="leading-[36px]">{title}</p>
               </div>

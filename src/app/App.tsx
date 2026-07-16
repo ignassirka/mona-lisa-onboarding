@@ -12,7 +12,7 @@ import PrdOverview from "./components/PrdOverview";
 import { ThemeProvider, useTheme } from "./ThemeContext";
 import type { MapLayerOption } from "../imports/RightVpnFeatures";
 import { TRANSITION_TIMING } from "./transitionTiming";
-import type { SessionPlan } from "./lib/sessionPlan";
+import type { SessionPlan, OnboardingExitOptions } from "./lib/sessionPlan";
 import windowsWallpaperUrl from "./assets/windows-wallpaper.png";
 
 export type VpnStatus = "unprotected" | "connecting" | "protected";
@@ -216,6 +216,9 @@ function AppInner() {
   const [physicalCountry, setPhysicalCountry] = useState("United Kingdom");
   const connectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const modalTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** When true, suppress the post-modal welcome banner (e.g. user skipped
+   * straight to the app without connecting). */
+  const suppressWelcomeBannerRef = useRef(false);
 
   const [panelWidth, setPanelWidth] = useState(PANEL_DEFAULT);
   const [handleHovered, setHandleHovered] = useState(false);
@@ -322,26 +325,41 @@ function AppInner() {
   // onboarding, and the trigger for the welcome banner.
   const handleModalClose = useCallback(() => {
     setShowModal(false);
-    if (!localStorage.getItem(WELCOME_BANNER_SHOWN_KEY)) {
+    if (!suppressWelcomeBannerRef.current && !localStorage.getItem(WELCOME_BANNER_SHOWN_KEY)) {
       localStorage.setItem(WELCOME_BANNER_SHOWN_KEY, "true");
       setShowWelcomeBanner(true);
     }
+    suppressWelcomeBannerRef.current = false;
   }, []);
 
   // Called when user exits onboarding. Fires the crossfade transition.
-  const handleEnterApp = useCallback((selectedJtbds: JtbdId[] = [], plan: SessionPlan = "free") => {
+  const handleEnterApp = useCallback((
+    selectedJtbds: JtbdId[] = [],
+    plan: SessionPlan = "free",
+    options: OnboardingExitOptions = {},
+  ) => {
+    const vpnConnected = options.vpnConnected !== false;
+    suppressWelcomeBannerRef.current = !vpnConnected;
+
     setSessionPlan(plan);
-    setVpnStatus("protected");
-    setConnectedCountry("Netherlands");
+    if (vpnConnected) {
+      setVpnStatus("protected");
+      setConnectedCountry("Netherlands");
+    } else {
+      setVpnStatus("unprotected");
+      setConnectedCountry(null);
+      setSelectedCountry(null);
+    }
     setShowEntrance(true);
     setAppState("transitioning");
     setCurrentStage("personalization");
     setOnboardingJtbds(selectedJtbds);
 
-    // After the last panel finishes sliding in, show the modal (once)
+    // After the last panel finishes sliding in, show the modal (once) —
+    // skipped when the user bailed straight to the app (Go to app directly).
     const totalDuration = TRANSITION_TIMING.leftPanel.start + TRANSITION_TIMING.leftPanel.duration + 400;
     modalTimerRef.current = setTimeout(() => {
-      if (!localStorage.getItem(SHOWN_KEY)) {
+      if (vpnConnected && !localStorage.getItem(SHOWN_KEY)) {
         setShowModal(true);
       }
     }, totalDuration);

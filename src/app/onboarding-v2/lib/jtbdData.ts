@@ -59,6 +59,10 @@ export const JTBD_CONTINUE_LABEL: Record<JtbdId, string> = {
   bypass: "Tune for access",
 };
 
+/** Top-right exit on the JTBD grid picker — skips tuning/upsell and lands
+ * in the main app on the free tier. Constant across all tones. */
+export const JTBD_GO_TO_APP_LABEL = "Go to app directly";
+
 /** Short, capitalized preview label per JTBD — used ONLY by Multiple-mode's
  * profile-preview bridge (`lib/jtbdMerge.ts`) as the one-tap "profile name"
  * shown per selected intent. Matches the project's existing short-form
