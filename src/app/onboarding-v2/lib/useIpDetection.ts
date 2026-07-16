@@ -6,6 +6,10 @@ export interface GeoInfo {
   countryCode: string; // ISO-2, lowercase (for flagcdn)
   city: string;
   isp: string;
+  /** When false, connection-stage copy omits the ISP name and uses broad
+   * "others along the way" phrasing instead. Defaults to true for the demo
+   * fallback; a real geolocation response would set this from its confidence. */
+  ispKnown: boolean;
   lat: number;
   lng: number;
 }
@@ -17,6 +21,7 @@ const FALLBACK: GeoInfo = {
   countryCode: "gb",
   city: "London",
   isp: "BT",
+  ispKnown: true,
   lat: 51.5,
   lng: -0.12,
 };

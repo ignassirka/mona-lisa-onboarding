@@ -18,7 +18,7 @@ import HybridSplit from "./versions/hybrid/HybridSplit";
 import { useIpDetection } from "./lib/useIpDetection";
 import { VPN_SERVER } from "./lib/server";
 import { ENTRANCE_TIMING, sec } from "./lib/entranceTiming";
-import { CONNECTION_COPY, type ToneOfVoice } from "./lib/toneOfVoice";
+import { CONNECTION_COPY, resolveIspKnown, type ToneOfVoice } from "./lib/toneOfVoice";
 import type { JtbdId, SelectionMode } from "./lib/jtbdData";
 import type { PinStatus } from "./lib/mapKit";
 import windowsWallpaperUrl from "../assets/windows-wallpaper.png";
@@ -359,8 +359,9 @@ export default function OnboardingV2({
   })();
 
   const subtext: ReactNode = (() => {
-    if (phase === "unprotected") return mapCopy.exposedSub(geo.isp);
-    if (phase === "protected") return mapCopy.protectedSub(geo.isp);
+    const ispKnown = resolveIspKnown(geo);
+    if (phase === "unprotected") return mapCopy.exposedSub(geo.isp, ispKnown);
+    if (phase === "protected") return mapCopy.protectedSub(geo.isp, ispKnown);
     return null;
   })();
 

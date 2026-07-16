@@ -7,7 +7,7 @@ import LocationChip from "./LocationChip";
 import { useReducedMotion } from "../lib/useReducedMotion";
 import { useHybridReveal, HYBRID_CARDS } from "./useHybridReveal";
 import { HYBRID_TIMING, sec } from "./timing";
-import { CONNECTION_COPY, type ToneOfVoice } from "../../lib/toneOfVoice";
+import { CONNECTION_COPY, resolveIspKnown, type ToneOfVoice } from "../../lib/toneOfVoice";
 import type { ConnectionPhase } from "../types";
 import type { GeoInfo } from "../../lib/useIpDetection";
 
@@ -42,6 +42,7 @@ export default function Hybrid({ phase, geo, isLive, onProtect, onContinue, tone
   const reduced = useReducedMotion();
   const copy = CONNECTION_COPY[tone].hybrid;
   const cardCopy = CONNECTION_COPY[tone].browsing;
+  const ispKnown = resolveIspKnown(geo);
   const { revealedCount, redactCount, showConnectHelp, sealed } = useHybridReveal(phase, reduced);
   const rootRef = useRef<HTMLDivElement>(null);
   const headerBottomRef = useRef<HTMLDivElement>(null);
@@ -152,7 +153,7 @@ export default function Hybrid({ phase, geo, isLive, onProtect, onContinue, tone
                 exit={{ opacity: 0, transition: { duration: 0.2 } }}
                 transition={{ delay: isUnprotected ? sec(HYBRID_TIMING.subtextAppear) : 0.2, duration: 0.5, ease: "easeOut" }}
               >
-                {phase === "protected" ? copy.protectedSub(geo.isp) : copy.exposedSub(geo.isp)}
+                {phase === "protected" ? copy.protectedSub(geo.isp, ispKnown) : copy.exposedSub(geo.isp, ispKnown)}
               </motion.p>
             )}
           </AnimatePresence>

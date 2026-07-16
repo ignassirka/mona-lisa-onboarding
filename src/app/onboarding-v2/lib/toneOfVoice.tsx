@@ -30,10 +30,10 @@ export const STAGE_SUPPORTS_TONE: ReadonlySet<OnboardingStage> = new Set<Onboard
  * Headlines carry a phase-colored accent span; subtexts interpolate the ISP. */
 export interface MapSpotlightCopy {
   exposedHeadline: ReactNode;
-  exposedSub: (isp: string) => ReactNode;
+  exposedSub: (isp: string, ispKnown?: boolean) => ReactNode;
   connectingHeadline: ReactNode;
   protectedHeadline: ReactNode;
-  protectedSub: (isp: string) => ReactNode;
+  protectedSub: (isp: string, ispKnown?: boolean) => ReactNode;
   ctaProtect: string;
   /** Split-view card heading (v2) before connect. */
   cardHeadingIdle: string;
@@ -66,10 +66,10 @@ export interface BrowsingCopy {
  * since the cards are the same reused `ActivityEntry` component. */
 export interface HybridCopy {
   exposedHeadline: ReactNode;
-  exposedSub: (isp: string) => ReactNode;
+  exposedSub: (isp: string, ispKnown?: boolean) => ReactNode;
   connectingHeadline: ReactNode;
   protectedHeadline: ReactNode;
-  protectedSub: (isp: string) => ReactNode;
+  protectedSub: (isp: string, ispKnown?: boolean) => ReactNode;
   ctaProtect: string;
 }
 
@@ -183,20 +183,52 @@ export const TUNING_COPY: Record<ToneOfVoice, TuningCopy> = {
 const coral = (text: string) => <span className="text-[#f7607b]">{text}</span>;
 const teal = (text: string) => <span className="text-[#2cffcc]">{text}</span>;
 
+/** Generic ISP label when detection confidence is low — connection copy
+ * switches to broad phrasing without a concrete name. */
+export const ISP_GENERIC_LABEL = "your internet provider";
+
+/** Resolves whether connection copy should use the named-ISP or fallback
+ * phrasing. Callers pass the result as `ispKnown` into `exposedSub` /
+ * `protectedSub`. */
+export function resolveIspKnown(geo: { isp: string; ispKnown?: boolean }): boolean {
+  return geo.ispKnown ?? geo.isp !== ISP_GENERIC_LABEL;
+}
+
+type IspAwareCopy = {
+  known: (isp: string) => ReactNode;
+  unknown: ReactNode;
+};
+
+function ispCopy(pair: IspAwareCopy): (isp: string, ispKnown?: boolean) => ReactNode {
+  return (isp, ispKnown = true) => (ispKnown ? pair.known(isp) : pair.unknown);
+}
+
 /** All connection-stage copy, keyed by tone. `straightforward` reproduces the
  * original shipped strings verbatim. */
 export const CONNECTION_COPY: Record<ToneOfVoice, ConnectionCopy> = {
   straightforward: {
     mapSpotlight: {
       exposedHeadline: <>Your online identity is currently {coral("unprotected")}</>,
-      exposedSub: (isp) => (
-        <>Your internet provider (&ldquo;{isp}&rdquo;) can see which sites you visit, when, how often, and for how long.</>
-      ),
+      exposedSub: ispCopy({
+        known: (isp) => (
+          <>
+            Your internet provider (&ldquo;{isp}&rdquo;) and others along the way can see which sites you visit, when, how
+            often, and for how long.
+          </>
+        ),
+        unknown: <>Others along the way can see which sites you visit, when, how often, and for how long.</>,
+      }),
       connectingHeadline: <>Protecting your online activity....</>,
       protectedHeadline: <>Your online identity is now fully {teal("protected")}!</>,
-      protectedSub: (isp) => (
-        <>You now look like someone else, somewhere else. Your internet provider (&ldquo;{isp}&rdquo;) can see no more than an encrypted connection.</>
-      ),
+      protectedSub: ispCopy({
+        known: (isp) => (
+          <>
+            You now look like someone else, somewhere else. Your internet provider (&ldquo;{isp}&rdquo;) and others in
+            between can see no more than an encrypted connection.
+          </>
+        ),
+        unknown: <>You now look like someone else, somewhere else. Others in between can see no more than an encrypted connection.</>,
+      }),
       ctaProtect: "Protect my online identity",
       cardHeadingIdle: "Visible on this network:",
       cardHeadingActive: "Hiding this for you\u2026",
@@ -204,7 +236,7 @@ export const CONNECTION_COPY: Record<ToneOfVoice, ConnectionCopy> = {
     browsing: {
       visibleLabel: "Visible",
       exposedHeadline: "Your online life is more visible than you'd think",
-      exposedSub: "On this network, others can see the everyday things you do.",
+      exposedSub: "On this network, your provider and others can see the everyday things you do.",
       cta: "Protect my online identity",
       connectingHeadline: "Encrypting your activity\u2026",
       protectedHeadline: "Your diary is sealed.",
@@ -214,15 +246,24 @@ export const CONNECTION_COPY: Record<ToneOfVoice, ConnectionCopy> = {
       sealedLabel: "Hidden",
     },
     hybrid: {
-      exposedHeadline: <>You decide who sees you {coral("online")}</>,
-      exposedSub: (isp) => (
-        <>Right now your provider (&ldquo;{isp}&rdquo;) chooses what it can see. Take that decision back.</>
-      ),
+      exposedHeadline: <>Your online identity is currently {coral("unprotected")}</>,
+      exposedSub: ispCopy({
+        known: (isp) => (
+          <>Right now your provider (&ldquo;{isp}&rdquo;) and others along the way can see what you do. Take that decision back.</>
+        ),
+        unknown: <>Right now, others along the way can see what you do. Take that decision back.</>,
+      }),
       connectingHeadline: <>Protecting your online activity....</>,
       protectedHeadline: <>Your online identity is now fully {teal("protected")}!</>,
-      protectedSub: (isp) => (
-        <>You now look like someone else, somewhere else. Your provider (&ldquo;{isp}&rdquo;) can see no more than an encrypted connection.</>
-      ),
+      protectedSub: ispCopy({
+        known: (isp) => (
+          <>
+            You now look like someone else, somewhere else. Your provider (&ldquo;{isp}&rdquo;) and others in between can
+            see no more than an encrypted connection.
+          </>
+        ),
+        unknown: <>You now look like someone else, somewhere else. Others in between can see no more than an encrypted connection.</>,
+      }),
       ctaProtect: "Protect my online identity",
     },
   },
@@ -230,14 +271,20 @@ export const CONNECTION_COPY: Record<ToneOfVoice, ConnectionCopy> = {
   reassuring: {
     mapSpotlight: {
       exposedHeadline: <>Right now, this connection isn&rsquo;t {coral("private")}</>,
-      exposedSub: (isp) => (
-        <>Your provider (&ldquo;{isp}&rdquo;) can see where you go online. A moment from now, it won&rsquo;t.</>
-      ),
+      exposedSub: ispCopy({
+        known: (isp) => (
+          <>Your provider (&ldquo;{isp}&rdquo;) and others along the way can see where you go online. A moment from now, they won&rsquo;t.</>
+        ),
+        unknown: <>Others along the way can see where you go online. A moment from now, they won&rsquo;t.</>,
+      }),
       connectingHeadline: <>Setting up your private connection&hellip;</>,
       protectedHeadline: <>You&rsquo;re {teal("private")} now &mdash; nicely done</>,
-      protectedSub: (isp) => (
-        <>You look like someone else, somewhere else. Your provider (&ldquo;{isp}&rdquo;) sees only a private, encrypted connection.</>
-      ),
+      protectedSub: ispCopy({
+        known: (isp) => (
+          <>You look like someone else, somewhere else. Your provider (&ldquo;{isp}&rdquo;) and others in between see only a private, encrypted connection.</>
+        ),
+        unknown: <>You look like someone else, somewhere else. Others in between see only a private, encrypted connection.</>,
+      }),
       ctaProtect: "Make my connection private",
       cardHeadingIdle: "Currently visible to others:",
       cardHeadingActive: "Tucking this away\u2026",
@@ -245,7 +292,7 @@ export const CONNECTION_COPY: Record<ToneOfVoice, ConnectionCopy> = {
     browsing: {
       visibleLabel: "Visible",
       exposedHeadline: "Your everyday moments deserve privacy",
-      exposedSub: "On this network, the little things you do are visible to others.",
+      exposedSub: "On this network, your provider and others can see the little things you do.",
       cta: "Make my connection private",
       connectingHeadline: "Keeping this between us\u2026",
       protectedHeadline: "Your day is private now.",
@@ -256,14 +303,20 @@ export const CONNECTION_COPY: Record<ToneOfVoice, ConnectionCopy> = {
     },
     hybrid: {
       exposedHeadline: <>This connection isn&rsquo;t {coral("private")} yet</>,
-      exposedSub: (isp) => (
-        <>Your provider (&ldquo;{isp}&rdquo;) can see where you go online right now. That&rsquo;s about to change.</>
-      ),
+      exposedSub: ispCopy({
+        known: (isp) => (
+          <>Your provider (&ldquo;{isp}&rdquo;) and others along the way can see where you go online right now. That&rsquo;s about to change.</>
+        ),
+        unknown: <>Others along the way can see where you go online right now. That&rsquo;s about to change.</>,
+      }),
       connectingHeadline: <>Making this connection private&hellip;</>,
       protectedHeadline: <>You&rsquo;re {teal("private")} now &mdash; nicely done</>,
-      protectedSub: (isp) => (
-        <>You look like someone else, somewhere else. Your provider (&ldquo;{isp}&rdquo;) sees only a private, encrypted connection.</>
-      ),
+      protectedSub: ispCopy({
+        known: (isp) => (
+          <>You look like someone else, somewhere else. Your provider (&ldquo;{isp}&rdquo;) and others in between see only a private, encrypted connection.</>
+        ),
+        unknown: <>You look like someone else, somewhere else. Others in between see only a private, encrypted connection.</>,
+      }),
       ctaProtect: "Make my connection private",
     },
   },
@@ -271,14 +324,20 @@ export const CONNECTION_COPY: Record<ToneOfVoice, ConnectionCopy> = {
   empowering: {
     mapSpotlight: {
       exposedHeadline: <>You decide who sees you {coral("online")}</>,
-      exposedSub: (isp) => (
-        <>Right now your provider (&ldquo;{isp}&rdquo;) chooses what it can see. Take that decision back.</>
-      ),
+      exposedSub: ispCopy({
+        known: (isp) => (
+          <>Right now your provider (&ldquo;{isp}&rdquo;) and others along the way choose what&rsquo;s visible. Take that decision back.</>
+        ),
+        unknown: <>Right now, others along the way choose what&rsquo;s visible. Take that decision back.</>,
+      }),
       connectingHeadline: <>Taking back control&hellip;</>,
       protectedHeadline: <>You&rsquo;re back in {teal("control")}</>,
-      protectedSub: (isp) => (
-        <>You choose what&rsquo;s visible now. Your provider (&ldquo;{isp}&rdquo;) sees only an encrypted connection.</>
-      ),
+      protectedSub: ispCopy({
+        known: (isp) => (
+          <>You choose what&rsquo;s visible now. Your provider (&ldquo;{isp}&rdquo;) and others in between see only an encrypted connection.</>
+        ),
+        unknown: <>You choose what&rsquo;s visible now. Others in between see only an encrypted connection.</>,
+      }),
       ctaProtect: "Take control",
       cardHeadingIdle: "Not yours to control yet:",
       cardHeadingActive: "Taking this back\u2026",
@@ -286,7 +345,7 @@ export const CONNECTION_COPY: Record<ToneOfVoice, ConnectionCopy> = {
     browsing: {
       visibleLabel: "Visible",
       exposedHeadline: "You decide who sees your day online",
-      exposedSub: "On this network, your everyday moments are visible to others. Change that.",
+      exposedSub: "On this network, your provider and others can see your everyday moments. Change that.",
       cta: "Take control",
       connectingHeadline: "Taking it back\u2026",
       protectedHeadline: "It's yours again.",
@@ -297,14 +356,20 @@ export const CONNECTION_COPY: Record<ToneOfVoice, ConnectionCopy> = {
     },
     hybrid: {
       exposedHeadline: <>Take back control of what&rsquo;s {coral("visible")}</>,
-      exposedSub: (isp) => (
-        <>Right now your provider (&ldquo;{isp}&rdquo;) decides what it can see. Take that decision back.</>
-      ),
+      exposedSub: ispCopy({
+        known: (isp) => (
+          <>Right now your provider (&ldquo;{isp}&rdquo;) and others along the way decide what&rsquo;s visible. Take that decision back.</>
+        ),
+        unknown: <>Right now, others along the way decide what&rsquo;s visible. Take that decision back.</>,
+      }),
       connectingHeadline: <>Taking back control&hellip;</>,
       protectedHeadline: <>You&rsquo;re back in {teal("control")}</>,
-      protectedSub: (isp) => (
-        <>You choose what&rsquo;s visible now. Your provider (&ldquo;{isp}&rdquo;) sees only an encrypted connection.</>
-      ),
+      protectedSub: ispCopy({
+        known: (isp) => (
+          <>You choose what&rsquo;s visible now. Your provider (&ldquo;{isp}&rdquo;) and others in between see only an encrypted connection.</>
+        ),
+        unknown: <>You choose what&rsquo;s visible now. Others in between see only an encrypted connection.</>,
+      }),
       ctaProtect: "Take control",
     },
   },
@@ -312,14 +377,26 @@ export const CONNECTION_COPY: Record<ToneOfVoice, ConnectionCopy> = {
   educational: {
     mapSpotlight: {
       exposedHeadline: <>Here&rsquo;s what your network can {coral("see")}</>,
-      exposedSub: (isp) => (
-        <>Without a VPN, your provider (&ldquo;{isp}&rdquo;) logs the sites you visit, when, and for how long.</>
-      ),
+      exposedSub: ispCopy({
+        known: (isp) => (
+          <>
+            Without a VPN, your provider (&ldquo;{isp}&rdquo;), the networks you use, and the sites you visit can log what
+            you do online.
+          </>
+        ),
+        unknown: <>Without a VPN, the networks you use and the sites you visit can log what you do online.</>,
+      }),
       connectingHeadline: <>Encrypting your traffic&hellip;</>,
       protectedHeadline: <>Your traffic is now {teal("encrypted")}</>,
-      protectedSub: (isp) => (
-        <>A VPN routes your traffic through an encrypted tunnel, so your provider (&ldquo;{isp}&rdquo;) sees only that a connection exists.</>
-      ),
+      protectedSub: ispCopy({
+        known: (isp) => (
+          <>
+            A VPN routes your traffic through an encrypted tunnel, so your provider (&ldquo;{isp}&rdquo;) and others in
+            between see only that a connection exists.
+          </>
+        ),
+        unknown: <>A VPN routes your traffic through an encrypted tunnel, so others in between see only that a connection exists.</>,
+      }),
       ctaProtect: "Encrypt my connection",
       cardHeadingIdle: "Visible without encryption:",
       cardHeadingActive: "Encrypting this\u2026",
@@ -327,7 +404,7 @@ export const CONNECTION_COPY: Record<ToneOfVoice, ConnectionCopy> = {
     browsing: {
       visibleLabel: "Visible",
       exposedHeadline: "Here's what others on this network can see",
-      exposedSub: "Without encryption, the everyday things you do are visible to others nearby.",
+      exposedSub: "Without encryption, your provider, the network, and the sites you visit can see the everyday things you do.",
       cta: "Encrypt my connection",
       connectingHeadline: "Encrypting each entry\u2026",
       protectedHeadline: "Everything's encrypted now.",
@@ -338,14 +415,26 @@ export const CONNECTION_COPY: Record<ToneOfVoice, ConnectionCopy> = {
     },
     hybrid: {
       exposedHeadline: <>Here&rsquo;s what your network can {coral("see")}</>,
-      exposedSub: (isp) => (
-        <>Without a VPN, your provider (&ldquo;{isp}&rdquo;) logs the sites you visit, when, and for how long.</>
-      ),
+      exposedSub: ispCopy({
+        known: (isp) => (
+          <>
+            Without a VPN, your provider (&ldquo;{isp}&rdquo;), the networks you use, and the sites you visit can log what
+            you do online.
+          </>
+        ),
+        unknown: <>Without a VPN, the networks you use and the sites you visit can log what you do online.</>,
+      }),
       connectingHeadline: <>Encrypting your traffic&hellip;</>,
       protectedHeadline: <>Your traffic is now {teal("encrypted")}</>,
-      protectedSub: (isp) => (
-        <>A VPN routes your traffic through an encrypted tunnel, so your provider (&ldquo;{isp}&rdquo;) sees only that a connection exists.</>
-      ),
+      protectedSub: ispCopy({
+        known: (isp) => (
+          <>
+            A VPN routes your traffic through an encrypted tunnel, so your provider (&ldquo;{isp}&rdquo;) and others in
+            between see only that a connection exists.
+          </>
+        ),
+        unknown: <>A VPN routes your traffic through an encrypted tunnel, so others in between see only that a connection exists.</>,
+      }),
       ctaProtect: "Encrypt my connection",
     },
   },
