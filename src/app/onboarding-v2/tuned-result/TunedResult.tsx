@@ -1,6 +1,5 @@
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { motion, AnimatePresence } from "motion/react";
-import { Settings2 } from "lucide-react";
 import Spinner from "../components/Spinner";
 import { useReducedMotion } from "../versions/lib/useReducedMotion";
 import { JTBD_ICONS } from "../versions/lib/jtbdIcons";
@@ -66,7 +65,10 @@ interface TunedResultProps {
  * 2. **Move to top** — the SAME block (never unmounted) travels to its top
  *    position via Framer's `layout` FLIP; the spinner crossfades into the
  *    JTBD's category icon (reused from the picker via `JTBD_ICONS`, same
- *    slot, same size) and the subtext crossfades to the live "Applying X of
+ *    slot, same size per icon) — or, in Multiple mode with 2+ selections,
+ *    into a horizontal row of those same picker icons in selection order,
+ *    with a subtle left-to-right stagger — and the subtext crossfades to
+ *    the live "Applying X of
  *    N settings" counter.
  * 3. **Items materialize** — only once the block has landed do the 5 items
  *    begin their two-phase materialization, one at a time
@@ -212,12 +214,18 @@ export default function TunedResult({
             transition={{ opacity: { duration: sec(T.introFadeIn) }, layout: { duration: sec(T.moveToTop), ease: "easeInOut" } }}
             className="flex flex-col items-center gap-[12px]"
           >
-            {/* Icon slot — fixed size, so the loader spinner crossfading
-                into the JTBD category icon never causes a size jump; only
-                the glyph inside changes. */}
-            <div className="relative flex h-[48px] w-[48px] shrink-0 items-center justify-center">
+            {/* Icon slot — fixed height; Single mode (and Multiple with 1
+                pick) keeps a fixed 48×48 slot. Multiple mode with 2+
+                selections grows horizontally into a centered icon row
+                (same 32×48 per icon as Single mode) without shrinking or
+                wrapping. */}
+            <div
+              className={`relative flex h-[48px] shrink-0 items-center justify-center ${
+                isMultipleActive ? "min-w-[48px]" : "w-[48px]"
+              }`}
+            >
               {/* A true overlapping crossfade — the spinner fading out
-                  WHILE the category icon fades in — so no `mode="wait"`
+                  WHILE the category icon(s) fade in — so no `mode="wait"`
                   here (unlike the title/subtext text swaps below, which
                   use it deliberately to avoid two different strings
                   visually overlapping). */}
@@ -235,14 +243,27 @@ export default function TunedResult({
                   </motion.div>
                 ) : isMultipleActive ? (
                   <motion.div
-                    key="category-icon"
-                    className="absolute flex h-[32px] w-[48px] items-center justify-center"
+                    key="category-icons-row"
+                    className="absolute flex items-center justify-center gap-[8px]"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: sec(reduced ? 200 : T.iconCrossfade) }}
                   >
-                    <Settings2 size={28} strokeWidth={1.75} className="text-white" />
+                    {selectedJtbds!.map((id, i) => (
+                      <motion.img
+                        key={id}
+                        src={JTBD_ICONS[id]}
+                        alt=""
+                        className="h-[32px] w-[48px] object-contain"
+                        initial={{ opacity: reduced ? 1 : 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{
+                          duration: reduced ? 0 : sec(300),
+                          delay: reduced ? 0 : sec(i * T.iconRowStagger),
+                        }}
+                      />
+                    ))}
                   </motion.div>
                 ) : (
                   <motion.img

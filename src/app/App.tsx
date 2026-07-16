@@ -6,6 +6,7 @@ import OnboardingV2, { CONNECTION_GROUPS, connectionGroupForVariant, ONBOARDING_
 import { STAGE_SUPPORTS_TONE, TONE_OPTIONS, type ToneOfVoice } from "./onboarding-v2/lib/toneOfVoice";
 import type { JtbdId, SelectionMode } from "./onboarding-v2/lib/jtbdData";
 import MakeYoursModal from "./components/MakeYoursModal";
+import SignInScreen from "./components/SignInScreen";
 import FlowOverview from "./components/FlowOverview";
 import PrdOverview from "./components/PrdOverview";
 import { ThemeProvider, useTheme } from "./ThemeContext";
@@ -36,7 +37,7 @@ const WELCOME_BANNER_SHOWN_KEY = "welcomeBannerShown";
 // from the start screen's secondary button; "prd" — the informational "PRD
 // overview" screen, reachable only from the start screen's tertiary button.
 // Both return to "start".
-type AppState = "start" | "overview" | "prd" | "onboarding" | "transitioning" | "app";
+type AppState = "start" | "signin" | "overview" | "prd" | "onboarding" | "transitioning" | "app";
 
 // ── Prototype controls (dev-only HUD, not part of the product UI) ────────────
 function PrototypeControls({
@@ -422,19 +423,17 @@ function AppInner() {
   // ── State machine ───────────────────────────────────────────────────────────
 
   if (appState === "start") {
-    const startOnboarding = () => {
-      localStorage.removeItem(SHOWN_KEY);
-      localStorage.removeItem(WELCOME_BANNER_SHOWN_KEY);
-      setShowWelcomeBanner(false);
-      setCurrentStage("connection");
-      setAppState("onboarding");
-    };
+    // "Start onboarding experience" now goes to the Sign In step first —
+    // `startOnboarding` (the former direct handler, now fired by Sign In's
+    // `onSignIn` once its 2s loader completes) is what actually advances to
+    // Stage 1.
+    const goToSignIn = () => setAppState("signin");
     return (
       <div className="relative h-screen w-screen bg-cover bg-center" style={{ backgroundImage: `url(${windowsWallpaperUrl})` }}>
         <div className="flex h-full w-full flex-col items-center justify-center gap-[24px] p-[24px]">
           <div className="flex flex-col rounded-[16px] bg-[rgba(0,0,0,0.4)] p-[24px] backdrop-blur-md">
             <button
-              onClick={startOnboarding}
+              onClick={goToSignIn}
               className="w-[320px] rounded-[6px] bg-[#6d4aff] px-[32px] pb-[16px] pt-[14px] font-['Segoe_UI_Variable',sans-serif] text-[17px] font-semibold leading-[22px] text-white shadow-[0_0_24px_rgba(109,74,255,0.4)] transition-all duration-200 hover:bg-[#7c5cff] active:scale-[0.97]"
               style={{ fontVariationSettings: "'opsz' 12" }}
             >
@@ -471,6 +470,19 @@ function AppInner() {
         />
       </div>
     );
+  }
+
+  if (appState === "signin") {
+    // Fires once Sign In's 2s "Signing in…" loader completes — this is the
+    // exact same handoff "Start onboarding experience" used to do directly.
+    const startOnboarding = () => {
+      localStorage.removeItem(SHOWN_KEY);
+      localStorage.removeItem(WELCOME_BANNER_SHOWN_KEY);
+      setShowWelcomeBanner(false);
+      setCurrentStage("connection");
+      setAppState("onboarding");
+    };
+    return <SignInScreen onSignIn={startOnboarding} onClose={handleCloseOnboarding} />;
   }
 
   if (appState === "overview") {

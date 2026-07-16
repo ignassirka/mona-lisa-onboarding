@@ -8,7 +8,9 @@
  * Header intro sequence (all mount-relative): the header block fades in
  * (`introFadeIn`) and holds centered until `centerHold`, then travels to its
  * top position over `moveToTop`, during which the loader icon crossfades
- * into the JTBD category icon (`iconCrossfade`) and the subtext crossfades
+ * into the JTBD category icon (`iconCrossfade`) — or, in Multiple mode
+ * with 2+ selections, into a row of those same picker icons with per-icon
+ * stagger (`iconRowStagger`) — and the subtext crossfades
  * to the live counter. Rows begin only once the block has landed, i.e. at
  * `centerHold + moveToTop`.
  *
@@ -30,6 +32,10 @@ export const TUNED_RESULT_TIMING = {
   centerHold: 2000,
   moveToTop: 600,
   iconCrossfade: 600,
+  /** Per-icon left-to-right stagger within the Multiple-mode icon-row
+   * crossfade (layered inside `iconCrossfade`). Disabled when
+   * `prefers-reduced-motion` is active. */
+  iconRowStagger: 70,
   reducedIntroHold: 500,
   spinnerHold: 1000,
   resolveDuration: 300,
