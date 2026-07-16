@@ -415,11 +415,11 @@ export default function OnboardingV2({
               exit={{ opacity: 0, transition: { duration: 0.2 } }}
               transition={{ duration: 0.3 }}
               onClick={handleSkipConnection}
-              aria-label="Skip to job selection"
+              aria-label="I'll do it later — skip to job selection"
               className="absolute right-[20px] top-[52px] z-[1050] flex items-center gap-[6px] rounded-[4px] px-[8px] py-[6px] font-['Segoe_UI_Variable',sans-serif] text-[14px] leading-[20px] text-[rgba(255,255,255,0.6)] outline-none transition-colors duration-150 hover:bg-[rgba(255,255,255,0.06)] hover:text-white focus-visible:ring-1 focus-visible:ring-white/30"
               style={{ fontVariationSettings: "'opsz' 11" }}
             >
-              Skip
+              I'll do it later
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                 <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
