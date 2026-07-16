@@ -221,6 +221,7 @@ export type CountryRowVpnProps = {
   onDisconnect?: () => void;
   /** Right-side hint on hover; defaults to "Connect". */
   actionLabel?: string;
+  disabled?: boolean;
 };
 
 export type CountryRowNavigateProps = {
@@ -238,8 +239,10 @@ export type CountryRowProps = CountryRowVpnProps | CountryRowNavigateProps;
 export function CountryRow(props: CountryRowProps) {
   const [hovered, setHovered] = useState(false);
   const isNavigate = props.variant === "navigate";
+  const disabled = !isNavigate && props.disabled;
 
   const handleClick = () => {
+    if (disabled) return;
     if (isNavigate) {
       props.onNavigate();
       return;
@@ -260,7 +263,7 @@ export function CountryRow(props: CountryRowProps) {
   const showActionHint = isNavigate || (!isConnected && !isConnecting);
 
   const rowBg =
-    hovered && (isNavigate || (!isConnected && !isConnecting))
+    !disabled && hovered && (isNavigate || (!isConnected && !isConnecting))
       ? "rgba(255,255,255,0.1)"
       : "transparent";
 
@@ -270,15 +273,18 @@ export function CountryRow(props: CountryRowProps) {
     <button
       type="button"
       onClick={handleClick}
-      onMouseEnter={() => setHovered(true)}
+      onMouseEnter={() => { if (!disabled) setHovered(true); }}
       onMouseLeave={() => setHovered(false)}
-      className="flex items-center w-full rounded-[8px] transition-colors duration-150 cursor-pointer"
+      disabled={disabled}
+      aria-disabled={disabled || undefined}
+      className={`flex items-center w-full rounded-[8px] transition-colors duration-150 ${disabled ? "cursor-default" : "cursor-pointer"}`}
       style={{
         padding: "12px",
         gap: "12px",
         height: 44,
         justifyContent: "space-between",
         background: rowBg,
+        opacity: disabled ? 0.45 : 1,
       }}
     >
       {/* Left: optional rank + flag + name + active dot (VPN only) */}
@@ -305,7 +311,7 @@ export function CountryRow(props: CountryRowProps) {
 
       {/* Right: Connect / Explore on hover */}
       <div className="shrink-0 flex items-center" style={{ height: 20 }}>
-        {showActionHint && (
+        {!disabled && showActionHint && (
           <span
             style={{
               ...fontSemibold,
@@ -521,6 +527,8 @@ export function CountryBrowser({
   const hasOnboardingIntents = !!onboardingJtbds && onboardingJtbds.length > 0;
   const isFreePlan = sessionPlan === "free";
   const profilesLocked = isFreePlan && hasOnboardingIntents;
+  /** Free + disconnected — individual country picks are Plus-only; fastest row stays active. */
+  const countriesLocked = isFreePlan && vpnStatus === "unprotected";
   const [activeNav, setActiveNav] = useState<NavItem>(hasOnboardingIntents ? "profiles" : "countries");
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -757,8 +765,9 @@ export function CountryBrowser({
 
           {/* Scrollable list */}
           <div className="flex-1 min-h-0 overflow-y-auto px-[8px] pb-[8px]">
-            {/* Fastest country row */}
-            {activeFilter === "all" && !searchQuery && (
+            {/* Fastest country row — hidden while disconnected; free users pick
+                via the connection card instead. */}
+            {activeFilter === "all" && !searchQuery && vpnStatus !== "unprotected" && (
               <CountryRow
                 name="Fastest country"
                 isFastest
@@ -780,6 +789,7 @@ export function CountryBrowser({
                 isConnecting={vpnStatus === "connecting" && vpnConnectedCountry === name}
                 onConnect={() => onVpnConnect?.(name)}
                 onDisconnect={onVpnDisconnect}
+                disabled={countriesLocked}
               />
             ))}
 

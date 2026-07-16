@@ -516,10 +516,12 @@ function getCityForCountry(country: string): string {
   return countryToCity[country] ?? country;
 }
 
-/** i18n-ready copy for the free-tier connected connection card (Figma 22247-24174). */
+/** i18n-ready copy for the free-tier connection card. */
 const FREE_CONNECTION_CARD_COPY = {
-  title: "Fastest free server",
-  subtitle: "Netherlands - NL-FREE#239541",
+  connectedTitle: "Fastest free server",
+  connectedSubtitle: "Netherlands - NL-FREE#239541",
+  disconnectedTitle: "Fastest free server",
+  disconnectedSubtitle: "Auto-selected from 5 free countries",
   changeServer: "Change server",
   disconnect: "Disconnect",
 } as const;
@@ -563,15 +565,20 @@ export default function ConnectionCardLeft1({
 
   const isConnected = vpnStatus === "protected";
   const isConnecting = vpnStatus === "connecting";
+  const isFreeUnprotected = isFreeTier && vpnStatus === "unprotected";
 
   const title = isFreeTier && (isConnected || isConnecting)
-    ? FREE_CONNECTION_CARD_COPY.title
-    : (displayCountry || "Fastest country");
+    ? FREE_CONNECTION_CARD_COPY.connectedTitle
+    : isFreeUnprotected
+      ? FREE_CONNECTION_CARD_COPY.disconnectedTitle
+      : (displayCountry || "Fastest country");
   const subtitle = isFreeTier && (isConnected || isConnecting)
-    ? FREE_CONNECTION_CARD_COPY.subtitle
-    : displayCountry
-      ? `${getCityForCountry(displayCountry)} - #1`
-      : "The best server based on your location ";
+    ? FREE_CONNECTION_CARD_COPY.connectedSubtitle
+    : isFreeUnprotected
+      ? FREE_CONNECTION_CARD_COPY.disconnectedSubtitle
+      : displayCountry
+        ? `${getCityForCountry(displayCountry)} - #1`
+        : "The best server based on your location ";
 
   const handleButtonClick = () => {
     if (isConnected || isConnecting) {
