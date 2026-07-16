@@ -11,6 +11,7 @@ import SimulatedWebCheckout from "./components/checkout/SimulatedWebCheckout";
 import LoaderScreen from "./components/LoaderScreen";
 import PlusWelcomeState from "./components/PlusWelcomeState";
 import ControlPanelOverlay from "./components/ControlPanelOverlay";
+import SkipConnectionLaterButton from "./components/SkipConnectionLaterButton";
 import InPlainSight from "./versions/v4-in-plain-sight/InPlainSight";
 import InPlainSightSplit from "./versions/v4-in-plain-sight/InPlainSightSplit";
 import Hybrid from "./versions/hybrid/Hybrid";
@@ -298,6 +299,18 @@ export default function OnboardingV2({
     setPhase("jtbd");
   }, []);
 
+  /** Main-app handoff — when stage 1 was skipped, never mark VPN connected. */
+  const handleExit = useCallback((
+    selectedJtbds: JtbdId[] = [],
+    plan: import("../lib/sessionPlan").SessionPlan = "free",
+    options: import("../lib/sessionPlan").OnboardingExitOptions = {},
+  ) => {
+    onExit?.(selectedJtbds, plan, {
+      ...options,
+      vpnConnected: skippedConnection ? false : options.vpnConnected,
+    });
+  }, [onExit, skippedConnection]);
+
   // ── Map focus per phase ─────────────────────────────────────────────────────
   const stage = PHASE_STAGE[phase];
   // `skippedConnection` overrides the usual "protected once you reach tuning/
@@ -409,29 +422,13 @@ export default function OnboardingV2({
 
         <WindowChrome onClose={onClose} />
 
-        {/* Prototype utility — bypass stage 1 and land on JTBD selection
-            directly. Rendered above all four connection-stage variants since
-            it's a top-level sibling, not part of any of them. */}
-        <AnimatePresence>
-          {showOverlayContent && (
-            <motion.button
-              key="skip-connection"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0, transition: { duration: 0.2 } }}
-              transition={{ duration: 0.3 }}
-              onClick={handleSkipConnection}
-              aria-label="I'll do it later — skip to job selection"
-              className="absolute right-[20px] top-[52px] z-[1050] flex items-center gap-[6px] rounded-[4px] px-[8px] py-[6px] font-['Segoe_UI_Variable',sans-serif] text-[14px] font-semibold leading-[20px] text-[rgba(255,255,255,0.6)] outline-none transition-colors duration-150 hover:bg-[rgba(255,255,255,0.06)] hover:text-white focus-visible:ring-1 focus-visible:ring-white/30"
-              style={{ fontVariationSettings: "'opsz' 10.5", fontFeatureSettings: "'fina', 'init'" }}
-            >
-              I'll do it later
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </motion.button>
-          )}
-        </AnimatePresence>
+        {/* Stage 1 skip — top-right, unprotected only (all connection variants). */}
+        {phase === "unprotected" && (
+          <SkipConnectionLaterButton
+            onClick={handleSkipConnection}
+            className="absolute right-[20px] top-[52px] z-[1010]"
+          />
+        )}
 
         {/* ══════════════════ Stage 1: Establishing VPN connection ══════════════════ */}
         {/* ── Centered overlay: header + info card + CTA (states 1–3) ── */}
@@ -551,14 +548,14 @@ export default function OnboardingV2({
               </div>
 
               {/* CTA */}
-              <div className="absolute left-1/2 top-[632px] h-[44px] -translate-x-1/2">
+              <div className="absolute left-1/2 top-[632px] flex -translate-x-1/2 flex-col items-center gap-[12px]">
                 <AnimatePresence>
                   {phase === "unprotected" && (
                     <motion.button
                       key="cta-protect"
                       onClick={handleProtect}
                       disabled={!isLive}
-                      className="ob2-cta-glow absolute left-1/2 -translate-x-1/2 whitespace-nowrap rounded-[4px] bg-[#6d4aff] px-[24px] pb-[12px] pt-[10px] font-['Segoe_UI_Variable',sans-serif] text-[16px] font-semibold leading-[20px] text-white transition-[background-color,transform,opacity] duration-300 hover:bg-[#7c5cff] active:scale-[0.97] disabled:cursor-default disabled:opacity-50"
+                      className="ob2-cta-glow whitespace-nowrap rounded-[4px] bg-[#6d4aff] px-[24px] pb-[12px] pt-[10px] font-['Segoe_UI_Variable',sans-serif] text-[16px] font-semibold leading-[20px] text-white transition-[background-color,transform,opacity] duration-300 hover:bg-[#7c5cff] active:scale-[0.97] disabled:cursor-default disabled:opacity-50"
                       style={{ fontVariationSettings: "'opsz' 12" }}
                       initial={{ opacity: 0, y: 20, scale: 0.95 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -572,7 +569,7 @@ export default function OnboardingV2({
                     <motion.button
                       key="cta-continue"
                       onClick={handleContinue}
-                      className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap rounded-[4px] bg-[#6d4aff] px-[24px] pb-[12px] pt-[10px] font-['Segoe_UI_Variable',sans-serif] text-[16px] font-semibold leading-[20px] text-white transition-all duration-150 hover:bg-[#7c5cff] active:scale-[0.97]"
+                      className="whitespace-nowrap rounded-[4px] bg-[#6d4aff] px-[24px] pb-[12px] pt-[10px] font-['Segoe_UI_Variable',sans-serif] text-[16px] font-semibold leading-[20px] text-white transition-all duration-150 hover:bg-[#7c5cff] active:scale-[0.97]"
                       style={{ fontVariationSettings: "'opsz' 12" }}
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -605,7 +602,7 @@ export default function OnboardingV2({
                 selected={selectedJtbd}
                 onSelect={setSelectedJtbd}
                 onContinue={() => effectiveJtbdKey && setPhase("tuned")}
-                onSkip={() => onExit?.([], "free", { vpnConnected: false })}
+                onSkip={() => handleExit([], "free", { vpnConnected: false })}
                 tone={tone}
                 selectionMode={selectionMode}
                 selectedMultiple={selectedJtbds}
@@ -664,7 +661,7 @@ export default function OnboardingV2({
                 selectionMode={selectionMode}
                 selectedJtbds={selectedJtbds}
                 onUpgrade={() => setPhase("web-checkout")}
-                onContinueFree={() => onExit?.(effectiveSelectedJtbds, "free")}
+                onContinueFree={() => handleExit(effectiveSelectedJtbds, "free")}
                 onBack={() => setPhase("tuned")}
               />
             </motion.div>
@@ -731,7 +728,7 @@ export default function OnboardingV2({
                 selectedJtbds={selectedJtbds}
                 layout={resultLayout}
                 tone={tone}
-                onEnterApp={() => onExit?.(effectiveSelectedJtbds, "plus")}
+                onEnterApp={() => handleExit(effectiveSelectedJtbds, "plus")}
               />
             </motion.div>
           )}
