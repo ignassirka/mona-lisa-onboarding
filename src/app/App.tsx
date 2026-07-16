@@ -12,6 +12,7 @@ import PrdOverview from "./components/PrdOverview";
 import { ThemeProvider, useTheme } from "./ThemeContext";
 import type { MapLayerOption } from "../imports/RightVpnFeatures";
 import { TRANSITION_TIMING } from "./transitionTiming";
+import type { SessionPlan } from "./lib/sessionPlan";
 import windowsWallpaperUrl from "./assets/windows-wallpaper.png";
 
 export type VpnStatus = "unprotected" | "connecting" | "protected";
@@ -225,6 +226,14 @@ function AppInner() {
   // onboarding was skipped) — drives the main app's Profiles tab default
   // and which profile items it generates. See `handleEnterApp`.
   const [onboardingJtbds, setOnboardingJtbds] = useState<JtbdId[]>([]);
+  /** Whether the user landed in the main app on Free or VPN Plus — set by
+   * `handleEnterApp` from onboarding exit (`"free"` for Continue free + Skip,
+   * `"plus"` only after in-session checkout). Drives the free-tier connection
+   * card, disabled onboarding profiles, and Plus teaser banner. */
+  const [sessionPlan, setSessionPlan] = useState<SessionPlan>("plus");
+  /** Incremented to ask `CountryBrowser` to switch to the Countries tab
+   * (wired from the free-tier connection card's "Change server" button). */
+  const [countriesTabFocusKey, setCountriesTabFocusKey] = useState(0);
   // Fires the calm, auto-dismissing welcome banner exactly once, right
   // after the "Set it up your way" modal closes. See `handleModalClose`.
   const [showWelcomeBanner, setShowWelcomeBanner] = useState(false);
@@ -320,7 +329,8 @@ function AppInner() {
   }, []);
 
   // Called when user exits onboarding. Fires the crossfade transition.
-  const handleEnterApp = useCallback((selectedJtbds: JtbdId[] = []) => {
+  const handleEnterApp = useCallback((selectedJtbds: JtbdId[] = [], plan: SessionPlan = "free") => {
+    setSessionPlan(plan);
     setVpnStatus("protected");
     setConnectedCountry("Netherlands");
     setShowEntrance(true);
@@ -335,6 +345,10 @@ function AppInner() {
         setShowModal(true);
       }
     }, totalDuration);
+  }, []);
+
+  const handleChangeServer = useCallback(() => {
+    setCountriesTabFocusKey((k) => k + 1);
   }, []);
 
   // ── Main app panel ──────────────────────────────────────────────────────────
@@ -369,6 +383,8 @@ function AppInner() {
             showEntrance={showEntrance}
             netShieldEnabled={netShieldEnabled}
             showWelcomeBanner={showWelcomeBanner}
+            sessionPlan={sessionPlan}
+            onChangeServer={handleChangeServer}
           />
         </div>
 
@@ -395,6 +411,8 @@ function AppInner() {
             vpnStatus={vpnStatus}
             physicalCountry={physicalCountry}
             onboardingJtbds={onboardingJtbds}
+            sessionPlan={sessionPlan}
+            countriesTabFocusKey={countriesTabFocusKey}
           />
           <div
             className="absolute top-0 bottom-0 right-0 w-[8px] z-[10] cursor-col-resize flex items-stretch justify-center"

@@ -16,6 +16,7 @@ import StatusGradient from "../../imports/StatusGradient";
 import OnboardingOverlay from "./OnboardingOverlay";
 import type { OnboardingPhase } from "./OnboardingOverlay";
 import type { VpnStatus } from "../App";
+import type { SessionPlan } from "../lib/sessionPlan";
 
 // ─── Layer accent colors for the transition flash ─────────────────────────────
 
@@ -367,6 +368,10 @@ interface WorldMapProps {
    * fires the calm, auto-dismissing welcome banner just below the
    * connection card. See `WelcomeBanner.tsx`. */
   showWelcomeBanner?: boolean;
+  /** Free vs. paid landing — drives the connection card variant. */
+  sessionPlan?: SessionPlan;
+  /** Free-tier only — switches the left panel to country/server selection. */
+  onChangeServer?: () => void;
 }
 
 export function WorldMap({
@@ -387,6 +392,8 @@ export function WorldMap({
   showEntrance = false,
   netShieldEnabled = true,
   showWelcomeBanner = false,
+  sessionPlan = "plus",
+  onChangeServer,
 }: WorldMapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -862,6 +869,8 @@ export function WorldMap({
             onConnect={onConnect}
             onDisconnect={onDisconnect}
             physicalCountry={physicalCountry}
+            connectionTier={sessionPlan === "free" ? "free" : "plus"}
+            onChangeServer={onChangeServer}
           />
           {transitionLabel && (
             <div

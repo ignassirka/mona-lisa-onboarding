@@ -181,8 +181,10 @@ interface OnboardingV2Props {
    * up with (Single mode: the one pick, as a 1-item array; Multiple mode:
    * the full ordered selection), so the main app can default to the
    * Profiles tab and generate profile items for them. Empty/omitted when
-   * onboarding is abandoned via Skip (no real intent was ever committed). */
-  onExit?: (selectedJtbds?: JtbdId[]) => void;
+   * onboarding is abandoned via Skip (no real intent was ever committed).
+   * The second argument is the session plan: `"free"` for Continue free and
+   * all Skip exits; `"plus"` only after in-session checkout → Plus Welcome. */
+  onExit?: (selectedJtbds?: JtbdId[], plan?: import("../lib/sessionPlan").SessionPlan) => void;
   /** Fired by the window chrome's "X" close control — distinct from
    * `onExit` (which hands off to the main app once onboarding completes
    * normally): this returns to the prototype's initial start screen (the
@@ -597,7 +599,7 @@ export default function OnboardingV2({
                 selected={selectedJtbd}
                 onSelect={setSelectedJtbd}
                 onContinue={() => effectiveJtbdKey && setPhase("tuned")}
-                onSkip={() => onExit?.([])}
+                onSkip={() => onExit?.([], "free")}
                 tone={tone}
                 selectionMode={selectionMode}
                 selectedMultiple={selectedJtbds}
@@ -656,7 +658,7 @@ export default function OnboardingV2({
                 selectionMode={selectionMode}
                 selectedJtbds={selectedJtbds}
                 onUpgrade={() => setPhase("web-checkout")}
-                onContinueFree={() => onExit?.(effectiveSelectedJtbds)}
+                onContinueFree={() => onExit?.(effectiveSelectedJtbds, "free")}
                 onBack={() => setPhase("tuned")}
               />
             </motion.div>
@@ -723,7 +725,7 @@ export default function OnboardingV2({
                 selectedJtbds={selectedJtbds}
                 layout={resultLayout}
                 tone={tone}
-                onEnterApp={() => onExit?.(effectiveSelectedJtbds)}
+                onEnterApp={() => onExit?.(effectiveSelectedJtbds, "plus")}
               />
             </motion.div>
           )}

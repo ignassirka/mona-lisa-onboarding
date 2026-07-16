@@ -26,6 +26,7 @@ import Identity from "../../imports/Identity";
 import P2P from "../../imports/P2P";
 import { CountryBrowser, CountryRow } from "./CountryBrowser";
 import type { JtbdId } from "../onboarding-v2/lib/jtbdData";
+import type { SessionPlan } from "../lib/sessionPlan";
 import searchSvgPaths from "../../imports/svg-m0k6r02h9x";
 
 // ─── Layer Icon (colored Figma components) ────────────────────────────────────
@@ -517,6 +518,8 @@ export function ISPRegulationsPanel({
   vpnStatus = "unprotected",
   physicalCountry = "Belarus",
   onboardingJtbds,
+  sessionPlan = "plus",
+  countriesTabFocusKey = 0,
 }: {
   externalSelectedCountry?: string | null;
   onCountryChange?: (name: string | null) => void;
@@ -531,6 +534,9 @@ export function ISPRegulationsPanel({
    * threaded straight through to `CountryBrowser`, which defaults to the
    * Profiles tab and generates profile items for them when present. */
   onboardingJtbds?: JtbdId[];
+  sessionPlan?: SessionPlan;
+  /** Increment to focus the Countries tab (from free-tier "Change server"). */
+  countriesTabFocusKey?: number;
 } = {}) {
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
 
@@ -575,6 +581,8 @@ export function ISPRegulationsPanel({
           onVpnDisconnect={onVpnDisconnect}
           onboardingJtbds={onboardingJtbds}
           physicalCountry={physicalCountry}
+          sessionPlan={sessionPlan}
+          countriesTabFocusKey={countriesTabFocusKey}
         />
       ) : (
         <HomeView

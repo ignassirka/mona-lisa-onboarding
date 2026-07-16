@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { motion } from "motion/react";
 import chipSvgPaths from "../../imports/svg-6mqrghog0w";
 import tabSvgPaths from "../../imports/svg-gr3yl27tf4";
@@ -16,8 +16,10 @@ import icInfoCircle from "../../imports/profile-icons/ic-info-circle-filled.svg"
 import icArrowRightLeft from "../../imports/profile-icons/ic-arrow-right-arrow-left.svg";
 import recentsEmptyIcon from "../../imports/recents-empty-icon.svg";
 import checkmarkCircleFilled from "../onboarding-v2/assets/checkmark-circle-filled.svg";
+import vpnPlusBadgeUrl from "../onboarding-v2/assets/vpn-plus-badge.svg";
 import { JTBD_PROFILE_LABEL, type JtbdId } from "../onboarding-v2/lib/jtbdData";
 import { useReducedMotion } from "../onboarding-v2/versions/lib/useReducedMotion";
+import type { SessionPlan } from "../lib/sessionPlan";
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
@@ -362,6 +364,12 @@ const PROFILES_ONBOARDING_BANNER_COPY = {
   dismissLabel: "Dismiss",
 } as const;
 
+const PROFILES_PLUS_TEASER_BANNER_COPY = {
+  message: "Unlock these profiles with VPN Plus",
+  supporting: "One-tap setups for everything you picked — available on VPN Plus.",
+  dismissLabel: "Dismiss",
+} as const;
+
 /** Persists whether the user has dismissed the onboarding-profiles banner —
  * once set, it never reappears on any future visit/launch. Separate key
  * from every other one-time flag in the app (`makeYoursModalShown`,
@@ -382,15 +390,19 @@ function ThreeDotsIcon() {
 
 // ─── Profile row ──────────────────────────────────────────────────────────────
 
-function ProfileRow({ profile }: { profile: ProfileEntry }) {
+function ProfileRow({ profile, disabled = false }: { profile: ProfileEntry; disabled?: boolean }) {
   const [hovered, setHovered] = useState(false);
 
   return (
     <div
-      onMouseEnter={() => setHovered(true)}
+      onMouseEnter={() => { if (!disabled) setHovered(true); }}
       onMouseLeave={() => setHovered(false)}
-      className="flex items-center w-full rounded-[8px] cursor-pointer transition-colors duration-150"
-      style={{ background: hovered ? "rgba(255,255,255,0.07)" : "transparent" }}
+      className={`flex items-center w-full rounded-[8px] transition-colors duration-150 ${disabled ? "cursor-default pointer-events-none" : "cursor-pointer"}`}
+      style={{
+        background: !disabled && hovered ? "rgba(255,255,255,0.07)" : "transparent",
+        opacity: disabled ? 0.45 : 1,
+      }}
+      aria-disabled={disabled || undefined}
     >
       {/* Primary: icon + titles */}
       <div
@@ -446,7 +458,8 @@ function ProfileRow({ profile }: { profile: ProfileEntry }) {
         </div>
       </div>
 
-      {/* Secondary: three-dots (hover only) */}
+      {/* Secondary: three-dots (hover only, hidden when disabled) */}
+      {!disabled && (
       <div
         className="shrink-0 flex items-center justify-center rounded-[8px] transition-opacity duration-150"
         style={{
@@ -459,6 +472,7 @@ function ProfileRow({ profile }: { profile: ProfileEntry }) {
       >
         <ThreeDotsIcon />
       </div>
+      )}
     </div>
   );
 }
@@ -486,6 +500,10 @@ type CountryBrowserProps = {
    * `skipOnboarding` bypassed onboarding entirely) falls back to this
    * component's entire pre-existing behavior, byte-for-byte. */
   onboardingJtbds?: JtbdId[];
+  /** Free vs. paid landing — disables onboarding-generated profiles on Free. */
+  sessionPlan?: SessionPlan;
+  /** Increment to switch to the Countries tab (free-tier "Change server"). */
+  countriesTabFocusKey?: number;
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -497,8 +515,12 @@ export function CountryBrowser({
   onVpnDisconnect,
   physicalCountry = "Belarus",
   onboardingJtbds,
+  sessionPlan = "plus",
+  countriesTabFocusKey = 0,
 }: CountryBrowserProps = {}) {
   const hasOnboardingIntents = !!onboardingJtbds && onboardingJtbds.length > 0;
+  const isFreePlan = sessionPlan === "free";
+  const profilesLocked = isFreePlan && hasOnboardingIntents;
   const [activeNav, setActiveNav] = useState<NavItem>(hasOnboardingIntents ? "profiles" : "countries");
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -514,10 +536,18 @@ export function CountryBrowser({
     () => typeof localStorage !== "undefined" && localStorage.getItem(PROFILES_ONBOARDING_BANNER_DISMISSED_KEY) === "true",
   );
   const showOnboardingBanner = hasOnboardingIntents && !bannerDismissed;
+  const showPlusTeaserBanner = showOnboardingBanner && isFreePlan;
+  const showPaidOnboardingBanner = showOnboardingBanner && !isFreePlan;
   const dismissOnboardingBanner = () => {
     localStorage.setItem(PROFILES_ONBOARDING_BANNER_DISMISSED_KEY, "true");
     setBannerDismissed(true);
   };
+
+  useEffect(() => {
+    if (countriesTabFocusKey > 0) {
+      setActiveNav("countries");
+    }
+  }, [countriesTabFocusKey]);
 
   // Profile items generated from the onboarding selection, in selection
   // order — reorders/filters the SAME 6 hardcoded profiles above (server
@@ -816,7 +846,44 @@ export function CountryBrowser({
           {/* Onboarding-profiles banner — inline note, not a floating toast;
               sits directly beneath the title, above the first row. Never
               blocks selecting a profile or "New profile" below it. */}
-          {showOnboardingBanner && (
+          {showPlusTeaserBanner && (
+            <motion.div
+              className="shrink-0 flex items-start rounded-[8px]"
+              style={{ gap: 8, padding: 12, margin: "0 8px 8px", background: "rgba(255,255,255,0.05)" }}
+              initial={reducedMotion ? undefined : { opacity: 0 }}
+              animate={reducedMotion ? undefined : { opacity: 1 }}
+              transition={{ duration: 0.2 }}
+            >
+              <img src={vpnPlusBadgeUrl} alt="" width={30} height={18} className="shrink-0 mt-[2px]" />
+              <div className="flex-1 flex flex-col" style={{ gap: 4 }}>
+                <span
+                  style={{ ...fontSemibold, fontSize: 13, lineHeight: "18px", color: "rgba(255,255,255,0.9)" }}
+                >
+                  {PROFILES_PLUS_TEASER_BANNER_COPY.message}
+                </span>
+                <span
+                  style={{ ...fontRegular, fontSize: 13, lineHeight: "18px", color: "rgba(255,255,255,0.7)" }}
+                >
+                  {PROFILES_PLUS_TEASER_BANNER_COPY.supporting}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={dismissOnboardingBanner}
+                aria-label={PROFILES_PLUS_TEASER_BANNER_COPY.dismissLabel}
+                className="shrink-0 flex items-center justify-center rounded-[4px] cursor-pointer transition-colors duration-150"
+                style={{ width: 20, height: 20, background: "transparent" }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.08)"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M1 1L9 9M9 1L1 9" stroke="white" strokeOpacity="0.6" strokeWidth="1.3" strokeLinecap="round" />
+                </svg>
+              </button>
+            </motion.div>
+          )}
+
+          {showPaidOnboardingBanner && (
             <motion.div
               className="shrink-0 flex items-start rounded-[8px]"
               style={{ gap: 8, padding: 12, margin: "0 8px 8px", background: "rgba(255,255,255,0.05)" }}
@@ -849,7 +916,7 @@ export function CountryBrowser({
 
           {/* Profile rows */}
           {displayedProfiles.map((profile) => (
-            <ProfileRow key={profile.id} profile={profile} />
+            <ProfileRow key={profile.id} profile={profile} disabled={profilesLocked} />
           ))}
 
           {/* New profile button — sits directly after the last row */}

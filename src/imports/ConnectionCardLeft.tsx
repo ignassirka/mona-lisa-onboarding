@@ -1,6 +1,7 @@
 import clsx from "clsx";
 import svgPaths from "./svg-tjzja5cjmi";
 import { getIsoCode } from "../app/components/flagComponents";
+import Fastest from "./Fastest";
 
 function ConnectionCardLeftHelper2({ children }: React.PropsWithChildren<{}>) {
   return (
@@ -515,6 +516,22 @@ function getCityForCountry(country: string): string {
   return countryToCity[country] ?? country;
 }
 
+/** i18n-ready copy for the free-tier connected connection card (Figma 22247-24174). */
+const FREE_CONNECTION_CARD_COPY = {
+  title: "Fastest free server",
+  subtitle: "Netherlands - NL-FREE#239541",
+  changeServer: "Change server",
+  disconnect: "Disconnect",
+} as const;
+
+function FreeServerIconPair() {
+  return (
+    <div className="h-[36px] w-[54px] shrink-0" data-name="Fastest-free-server">
+      <Fastest />
+    </div>
+  );
+}
+
 type ConnectionCardLeft1Props = {
   vpnStatus?: "unprotected" | "connecting" | "protected";
   connectedCountry?: string | null;
@@ -522,6 +539,11 @@ type ConnectionCardLeft1Props = {
   onConnect?: (country: string) => void;
   onDisconnect?: () => void;
   physicalCountry?: string;
+  /** When `"free"`, the connected card shows the Fastest free server layout
+   * (dual buttons, NL-FREE server id). Paid landing uses `"plus"` (default). */
+  connectionTier?: "free" | "plus";
+  /** Free-tier only — opens country/server selection in the left panel. */
+  onChangeServer?: () => void;
 };
 
 export default function ConnectionCardLeft1({
@@ -531,7 +553,10 @@ export default function ConnectionCardLeft1({
   onConnect,
   onDisconnect,
   physicalCountry = "Belarus",
+  connectionTier = "plus",
+  onChangeServer,
 }: ConnectionCardLeft1Props) {
+  const isFreeTier = connectionTier === "free";
   const displayCountry = vpnStatus === "unprotected"
     ? (selectedCountry || null)
     : connectedCountry;
@@ -539,10 +564,14 @@ export default function ConnectionCardLeft1({
   const isConnected = vpnStatus === "protected";
   const isConnecting = vpnStatus === "connecting";
 
-  const title = displayCountry || "Fastest country";
-  const subtitle = displayCountry
-    ? `${getCityForCountry(displayCountry)} - #1`
-    : "The best server based on your location ";
+  const title = isFreeTier && (isConnected || isConnecting)
+    ? FREE_CONNECTION_CARD_COPY.title
+    : (displayCountry || "Fastest country");
+  const subtitle = isFreeTier && (isConnected || isConnecting)
+    ? FREE_CONNECTION_CARD_COPY.subtitle
+    : displayCountry
+      ? `${getCityForCountry(displayCountry)} - #1`
+      : "The best server based on your location ";
 
   const handleButtonClick = () => {
     if (isConnected || isConnecting) {
@@ -558,7 +587,13 @@ export default function ConnectionCardLeft1({
     : "bg-[#6d4aff]";
 
   const flagUrl = displayCountry ? `https://flagcdn.com/${getIsoCode(displayCountry)}.svg` : null;
-  const showFlag = !!flagUrl && (isConnecting || isConnected || displayCountry);
+  const showPaidFlag = !!flagUrl && (isConnecting || isConnected || displayCountry) && !isFreeTier;
+  const showFreeIconPair = isFreeTier && (isConnecting || isConnected);
+  const showDisconnectedFastest = !showPaidFlag && !showFreeIconPair;
+
+  const titleStyle = { fontVariationSettings: "'opsz' 36" } as const;
+  const buttonTextStyle = { fontVariationSettings: "'opsz' 10.5", fontFeatureSettings: "'fina', 'init'" } as const;
+  const subtitleStyle = { fontVariationSettings: "'opsz' 10.5", fontFeatureSettings: "'fina', 'init'" } as const;
 
   return (
     <div className="relative">
@@ -566,24 +601,21 @@ export default function ConnectionCardLeft1({
         <div className="flex flex-col gap-[16px] items-center">
           <div className="flex flex-col gap-[8px] items-center">
             <div className="flex gap-[16px] items-center">
-              {showFlag ? (
+              {showPaidFlag ? (
                 <img
-                  src={flagUrl}
+                  src={flagUrl!}
                   alt={`${displayCountry} flag`}
                   className="shrink-0 rounded-[6px] object-cover"
                   style={{ width: 54, height: 36 }}
                 />
+              ) : showFreeIconPair ? (
+                <FreeServerIconPair />
               ) : (
                 <div className="h-[36px] relative shrink-0 w-[54px]" data-name="Fastest">
-                  <svg className="absolute block size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 54 36">
-                    <g id="Fastest">
-                      <rect fill="#2CFFCC" height="36" rx="6" width="54" />
-                      <path d={svgPaths.p13821900} fill="#16141C" id="Union" />
-                    </g>
-                  </svg>
+                  <Fastest />
                 </div>
               )}
-              <div style={{ fontVariationSettings: "'opsz' 36" }} className="flex flex-col font-['Segoe_UI_Variable',sans-serif] font-semibold justify-end leading-[0] shrink-0 text-[28px] text-center text-white whitespace-nowrap">
+              <div style={titleStyle} className="flex flex-col font-['Segoe_UI_Variable',sans-serif] font-semibold justify-end leading-[0] shrink-0 text-[28px] text-center text-white whitespace-nowrap">
                 <p className="leading-[36px]">{title}</p>
               </div>
               {!isConnected && !isConnecting && (
@@ -602,22 +634,51 @@ export default function ConnectionCardLeft1({
                 </div>
               )}
             </div>
-            <p style={{ fontVariationSettings: "'opsz' 10.5", fontFeatureSettings: "'fina', 'init'" }}
+            <p style={subtitleStyle}
               className="font-['Segoe_UI_Variable',sans-serif] font-semibold leading-[20px] text-[16px] text-[rgba(255,255,255,0.7)] whitespace-nowrap">
               {subtitle}
             </p>
           </div>
-          <button
-            onClick={handleButtonClick}
-            className={`relative rounded-[4px] w-[250px] cursor-pointer ${buttonBg} transition-all duration-300`}
-          >
-            <div className="flex items-center justify-center px-[24px] pt-[10px] pb-[12px]">
-              <span style={{ fontVariationSettings: "'opsz' 10.5", fontFeatureSettings: "'fina', 'init'" }}
-                className="font-['Segoe_UI_Variable',sans-serif] font-semibold text-[16px] text-white leading-[20px]">
-                {buttonLabel}
-              </span>
+          {isFreeTier && isConnected ? (
+            <div className="flex gap-[8px]">
+              <button
+                type="button"
+                onClick={() => onChangeServer?.()}
+                className="relative w-[200px] rounded-[4px] cursor-pointer bg-[#4a4658] border border-[rgba(255,255,255,0.1)] transition-all duration-300"
+              >
+                <div className="flex items-center justify-center px-[16px] pt-[10px] pb-[12px]">
+                  <span style={buttonTextStyle}
+                    className="font-['Segoe_UI_Variable',sans-serif] font-semibold text-[16px] text-white leading-[20px] whitespace-nowrap">
+                    {FREE_CONNECTION_CARD_COPY.changeServer}
+                  </span>
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => onDisconnect?.()}
+                className="relative w-[200px] rounded-[4px] cursor-pointer bg-[#4a4658] border border-[rgba(255,255,255,0.1)] transition-all duration-300"
+              >
+                <div className="flex items-center justify-center px-[16px] pt-[10px] pb-[12px]">
+                  <span style={buttonTextStyle}
+                    className="font-['Segoe_UI_Variable',sans-serif] font-semibold text-[16px] text-white leading-[20px]">
+                    {FREE_CONNECTION_CARD_COPY.disconnect}
+                  </span>
+                </div>
+              </button>
             </div>
-          </button>
+          ) : (
+            <button
+              onClick={handleButtonClick}
+              className={`relative rounded-[4px] w-[250px] cursor-pointer ${buttonBg} transition-all duration-300`}
+            >
+              <div className="flex items-center justify-center px-[24px] pt-[10px] pb-[12px]">
+                <span style={buttonTextStyle}
+                  className="font-['Segoe_UI_Variable',sans-serif] font-semibold text-[16px] text-white leading-[20px]">
+                  {buttonLabel}
+                </span>
+              </div>
+            </button>
+          )}
         </div>
       </div>
     </div>
