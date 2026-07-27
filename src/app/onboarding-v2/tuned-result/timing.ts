@@ -91,3 +91,19 @@ export const TUNED_RESULT_TIMING = {
 
 /** Convenience: milliseconds → seconds (Framer Motion uses seconds). */
 export const sec = (ms: number): number => ms / 1000;
+
+/** Additional timing for the 3 alternative "tuning" concepts
+ * (`tuned-result/concepts/*`) — purely presentational transition durations
+ * for each concept's own distinctive body treatment (ring stroke, receipt
+ * line drop). The shared ROW SCHEDULE itself (spinner hold, resolve,
+ * boundary, row gap, Continue delay) stays `TUNED_RESULT_TIMING`,
+ * unmodified and identical across the default and all 3 concepts — these
+ * values only ever animate a value that has already resolved via that
+ * shared schedule, never re-time the schedule itself. */
+export const TUNING_CONCEPT_TIMING = {
+  /** Progress-ring: how long the ring's stroke animates toward its new
+   * percentage each time a row resolves. */
+  ringFillMs: 500,
+  /** Receipt: how long a newly-added line's drop-in animation takes. */
+  lineDropMs: 300,
+} as const;

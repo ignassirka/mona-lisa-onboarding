@@ -116,6 +116,10 @@ export default function PlusWelcomeState({
 
   const welcomeSubheading = isMultipleActive ? plusWelcomeSubtitleMultiple(selectedJtbds!.length) : JTBD_PLUS_WELCOME[jtbdKey].subheading;
 
+  const streamingSelected =
+    jtbdKey === "streaming" ||
+    (selectionMode === "multiple" && (selectedJtbds?.includes("streaming") ?? false));
+
   // Multiple mode: capped free rows + 1 profiles-summary row + capped Plus
   // feature row(s) — same row-count formula `TunedResult` uses for this
   // selection, so the welcome shows the exact same rows the result screen
@@ -163,7 +167,13 @@ export default function PlusWelcomeState({
     <div className="absolute inset-0 @container">
       {/* Confetti layer — above content, pointer-events none, fires once.
           Unchanged behavior, overlays regardless of layout. */}
-      {showConfetti && <Confetti count={60} durationMs={3500} />}
+      {showConfetti && (
+        <Confetti
+          count={60}
+          durationMs={3500}
+          emoji={streamingSelected ? "🍿" : undefined}
+        />
+      )}
 
       <Tooltip.Provider delayDuration={200}>
         <motion.div

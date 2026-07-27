@@ -85,10 +85,23 @@ const ActivityEntry = forwardRef<HTMLDivElement, ActivityEntryProps>(function Ac
 
   const displayText = redact ? scrambled : typed;
 
+  // Hover-to-decrypt (only meaningful once an entry is actually masked —
+  // hovering a still-plaintext entry has nothing to reveal). The right-side
+  // "Hidden" indicator intentionally does NOT react to `hovered` — it
+  // always reflects the entry's real `redact`/`sealed` state, per spec.
+  const [hovered, setHovered] = useState(false);
+  const revealing = redact && hovered;
+
   return (
     <motion.div
       ref={ref}
-      className="relative flex items-start gap-[12px] rounded-[12px] border border-[rgba(255,255,255,0.08)] bg-[rgba(0,0,0,0.28)] px-[14px] py-[12px]"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className="relative flex items-start gap-[12px] rounded-[12px] border bg-[rgba(0,0,0,0.28)] px-[14px] py-[12px] transition-colors duration-300"
+      style={{
+        borderColor: revealing ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.08)",
+        backgroundColor: revealing ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.28)",
+      }}
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, ease: "easeOut" }}
@@ -98,8 +111,32 @@ const ActivityEntry = forwardRef<HTMLDivElement, ActivityEntryProps>(function Ac
       </span>
 
       <span className="min-w-0 flex-1 font-['Segoe_UI_Variable',sans-serif] text-[15px] leading-[20px] text-[rgba(255,255,255,0.92)]">
-        <span className={redact ? "tracking-[0.08em] text-[rgba(255,255,255,0.6)]" : ""}>{displayText}</span>
-        {typing && <span className="ob2v4-caret" aria-hidden />}
+        {redact ? (
+          // Both states occupy the same grid cell so the crossfade dissolves
+          // in place (same-length strings — `useScramble` never changes
+          // character count) instead of a hard content swap.
+          <span className="inline-grid">
+            <motion.span
+              className="col-start-1 row-start-1 tracking-[0.08em] text-[rgba(255,255,255,0.6)]"
+              animate={{ opacity: revealing ? 0 : 1, filter: reduced ? "none" : revealing ? "blur(3px)" : "blur(0px)" }}
+              transition={{ duration: reduced ? 0.15 : 0.45, ease: "easeInOut" }}
+            >
+              {displayText}
+            </motion.span>
+            <motion.span
+              className="col-start-1 row-start-1"
+              animate={{ opacity: revealing ? 1 : 0, filter: reduced ? "none" : revealing ? "blur(0px)" : "blur(3px)" }}
+              transition={{ duration: reduced ? 0.15 : 0.45, ease: "easeInOut" }}
+            >
+              {full}
+            </motion.span>
+          </span>
+        ) : (
+          <>
+            <span>{typed}</span>
+            {typing && <span className="ob2v4-caret" aria-hidden />}
+          </>
+        )}
       </span>
 
       <span className="ml-[8px] flex shrink-0 self-center items-center gap-[6px] whitespace-nowrap font-['Segoe_UI_Variable',sans-serif] text-[11px] leading-[14px]">

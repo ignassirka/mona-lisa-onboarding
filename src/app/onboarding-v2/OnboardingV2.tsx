@@ -6,7 +6,15 @@ import Spinner from "./components/Spinner";
 import InfoCard, { FlagValue, MaskedValue, type InfoRow } from "./components/InfoCard";
 import JtbdGridPanel from "./JtbdGridPanel";
 import TunedResult from "./tuned-result/TunedResult";
+import ProgressRingConcept from "./tuned-result/concepts/ProgressRingConcept";
+import ChecklistConcept from "./tuned-result/concepts/ChecklistConcept";
+import ReceiptConcept from "./tuned-result/concepts/ReceiptConcept";
 import VPNPlusUpsell from "./components/VPNPlusUpsell";
+import ComparisonTable from "./versions/upsell/ComparisonTable";
+import ValueStack from "./versions/upsell/ValueStack";
+import CardGrid from "./versions/upsell/CardGrid";
+import PlanSelector from "./versions/upsell/PlanSelector";
+import HeroSpotlight from "./versions/upsell/HeroSpotlight";
 import SimulatedWebCheckout from "./components/checkout/SimulatedWebCheckout";
 import LoaderScreen from "./components/LoaderScreen";
 import PlusWelcomeState from "./components/PlusWelcomeState";
@@ -77,21 +85,17 @@ export const STAGE_VERSIONS: Record<OnboardingStage, { value: string; label: str
     { value: "browsing", label: "#2 - Browsing experience" },
     { value: "hybrid", label: "#3 - Hybrid" },
   ],
-  // The "Personalized JTBD tuning" stage is a single flow (picker →
-  // centered intro → materialization → completion); this list is now a
-  // LAYOUT choice for the result step's arrangement, not a content version
-  // — see `RESULT_LAYOUT_OPTIONS`/`ResultLayout` below, which this mirrors.
-  tuning: [
-    { value: "stacked", label: "Minimal list" },
-    { value: "compact-list", label: "Richer list" },
-    { value: "split-by-status", label: "Split view" },
-    { value: "card-grid", label: "Card Grid" },
-  ],
-  // "Upgrade to Plus" reuses stage 2's SAME 4 layout renderers for its
-  // Plus-welcome result (`PlusWelcomeState`) — this list (and the "Layout"
-  // dropdown it drives, below) is the exact same shared `resultLayout`
-  // state as "tuning", not an independent selector; picking a layout here
-  // updates stage 2 too, and vice versa.
+  // The "Personalized JTBD tuning" stage (phase `tuned`) has no Layout
+  // dropdown at all anymore — it always renders the default concept's
+  // "Minimal list" (`stacked`) arrangement; this entry is unused by the
+  // prototype-controls HUD (kept as an empty list so the "does this stage
+  // have alternatives" check below stays accurate).
+  tuning: [],
+  // "Upgrade to Plus" reuses the SAME 4 layout renderers as stage 2's
+  // result step for its own, separate Plus-welcome result
+  // (`PlusWelcomeState`) — this list (and the "Layout" dropdown it drives,
+  // below) drives ONLY this stage's `resultLayout` state today (stage 2 no
+  // longer has a Layout selector to share it with).
   upgrade: [
     { value: "stacked", label: "Minimal list" },
     { value: "compact-list", label: "Richer list" },
@@ -161,10 +165,8 @@ export function connectionGroupForVariant(variant: OnboardingVariant): Connectio
   return CONNECTION_GROUPS.find((g) => g.layouts.some((l) => l.value === variant)) ?? CONNECTION_GROUPS[0]!;
 }
 
-/** Layout for the "Personalized JTBD tuning" stage's result step. The stage
- * itself is a single flow (grid picker → centered intro → one-by-one
- * materialization → completion, formerly "Visual Tuning" — now the only
- * flow); `ResultLayout` only picks the RESOLVED ARRANGEMENT of the 5 settings
+/** Layout for the result step's 4 arrangements (`tuned-result/layouts/*`).
+ * `ResultLayout` only picks the RESOLVED ARRANGEMENT of the 5 settings
  * items — everything else (intro, header move, counter, completion, tip,
  * Continue) is identical across all four. `stacked` is the default (the
  * former "Visual Tuning" row style — merged "{settingsName}: {value}" pill,
@@ -173,8 +175,51 @@ export function connectionGroupForVariant(variant: OnboardingVariant): Connectio
  * existing `layout="row"` mode). `split-by-status`/`card-grid` reuse those
  * former versions' arrangements (`layout="stacked"`/`"card"`), now adapted
  * to materialize one item at a time into their columns/cards instead of
- * appearing fully-formed. See `docs/features/onboarding-v2.md`. */
+ * appearing fully-formed. Stage 2's own result step (`TunedResult`, phase
+ * `tuned`) now always renders `stacked` ("Minimal list") — no Layout
+ * selector for stage 2 anymore; `ResultLayout` today only drives the
+ * SEPARATE stage-3 VPN Plus Welcome result (`PlusWelcomeState`), which
+ * keeps its own "Layout" dropdown. See `docs/features/onboarding-v2.md`. */
 export type ResultLayout = "stacked" | "split-by-status" | "card-grid" | "compact-list";
+
+/** The "Upgrade to Plus" upsell screen's own content-VERSION choice —
+ * distinct from `ResultLayout` (which only affects the SEPARATE VPN Plus
+ * Welcome step, `PHASE_STAGE.upsell` §"upgrade" stage). `"default"` is the
+ * original `VPNPlusUpsell` (left byte-for-byte untouched); the other 5 are
+ * alternative layouts researched from real-world paywall patterns, all
+ * populated from the exact same intent-driven ranked feature engine,
+ * subtitle logic, pricing, and CTAs. See docs/features/onboarding-v2.md →
+ * "Upsell alternative layouts". */
+export type UpsellVariant = "default" | "comparison-table" | "value-stack" | "card-grid" | "plan-selector" | "hero-spotlight";
+
+export const UPSELL_VERSIONS: { value: UpsellVariant; label: string }[] = [
+  { value: "default", label: "Default — Split hero" },
+  { value: "comparison-table", label: "Feature comparison table" },
+  { value: "value-stack", label: "Value-stack checklist" },
+  { value: "card-grid", label: "Benefit card grid" },
+  { value: "plan-selector", label: "Plan-selector toggle" },
+  { value: "hero-spotlight", label: "Single hero-benefit spotlight" },
+];
+
+/** The "Personalized JTBD tuning" stage's own content-CONCEPT choice —
+ * distinct from `ResultLayout` (which is now only used by the separate
+ * stage-3 Plus Welcome step). `"default"` is the original `TunedResult`
+ * (left byte-for-byte untouched, always rendered with `layout="stacked"` —
+ * no Layout selector for stage 2 anymore, "Minimal list" is the only
+ * arrangement); the other 3 are alternative concepts researched from
+ * real-world setup/config patterns, each revamping BOTH the
+ * materialization ("applying") phase AND the resolved result as one
+ * coherent pattern — all populated from the exact same tuning data +
+ * merge/rank/cap engine, materialization schedule, and tone copy. See
+ * docs/features/onboarding-v2.md → "Tuning alternative concepts". */
+export type TuningConcept = "default" | "progress-ring" | "checklist" | "receipt";
+
+export const TUNING_CONCEPTS: { value: TuningConcept; label: string }[] = [
+  { value: "default", label: "Default — Minimal list" },
+  { value: "progress-ring", label: "Progress-ring completion" },
+  { value: "checklist", label: "Setup checklist build-up" },
+  { value: "receipt", label: "Setup summary / receipt" },
+];
 
 interface OnboardingV2Props {
   /** Fired once onboarding completes normally (Continue free / Start using
@@ -200,6 +245,16 @@ interface OnboardingV2Props {
   variant?: OnboardingVariant;
   /** Result layout for the JTBD tuning stage. */
   resultLayout?: ResultLayout;
+  /** Content concept for the "Personalized JTBD tuning" result step —
+   * independent from `resultLayout` (which only picks the resolved
+   * arrangement WITHIN the default concept, and is separately reused by
+   * the Plus Welcome step). Defaults to `"default"`, the original
+   * `TunedResult`. */
+  tuningConcept?: TuningConcept;
+  /** Content version for the "Upgrade to Plus" upsell screen — independent
+   * from `resultLayout` (which only drives the separate VPN Plus Welcome
+   * step). Defaults to `"default"`, the original `VPNPlusUpsell`. */
+  upsellVariant?: UpsellVariant;
   /** Tone of voice for the connection stage copy (content only). */
   tone?: ToneOfVoice;
   /** "Selection" prototype control — defaults to `"single"`, which is the
@@ -234,6 +289,8 @@ export default function OnboardingV2({
   onClose,
   variant = "hybrid",
   resultLayout = "stacked",
+  tuningConcept = "default",
+  upsellVariant = "default",
   tone = "straightforward",
   selectionMode = "single",
   onStageChange,
@@ -629,17 +686,51 @@ export default function OnboardingV2({
               exit={{ opacity: 0 }}
               transition={{ duration: 0.5 }}
             >
-              <TunedResult
-                key={resultLayout}
-                jtbdKey={effectiveJtbdKey}
-                selectionMode={selectionMode}
-                selectedJtbds={selectedJtbds}
-                userPlan="free"
-                layout={resultLayout}
-                tone={tone}
-                onContinue={() => setPhase("upsell")}
-                onBack={() => setPhase("jtbd")}
-              />
+              {tuningConcept === "default" && (
+                <TunedResult
+                  jtbdKey={effectiveJtbdKey}
+                  selectionMode={selectionMode}
+                  selectedJtbds={selectedJtbds}
+                  userPlan="free"
+                  layout="stacked"
+                  tone={tone}
+                  onContinue={() => setPhase("upsell")}
+                  onBack={() => setPhase("jtbd")}
+                />
+              )}
+              {tuningConcept === "progress-ring" && (
+                <ProgressRingConcept
+                  key={tuningConcept}
+                  jtbdKey={effectiveJtbdKey}
+                  selectionMode={selectionMode}
+                  selectedJtbds={selectedJtbds}
+                  tone={tone}
+                  onContinue={() => setPhase("upsell")}
+                  onBack={() => setPhase("jtbd")}
+                />
+              )}
+              {tuningConcept === "checklist" && (
+                <ChecklistConcept
+                  key={tuningConcept}
+                  jtbdKey={effectiveJtbdKey}
+                  selectionMode={selectionMode}
+                  selectedJtbds={selectedJtbds}
+                  tone={tone}
+                  onContinue={() => setPhase("upsell")}
+                  onBack={() => setPhase("jtbd")}
+                />
+              )}
+              {tuningConcept === "receipt" && (
+                <ReceiptConcept
+                  key={tuningConcept}
+                  jtbdKey={effectiveJtbdKey}
+                  selectionMode={selectionMode}
+                  selectedJtbds={selectedJtbds}
+                  tone={tone}
+                  onContinue={() => setPhase("upsell")}
+                  onBack={() => setPhase("jtbd")}
+                />
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -656,14 +747,66 @@ export default function OnboardingV2({
               exit={{ opacity: 0 }}
               transition={{ duration: 0.4 }}
             >
-              <VPNPlusUpsell
-                jtbdKey={effectiveJtbdKey}
-                selectionMode={selectionMode}
-                selectedJtbds={selectedJtbds}
-                onUpgrade={() => setPhase("web-checkout")}
-                onContinueFree={() => handleExit(effectiveSelectedJtbds, "free")}
-                onBack={() => setPhase("tuned")}
-              />
+              {upsellVariant === "default" && (
+                <VPNPlusUpsell
+                  jtbdKey={effectiveJtbdKey}
+                  selectionMode={selectionMode}
+                  selectedJtbds={selectedJtbds}
+                  onUpgrade={() => setPhase("web-checkout")}
+                  onContinueFree={() => handleExit(effectiveSelectedJtbds, "free")}
+                  onBack={() => setPhase("tuned")}
+                />
+              )}
+              {upsellVariant === "comparison-table" && (
+                <ComparisonTable
+                  jtbdKey={effectiveJtbdKey}
+                  selectionMode={selectionMode}
+                  selectedJtbds={selectedJtbds}
+                  onUpgrade={() => setPhase("web-checkout")}
+                  onContinueFree={() => handleExit(effectiveSelectedJtbds, "free")}
+                  onBack={() => setPhase("tuned")}
+                />
+              )}
+              {upsellVariant === "value-stack" && (
+                <ValueStack
+                  jtbdKey={effectiveJtbdKey}
+                  selectionMode={selectionMode}
+                  selectedJtbds={selectedJtbds}
+                  onUpgrade={() => setPhase("web-checkout")}
+                  onContinueFree={() => handleExit(effectiveSelectedJtbds, "free")}
+                  onBack={() => setPhase("tuned")}
+                />
+              )}
+              {upsellVariant === "card-grid" && (
+                <CardGrid
+                  jtbdKey={effectiveJtbdKey}
+                  selectionMode={selectionMode}
+                  selectedJtbds={selectedJtbds}
+                  onUpgrade={() => setPhase("web-checkout")}
+                  onContinueFree={() => handleExit(effectiveSelectedJtbds, "free")}
+                  onBack={() => setPhase("tuned")}
+                />
+              )}
+              {upsellVariant === "plan-selector" && (
+                <PlanSelector
+                  jtbdKey={effectiveJtbdKey}
+                  selectionMode={selectionMode}
+                  selectedJtbds={selectedJtbds}
+                  onUpgrade={() => setPhase("web-checkout")}
+                  onContinueFree={() => handleExit(effectiveSelectedJtbds, "free")}
+                  onBack={() => setPhase("tuned")}
+                />
+              )}
+              {upsellVariant === "hero-spotlight" && (
+                <HeroSpotlight
+                  jtbdKey={effectiveJtbdKey}
+                  selectionMode={selectionMode}
+                  selectedJtbds={selectedJtbds}
+                  onUpgrade={() => setPhase("web-checkout")}
+                  onContinueFree={() => handleExit(effectiveSelectedJtbds, "free")}
+                  onBack={() => setPhase("tuned")}
+                />
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -682,6 +825,9 @@ export default function OnboardingV2({
             >
               <SimulatedWebCheckout
                 jtbdKey={effectiveJtbdKey}
+                selectionMode={selectionMode}
+                selectedJtbds={selectedJtbds}
+                upsellVariant={upsellVariant}
                 billingCountry={geo.country}
                 onReturnToApp={() => setPhase("checkout")}
               />

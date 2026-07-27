@@ -2,7 +2,20 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { ISPRegulationsPanel } from "./components/ISPRegulationsPanel";
 import { WorldMap } from "./components/WorldMap";
-import OnboardingV2, { CONNECTION_GROUPS, connectionGroupForVariant, ONBOARDING_STAGES, STAGE_ORDER, STAGE_VERSIONS, type OnboardingStage, type OnboardingVariant, type ResultLayout } from "./onboarding-v2/OnboardingV2";
+import OnboardingV2, {
+  CONNECTION_GROUPS,
+  connectionGroupForVariant,
+  ONBOARDING_STAGES,
+  STAGE_ORDER,
+  STAGE_VERSIONS,
+  UPSELL_VERSIONS,
+  TUNING_CONCEPTS,
+  type OnboardingStage,
+  type OnboardingVariant,
+  type ResultLayout,
+  type UpsellVariant,
+  type TuningConcept,
+} from "./onboarding-v2/OnboardingV2";
 import { STAGE_SUPPORTS_TONE, TONE_OPTIONS, type ToneOfVoice } from "./onboarding-v2/lib/toneOfVoice";
 import type { JtbdId, SelectionMode } from "./onboarding-v2/lib/jtbdData";
 import MakeYoursModal from "./components/MakeYoursModal";
@@ -45,32 +58,34 @@ function PrototypeControls({
   stage,
   variant,
   resultLayout,
+  tuningConcept,
+  upsellVariant,
   tone,
   selectionMode,
   onVariantChange,
   onResultLayoutChange,
+  onTuningConceptChange,
+  onUpsellVariantChange,
   onToneChange,
   onSelectionModeChange,
-  preStart = false,
 }: {
   stage: OnboardingStage;
   variant: OnboardingVariant;
   resultLayout: ResultLayout;
+  tuningConcept: TuningConcept;
+  upsellVariant: UpsellVariant;
   tone: ToneOfVoice;
   selectionMode: SelectionMode;
   onVariantChange: (v: OnboardingVariant) => void;
   onResultLayoutChange: (v: ResultLayout) => void;
+  onTuningConceptChange: (v: TuningConcept) => void;
+  onUpsellVariantChange: (v: UpsellVariant) => void;
   onToneChange: (t: ToneOfVoice) => void;
   onSelectionModeChange: (m: SelectionMode) => void;
-  /** Shown on the initial black start screen, before onboarding begins —
-   * lets the Version/Layout/Tone controls below pick stage 1's content
-   * ahead of time, without implying a real (numbered) stage is active yet. */
-  preStart?: boolean;
 }) {
   // "Selection" — Single (default, untouched) / Multiple JTBD picking. Only
-  // meaningful for the "tuning" stage's JTBD picker + result; shown there
-  // (and pre-start, so it can be picked ahead of time like Tone/Layout are).
-  const showSelectionSelect = preStart || stage === "tuning";
+  // meaningful for the "tuning" stage's JTBD picker + result.
+  const showSelectionSelect = stage === "tuning";
   const stageNumber = STAGE_ORDER.indexOf(stage) + 1;
   const stageName = ONBOARDING_STAGES[stage].name;
   const isConnection = stage === "connection";
@@ -86,11 +101,13 @@ function PrototypeControls({
     if (group) onVariantChange(group.layouts[0]!.value);
   };
 
-  // Other stages: a single flat dropdown (unchanged behavior). For "tuning"
-  // AND "upgrade" this now picks the tuned-result LAYOUT — the SAME shared
-  // `resultLayout` state, not two independent selectors (see `flatLabel`
-  // below and `PlusWelcomeState`'s `layout` prop, fed from this same value).
-  const usesResultLayout = stage === "tuning" || stage === "upgrade";
+  // Other stages: a single flat dropdown (unchanged behavior). "tuning" has
+  // no Layout control at all anymore — stage 2 always renders the default
+  // concept's "Minimal list" arrangement, no selector (see `TunedResult`'s
+  // hardcoded `layout="stacked"` in `OnboardingV2.tsx`). Only "upgrade"
+  // still picks the shared `resultLayout` (which now ONLY affects the
+  // separate Plus Welcome step, `PlusWelcomeState`) via this dropdown.
+  const usesResultLayout = stage === "upgrade";
   const versions = STAGE_VERSIONS[stage];
   const selectable = versions.length > 1;
   const flatValue = usesResultLayout ? resultLayout : "default";
@@ -109,7 +126,7 @@ function PrototypeControls({
       style={{ pointerEvents: "auto" }}
     >
       <span className={textClass}>
-        Stage: <strong className={`text-white ${textClass}`}>{preStart ? "0 - Empty" : `${stageNumber} ${stageName}`}</strong>
+        Stage: <strong className={`text-white ${textClass}`}>{`${stageNumber} ${stageName}`}</strong>
       </span>
       <span className="h-[16px] w-px bg-[rgba(255,255,255,0.15)]" />
 
@@ -146,7 +163,7 @@ function PrototypeControls({
             </label>
           )}
         </>
-      ) : (
+      ) : stage === "tuning" ? null : (
         <label className={`flex items-center gap-[6px] ${textClass}`}>
           {flatLabel}:
           <select
@@ -162,6 +179,46 @@ function PrototypeControls({
             ))}
           </select>
         </label>
+      )}
+
+      {stage === "tuning" && (
+        <>
+          <span className="h-[16px] w-px bg-[rgba(255,255,255,0.15)]" />
+          <label className={`flex items-center gap-[6px] ${textClass}`}>
+            Concept:
+            <select
+              value={tuningConcept}
+              onChange={(e) => onTuningConceptChange(e.target.value as TuningConcept)}
+              className={selectClass}
+            >
+              {TUNING_CONCEPTS.map((c) => (
+                <option key={c.value} value={c.value} className={optionClass}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </>
+      )}
+
+      {stage === "upgrade" && (
+        <>
+          <span className="h-[16px] w-px bg-[rgba(255,255,255,0.15)]" />
+          <label className={`flex items-center gap-[6px] ${textClass}`}>
+            Upsell:
+            <select
+              value={upsellVariant}
+              onChange={(e) => onUpsellVariantChange(e.target.value as UpsellVariant)}
+              className={selectClass}
+            >
+              {UPSELL_VERSIONS.map((v) => (
+                <option key={v.value} value={v.value} className={optionClass}>
+                  {v.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </>
       )}
 
       {showToneSelect && (
@@ -245,6 +302,15 @@ function AppInner() {
   const [variant, setVariant] = useState<OnboardingVariant>("hybrid");
   // Which tuned-result layout is active (prototype control)
   const [resultLayout, setResultLayout] = useState<ResultLayout>("stacked");
+  // Which "Personalized JTBD tuning" content concept is active (prototype
+  // control) — independent from `resultLayout` (which only picks the
+  // resolved arrangement WITHIN the default concept, and is separately
+  // reused by the VPN Plus Welcome step).
+  const [tuningConcept, setTuningConcept] = useState<TuningConcept>("default");
+  // Which "Upgrade to Plus" upsell content version is active (prototype
+  // control) — independent from `resultLayout` (which only drives the
+  // separate VPN Plus Welcome step).
+  const [upsellVariant, setUpsellVariant] = useState<UpsellVariant>("default");
   // Tone of voice for connection-stage copy (prototype control)
   const [tone, setTone] = useState<ToneOfVoice>("straightforward");
   // "Selection" prototype control (prototype-only, tuning stage) — defaults
@@ -491,19 +557,6 @@ function AppInner() {
             </button>
           </div>
         </div>
-
-        <PrototypeControls
-          stage={currentStage}
-          variant={variant}
-          resultLayout={resultLayout}
-          tone={tone}
-          selectionMode={selectionMode}
-          onVariantChange={setVariant}
-          onResultLayoutChange={setResultLayout}
-          onToneChange={setTone}
-          onSelectionModeChange={setSelectionMode}
-          preStart
-        />
       </div>
     );
   }
@@ -538,10 +591,14 @@ function AppInner() {
         stage={currentStage}
         variant={variant}
         resultLayout={resultLayout}
+        tuningConcept={tuningConcept}
+        upsellVariant={upsellVariant}
         tone={tone}
         selectionMode={selectionMode}
         onVariantChange={setVariant}
         onResultLayoutChange={setResultLayout}
+        onTuningConceptChange={setTuningConcept}
+        onUpsellVariantChange={setUpsellVariant}
         onToneChange={setTone}
         onSelectionModeChange={setSelectionMode}
       />
@@ -566,6 +623,8 @@ function AppInner() {
               onClose={handleCloseOnboarding}
               variant={variant}
               resultLayout={resultLayout}
+              tuningConcept={tuningConcept}
+              upsellVariant={upsellVariant}
               tone={tone}
               selectionMode={selectionMode}
               onStageChange={setCurrentStage}

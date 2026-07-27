@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import VPNPlusUpsell from "../VPNPlusUpsell";
+import ComparisonTable from "../../versions/upsell/ComparisonTable";
+import ValueStack from "../../versions/upsell/ValueStack";
+import CardGrid from "../../versions/upsell/CardGrid";
+import PlanSelector from "../../versions/upsell/PlanSelector";
+import HeroSpotlight from "../../versions/upsell/HeroSpotlight";
 import BrowserWindowChrome from "./BrowserWindowChrome";
 import CheckoutPage from "./CheckoutPage";
 import CheckoutSuccess from "./CheckoutSuccess";
@@ -8,9 +13,18 @@ import { useReducedMotion } from "../../versions/lib/useReducedMotion";
 import { CHECKOUT_COPY } from "../../lib/checkoutCopy";
 import { CHECKOUT_TIMING } from "./checkoutTiming";
 import type { JTBDKey } from "../../lib/jtbdTuningResult";
+import type { SelectionMode } from "../../lib/jtbdData";
+import type { UpsellVariant } from "../../OnboardingV2";
 
 interface SimulatedWebCheckoutProps {
   jtbdKey: JTBDKey;
+  selectionMode?: SelectionMode;
+  selectedJtbds?: JTBDKey[];
+  /** Which upsell layout is behind the browser window — matches whatever
+   * the parent (`OnboardingV2`) has selected, so the dimmed background
+   * stays consistent with the screen the user actually clicked "Get VPN
+   * Plus" from. Defaults to the original `VPNPlusUpsell`. */
+  upsellVariant?: UpsellVariant;
   billingCountry: string;
   /** Fires once the browser's exit animation completes, AFTER a successful
    * payment and the user's click on the app behind — resumes the EXISTING
@@ -25,7 +39,14 @@ const noop = () => {};
  * "there", per the Scope Lock — not unmounted) with a Chrome-style browser
  * window on top containing the checkout page. Happy path only: pre-success
  * clicks on the app behind do nothing; window controls are decorative. */
-export default function SimulatedWebCheckout({ jtbdKey, billingCountry, onReturnToApp }: SimulatedWebCheckoutProps) {
+export default function SimulatedWebCheckout({
+  jtbdKey,
+  selectionMode = "single",
+  selectedJtbds,
+  upsellVariant = "default",
+  billingCountry,
+  onReturnToApp,
+}: SimulatedWebCheckoutProps) {
   const reduced = useReducedMotion();
   const [pageLoading, setPageLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
@@ -68,7 +89,24 @@ export default function SimulatedWebCheckout({ jtbdKey, billingCountry, onReturn
           `VPNPlusUpsell`'s own z-[1000] inside this background layer, so it
           cannot paint over the overlay/browser siblings below. */}
       <div className="pointer-events-none absolute inset-0 z-0" aria-hidden="true" inert>
-        <VPNPlusUpsell jtbdKey={jtbdKey} onUpgrade={noop} onContinueFree={noop} onBack={noop} />
+        {upsellVariant === "default" && (
+          <VPNPlusUpsell jtbdKey={jtbdKey} selectionMode={selectionMode} selectedJtbds={selectedJtbds} onUpgrade={noop} onContinueFree={noop} onBack={noop} />
+        )}
+        {upsellVariant === "comparison-table" && (
+          <ComparisonTable jtbdKey={jtbdKey} selectionMode={selectionMode} selectedJtbds={selectedJtbds} onUpgrade={noop} onContinueFree={noop} onBack={noop} />
+        )}
+        {upsellVariant === "value-stack" && (
+          <ValueStack jtbdKey={jtbdKey} selectionMode={selectionMode} selectedJtbds={selectedJtbds} onUpgrade={noop} onContinueFree={noop} onBack={noop} />
+        )}
+        {upsellVariant === "card-grid" && (
+          <CardGrid jtbdKey={jtbdKey} selectionMode={selectionMode} selectedJtbds={selectedJtbds} onUpgrade={noop} onContinueFree={noop} onBack={noop} />
+        )}
+        {upsellVariant === "plan-selector" && (
+          <PlanSelector jtbdKey={jtbdKey} selectionMode={selectionMode} selectedJtbds={selectedJtbds} onUpgrade={noop} onContinueFree={noop} onBack={noop} />
+        )}
+        {upsellVariant === "hero-spotlight" && (
+          <HeroSpotlight jtbdKey={jtbdKey} selectionMode={selectionMode} selectedJtbds={selectedJtbds} onUpgrade={noop} onContinueFree={noop} onBack={noop} />
+        )}
       </div>
 
       {/* Dimming overlay — doubles as the "click app behind to return" target,
