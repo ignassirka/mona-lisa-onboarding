@@ -130,6 +130,11 @@ export interface TuningCopy {
    * `summarySubtextMultiple`'s doc; the profiles count was dropped from this
    * sentence per a later checkpoint). */
   summarySubtextMultiple?: (applied: number, features: number) => string;
+  /** Plus plan only — Multiple mode's flat-list completion subtext: applied
+   * count only, no locked/features clause (see `tuned-result/copy.ts` →
+   * `summarySubtextMultiplePlus`'s doc). Same OPTIONAL/straightforward-
+   * fallback precedent as `summarySubtextMultiple` just above. */
+  summarySubtextMultiplePlus?: (applied: number) => string;
 }
 
 /** All tuning-stage structural copy, keyed by tone. `straightforward`
@@ -150,6 +155,7 @@ export const TUNING_COPY: Record<ToneOfVoice, TuningCopy> = {
     titleCompleteMultiple: (count) => `Tuned for your ${count} interests`,
     summarySubtextMultiple: (applied, features) =>
       `${applied} settings applied \u00b7 ${features} ${features === 1 ? "feature" : "features"} with VPN Plus`,
+    summarySubtextMultiplePlus: (applied) => `${applied} settings applied.`,
   },
   reassuring: {
     pickerTitle: "What would help you most right now?",

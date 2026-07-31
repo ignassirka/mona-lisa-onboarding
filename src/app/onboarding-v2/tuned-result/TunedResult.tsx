@@ -17,6 +17,8 @@ import {
   titleDuringMultiple,
   titleCompleteMultiple,
   summarySubtextMultiple,
+  summarySubtextMultiplePlus,
+  plusSectionHeader,
 } from "./copy";
 import StackedLayout from "./layouts/StackedLayout";
 import CompactListLayout from "./layouts/CompactListLayout";
@@ -135,7 +137,21 @@ export default function TunedResult({
   const totalRows = isMultipleActive
     ? freeCapped!.displayed.length + 1 + paidCapped!.displayed.length
     : result.enabled.length + result.paid.length;
-  const boundaryIndex = isMultipleActive ? freeCapped!.displayed.length : result.enabled.length;
+  // Plus plan: every row materializes as applied — there is no free/paid
+  // tier boundary to pause for or reveal a divider at, so `boundaryIndex` is
+  // pushed outside the valid range (`useTunedMaterialization`'s `hasBoundary`
+  // check), skipping both the pacing pause and the divider entirely. Free
+  // plan: unchanged.
+  const boundaryIndex = paidUnlocked
+    ? totalRows
+    : isMultipleActive
+      ? freeCapped!.displayed.length
+      : result.enabled.length;
+  // Plus + Multiple mode only — the true combined total beyond the display
+  // caps, split by type so the "+X more settings tuned for you" line can
+  // reuse the existing per-type caps' own overflow counts (confirmed at
+  // checkpoint) rather than a new combined cap constant.
+  const plusOverflowCount = paidUnlocked && isMultipleActive ? freeCapped!.overflow + paidCapped!.overflow : 0;
 
   const { introDone, rowStages, rowMounted, boundaryVisible, appliedSoFar, rowsComplete, continueDelayMs } = useTunedMaterialization({
     jtbdKey: isMultipleActive ? selectedJtbds!.join(",") : jtbdKey,
@@ -165,7 +181,16 @@ export default function TunedResult({
   // lists) — so with the current 1-feature cap this is always 2, matching
   // what's on screen (1 feature row + 1 profiles row).
   const truePaidFeatureCount = isMultipleActive ? paidCapped!.displayed.length + 1 : 0;
+  // Plus + Multiple mode only — the completion subtext's applied count must
+  // be the TRUE merged total (never the capped/displayed row count), same
+  // rule as single mode's own uncapped `appliedCount` above, so the "+X more
+  // settings tuned for you" line (`plusOverflowCount`) and this number stay
+  // mutually consistent — displayed + overflow always sums back to this.
+  // Profiles aren't tallied here either, same precedent as the Free path's
+  // own `summarySubtextMultiple` (its own doc comment above).
+  const truePlusAppliedTotal = isMultipleActive ? mergedEnabledFull!.length + mergedPaidFull!.length : 0;
   const selectionCount = selectedJtbds?.length ?? 1;
+  const plusHeaderText = plusSectionHeader(result.jtbdLabel, isMultipleActive ? selectionCount : 1);
 
   return (
     // Transparent overlay — same protected teal-top gradient background as
@@ -320,7 +345,9 @@ export default function TunedResult({
                     ? introSubtext(tone)
                     : rowsComplete
                       ? isMultipleActive
-                        ? summarySubtextMultiple(tone, appliedCount, truePaidFeatureCount)
+                        ? paidUnlocked
+                          ? summarySubtextMultiplePlus(tone, truePlusAppliedTotal)
+                          : summarySubtextMultiple(tone, appliedCount, truePaidFeatureCount)
                         : summarySubtext(tone, appliedCount, lockedOrPreviewCount)
                       : counterSubtext(appliedSoFar, totalRows)}
                 </motion.span>
@@ -347,6 +374,8 @@ export default function TunedResult({
                 boundaryVisible={boundaryVisible}
                 reduced={reduced}
                 tone={tone}
+                plusSectionHeader={plusHeaderText}
+                moreCount={plusOverflowCount}
               />
             )}
             {layout === "compact-list" && (
@@ -360,6 +389,7 @@ export default function TunedResult({
                 boundaryVisible={boundaryVisible}
                 reduced={reduced}
                 tone={tone}
+                plusSectionHeader={plusHeaderText}
               />
             )}
             {layout === "split-by-status" && (

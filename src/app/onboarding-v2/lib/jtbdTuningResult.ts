@@ -26,7 +26,7 @@ export interface EnabledFeature {
   settingsName: string;
   /** Applied value shown in the pill */
   value: string;
-  /** Tooltip content for the (i) icon — shown on hover */
+  /** Tooltip content for the (i) icon — plain-language label explanation */
   tooltip?: string;
 }
 
@@ -37,7 +37,7 @@ export interface PaidFeature {
   featureName: string;
   /** Imported Figma decorative asset URL for this row */
   asset: string;
-  /** Tooltip content for the (i) icon — shown on hover */
+  /** Tooltip content for the (i) icon — plain-language label explanation */
   tooltip?: string;
 }
 
@@ -45,10 +45,37 @@ export interface JTBDTuningResult {
   jtbdKey: JTBDKey;
   /** Goes inside: Tuned for "___" */
   jtbdLabel: string;
-  enabled: [EnabledFeature, EnabledFeature, EnabledFeature]; // exactly 3
+  /** Exactly 2 — Protocol and Kill Switch, in that order. These are the
+   * only free settings this prototype can genuinely tune per-JTBD (confirmed
+   * at checkpoint, replacing the earlier illustrative 3-setting-per-JTBD
+   * list, which included settings — LAN setting, NAT type, Hidden IP,
+   * Encrypted connection, Alternative Routing, WireGuard Kernel, Device
+   * support — that aren't actually wired to JTBD selection). `settingsName`
+   * is now literally `"Protocol"` / `"Kill Switch"` for every row (never a
+   * more specific variant like "Smart Protocol"/"Stealth protocol") — the
+   * per-JTBD nuance lives entirely in `value` (`"Smart"` / `"WireGuard UDP"`
+   * / `"Stealth"` for Protocol; `"Advanced"` / `"Standard"` for Kill
+   * Switch). */
+  enabled: [EnabledFeature, EnabledFeature];
   paid: [PaidFeature, PaidFeature]; // exactly 2
   tip: string | null;
 }
+
+/** The two Protocol values' tooltip text is identical everywhere it's used
+ * (the setting behaves the same regardless of which JTBD picked it) — kept
+ * as shared constants so the explanation can never drift between JTBDs. */
+const PROTOCOL_TOOLTIP = {
+  smart: "Automatically picks the best way to connect for your network — no manual choice needed.",
+  wireguardUdp: "The fastest connection method, prioritizing speed and low latency over reliability on rough networks.",
+  stealth: "Disguises your VPN connection as regular traffic, so networks that block VPNs let it through.",
+} as const;
+
+/** Same "identical everywhere" precedent as `PROTOCOL_TOOLTIP`, for Kill
+ * Switch's two values. */
+const KILL_SWITCH_TOOLTIP = {
+  advanced: "Only allows internet access while connected to Proton VPN — even after you restart your computer.",
+  standard: "Automatically disconnects your internet if the VPN connection is ever lost.",
+} as const;
 
 export const JTBD_TUNING_RESULT: Record<JTBDKey, JTBDTuningResult> = {
   privacy: {
@@ -56,22 +83,16 @@ export const JTBD_TUNING_RESULT: Record<JTBDKey, JTBDTuningResult> = {
     jtbdLabel: "Privacy and security",
     enabled: [
       {
-        outcome: "Stop all traffic if the VPN drops, so your real IP never leaks",
+        outcome: "Automatically picks the most secure way to connect for your network",
+        settingsName: "Protocol",
+        value: "Smart",
+        tooltip: PROTOCOL_TOOLTIP.smart,
+      },
+      {
+        outcome: "Your internet only works while you're protected — even if you restart your computer",
         settingsName: "Kill Switch",
-        value: "On",
-        tooltip: "Instantly blocks internet access if the VPN connection drops, so your real IP can't leak.",
-      },
-      {
-        outcome: "Block local network access for stricter isolation",
-        settingsName: "LAN setting",
-        value: "Blocked",
-        tooltip: "Stops other devices on your local network from reaching your device.",
-      },
-      {
-        outcome: "Block unsolicited incoming connections",
-        settingsName: "NAT type",
-        value: "Strict",
-        tooltip: "Rejects unrequested incoming connections for a tighter security profile.",
+        value: "Advanced",
+        tooltip: KILL_SWITCH_TOOLTIP.advanced,
       },
     ],
     paid: [
@@ -79,16 +100,17 @@ export const JTBD_TUNING_RESULT: Record<JTBDKey, JTBDTuningResult> = {
         outcome: "Block ads, trackers, and malware before they reach you",
         featureName: "NetShield",
         asset: iconNetShield,
-        tooltip: "Blocks ads, trackers, and malware at the network level.",
+        tooltip: "Blocks ads, trackers, and known malicious sites before they load.",
       },
       {
-        outcome: "Route through high-security servers in safe jurisdictions",
+        outcome: "Routes you through extra-secure servers in privacy-friendly countries",
         featureName: "Secure Core",
         asset: iconSecureCore,
-        tooltip: "Routes your traffic through hardened servers in privacy-friendly countries first.",
+        tooltip:
+          "Routes your connection through an extra server in a privacy-friendly country before it reaches its destination.",
       },
     ],
-    tip: null, // source screen was cut off — confirm or pull tip from Figma
+    tip: null,
   },
 
   gaming: {
@@ -96,36 +118,31 @@ export const JTBD_TUNING_RESULT: Record<JTBDKey, JTBDTuningResult> = {
     jtbdLabel: "Gaming",
     enabled: [
       {
-        outcome: "Hide your real IP from other players, so it can't be used to attack you",
-        settingsName: "Hidden IP",
-        value: "On",
-        tooltip: "Masks your real IP from other players so it can't be used to target you.",
+        outcome: "Uses the fastest connection method available, built to keep your ping low",
+        settingsName: "Protocol",
+        value: "WireGuard UDP",
+        tooltip: PROTOCOL_TOOLTIP.wireguardUdp,
       },
       {
-        outcome: "Keep your real IP hidden if the connection drops mid-match",
+        outcome: "If your protection drops mid-match, your internet drops with it — so you're never exposed",
         settingsName: "Kill Switch",
-        value: "On",
-        tooltip: "Cuts internet if the VPN drops, keeping your real IP hidden mid-match.",
-      },
-      {
-        outcome: "Play on Wi-Fi that blocks games - school, work, or dorm networks",
-        settingsName: "Smart Protocol",
-        value: "Auto",
-        tooltip: "Automatically picks a protocol that gets through networks that block games.",
+        value: "Standard",
+        tooltip: KILL_SWITCH_TOOLTIP.standard,
       },
     ],
     paid: [
       {
-        outcome: "Better matchmaking and fewer peer-connection problems",
+        outcome: "Easier to find matches and stay connected to other players",
         featureName: "Moderate NAT",
         asset: iconModerateNat,
-        tooltip: "Eases NAT restrictions for better matchmaking and fewer connection issues.",
+        tooltip:
+          "Relaxes connection rules so you can match with and stay connected to other players more easily.",
       },
       {
-        outcome: "Reach games and lobbies in other regions, on servers in 148 countries",
+        outcome: "Play on servers in other regions — 148 countries on Plus",
         featureName: "Server breadth",
         asset: iconServerBreadth,
-        tooltip: "Connect to game servers and lobbies across 148 countries.",
+        tooltip: "Access to game servers across 148 countries, not just your own.",
       },
     ],
     tip: "A VPN will not lower your ping below your normal connection. With more locations on Plus, you can pick a server that keeps the difference small.",
@@ -136,39 +153,33 @@ export const JTBD_TUNING_RESULT: Record<JTBDKey, JTBDTuningResult> = {
     jtbdLabel: "Bypassing restrictions",
     enabled: [
       {
-        outcome: "Automatically choose the protocol that works on your network",
-        settingsName: "Smart Protocol",
-        value: "Auto",
-        tooltip: "Automatically selects the connection protocol that works on your network.",
+        outcome: "Disguises your connection so networks that block VPNs let it through",
+        settingsName: "Protocol",
+        value: "Stealth",
+        tooltip: PROTOCOL_TOOLTIP.stealth,
       },
       {
-        outcome: "Reach Proton even when DNS or normal IPs are blocked",
-        settingsName: "Alternative Routing",
-        value: "On",
-        tooltip: "Reaches Proton through alternate paths when DNS or normal IPs are blocked.",
-      },
-      {
-        outcome: "Disguise VPN traffic so it gets through aggressive blockers",
-        settingsName: "Stealth protocol",
-        value: "On",
-        tooltip: "Disguises VPN traffic as regular traffic to slip past aggressive blockers.",
+        outcome: "Your internet only works while you're protected — even after a restart — so you're never caught unprotected",
+        settingsName: "Kill Switch",
+        value: "Advanced",
+        tooltip: KILL_SWITCH_TOOLTIP.advanced,
       },
     ],
     paid: [
       {
-        outcome: "Automatically connect to the fastest non-local server",
+        outcome: "Connects you to the fastest server outside your country, automatically",
         featureName: "Fastest outside-country",
         asset: iconAnticensorship,
-        tooltip: "Auto-connects to the fastest server outside your country to avoid local blocks.",
+        tooltip: "Finds and connects to the quickest server outside your country.",
       },
       {
-        outcome: "Saved profile for your preferred bypass setup",
+        outcome: "Save your setup and reconnect with one tap",
         featureName: "Bypass profile",
         asset: iconSecurity,
-        tooltip: "Save your preferred bypass setup for one-tap reconnection.",
+        tooltip: "Saves your preferred connection setup for one-tap use next time.",
       },
     ],
-    tip: "Switch to Stealth protocol manually if Smart Protocol does not detect the block.",
+    tip: "If a site or service still won't load, try connecting to a different server.",
   },
 
   travel: {
@@ -176,36 +187,30 @@ export const JTBD_TUNING_RESULT: Record<JTBDKey, JTBDTuningResult> = {
     jtbdLabel: "Travel and Wi-Fi safety",
     enabled: [
       {
-        outcome: "Block local Wi-Fi devices for safer public networks",
-        settingsName: "LAN setting",
-        value: "Off",
-        tooltip: "Disables local network access so other devices on public Wi-Fi can't reach you.",
+        outcome: "Automatically finds a way to connect, even on hotel or airport Wi-Fi that blocks VPNs",
+        settingsName: "Protocol",
+        value: "Smart",
+        tooltip: PROTOCOL_TOOLTIP.smart,
       },
       {
-        outcome: "Connect on networks that block other VPN protocols",
-        settingsName: "Stealth protocol",
-        value: "On",
-        tooltip: "Connects on restrictive networks that block standard VPN protocols.",
-      },
-      {
-        outcome: "Block unsolicited incoming connections on public Wi-Fi",
-        settingsName: "NAT type",
-        value: "Strict",
-        tooltip: "Rejects unrequested incoming connections on untrusted public networks.",
+        outcome: "If your protection drops on public Wi-Fi, your internet drops with it — so you're never exposed",
+        settingsName: "Kill Switch",
+        value: "Standard",
+        tooltip: KILL_SWITCH_TOOLTIP.standard,
       },
     ],
     paid: [
       {
-        outcome: "Saved profile for connecting back to your home country's IP",
+        outcome: "One tap to look like you're back home",
         featureName: "Home country profile",
         asset: iconBusiness,
-        tooltip: "Save a profile to quickly connect back to your home country's IP.",
+        tooltip: "A saved one-tap setup that connects you back to your home country.",
       },
       {
         outcome: "Get warned before connecting to risky Wi-Fi",
         featureName: "Network warning",
         asset: iconNetworkWarning,
-        tooltip: "Alerts you before connecting to risky or unsecured Wi-Fi.",
+        tooltip: "Alerts you before you join a network that looks risky.",
       },
     ],
     tip: "Proton VPN is compatible with hotels, airports, and café captive portals.",
@@ -216,36 +221,30 @@ export const JTBD_TUNING_RESULT: Record<JTBDKey, JTBDTuningResult> = {
     jtbdLabel: "Streaming and content",
     enabled: [
       {
-        outcome: "Watch privately on YouTube, Twitch, and whatever's available where you are",
-        settingsName: "Encrypted connection",
-        value: "On",
-        tooltip: "Encrypts your traffic so your activity stays private while you watch.",
+        outcome: "Uses the fastest connection method available, built for smooth playback",
+        settingsName: "Protocol",
+        value: "WireGuard UDP",
+        tooltip: PROTOCOL_TOOLTIP.wireguardUdp,
       },
       {
-        outcome: "Watch on your phone, computer, or browser - one device at a time on Free",
-        settingsName: "Device support",
-        value: "1 device",
-        tooltip: "The Free plan supports one device connected at a time.",
-      },
-      {
-        outcome: "Stop IP leaks if the VPN drops while watching",
+        outcome: "If your protection drops while you're watching, your internet drops too — so nothing slips out",
         settingsName: "Kill Switch",
-        value: "On",
-        tooltip: "Stops traffic if the VPN drops, preventing IP leaks while streaming.",
+        value: "Standard",
+        tooltip: KILL_SWITCH_TOOLTIP.standard,
       },
     ],
     paid: [
       {
-        outcome: "Watch shows from other countries - US Netflix, UK Prime, and more",
+        outcome: "Watch shows from other countries — US Netflix, UK Prime, and more",
         featureName: "Streaming servers",
         asset: iconStreaming,
-        tooltip: "Servers optimized for accessing streaming libraries in other countries.",
+        tooltip: "Servers chosen to work with streaming services in other countries.",
       },
       {
         outcome: "Smoother 4K and live video",
         featureName: "VPN Accelerator",
         asset: iconVpnAccelerator,
-        tooltip: "Boosts connection speeds for smoother 4K and live video.",
+        tooltip: "Improves connection performance, which helps with high-quality and live video.",
       },
     ],
     tip: "Connect first, then open the app or site you want to watch.",
@@ -256,61 +255,46 @@ export const JTBD_TUNING_RESULT: Record<JTBDKey, JTBDTuningResult> = {
     jtbdLabel: "Downloading",
     enabled: [
       {
-        outcome: "Download privately from direct links and other non-torrent sources",
-        settingsName: "Encrypted connection",
-        value: "On",
-        tooltip: "Encrypts your traffic so downloads from direct links stay private.",
+        outcome: "Automatically picks the fastest way to connect, so your download doesn't slow down",
+        settingsName: "Protocol",
+        value: "Smart",
+        tooltip: PROTOCOL_TOOLTIP.smart,
       },
       {
-        outcome: "Stop a download and hide your real address if the connection drops",
+        outcome: "Your internet only works while you're protected, so a download never continues unprotected",
         settingsName: "Kill Switch",
-        value: "On",
-        tooltip: "Halts downloads and hides your real IP if the connection drops.",
-      },
-      {
-        outcome: "Faster downloads with less strain on your computer",
-        settingsName: "WireGuard Kernel",
-        value: "On",
-        tooltip: "Uses the kernel-level WireGuard module for faster, lighter downloads.",
+        value: "Advanced",
+        tooltip: KILL_SWITCH_TOOLTIP.advanced,
       },
     ],
     paid: [
       {
-        outcome: "Torrenting and file-sharing, up to 10x faster",
+        outcome: "Share files with others more easily — up to 10x faster on Plus",
         featureName: "Port Forwarding",
         asset: iconPortForwarding,
-        tooltip: "Opens ports for faster torrenting and file-sharing.",
+        tooltip: "Opens specific connection paths so file-sharing works faster.",
       },
       {
-        outcome: "Servers built and auto-picked for file-sharing",
+        outcome: "Connect to servers set up for file-sharing, picked automatically",
         featureName: "P2P servers",
         asset: iconP2pServers,
-        tooltip: "Servers tuned and auto-selected for file-sharing traffic.",
+        tooltip: "Servers designed for file-sharing, chosen automatically when you need them.",
       },
     ],
-    tip: "For torrenting and file-sharing, connect to a P2P server first - that is part of Plus.",
+    tip: "For torrenting and file-sharing, connect to a P2P server first — that is part of Plus.",
   },
 };
 
 /** Editorial priority for Multiple-mode's capped/ranked FREE settings list
- * (lower number = higher priority) — confirmed at checkpoint. Protection-
- * critical settings (Kill Switch, Smart Protocol, Stealth protocol,
- * Alternative Routing) rank highest; the core encryption/security settings
- * next; niceties (WireGuard Kernel, the informational "Device support" row)
- * rank lowest. Covers every unique `settingsName` across all 6 JTBDs (10
- * total). See `lib/jtbdMerge.ts` → `rankFreeSettings`, and
- * `tuned-result/timing.ts` → `freeRowCap` for the display cap this feeds. */
+ * (lower number = higher priority) — Kill Switch ranks above Protocol as the
+ * more protection-critical of the two. Now covers the only 2 unique
+ * `settingsName` values that exist across all 6 JTBDs (`"Protocol"` and
+ * `"Kill Switch"` — see the `enabled` doc comment on `JTBDTuningResult`).
+ * See `lib/jtbdMerge.ts` → `rankFreeSettings`, and `tuned-result/timing.ts`
+ * → `freeRowCap` for the display cap this feeds. */
 export const SETTINGS_RANK: Record<string, number> = {
   "Kill Switch": 1,
-  "Smart Protocol": 2,
-  "Stealth protocol": 3,
-  "Alternative Routing": 4,
-  "Encrypted connection": 5,
-  "NAT type": 6,
-  "Hidden IP": 7,
-  "LAN setting": 8,
-  "WireGuard Kernel": 9,
-  "Device support": 10,
+  Protocol: 2,
 };
 
 /** Editorial priority for Multiple-mode's capped/ranked PAID (VPN Plus)

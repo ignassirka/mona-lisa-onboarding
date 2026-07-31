@@ -63,9 +63,9 @@ export default function EnabledFeatureRow({ feature, layout = "row" }: EnabledFe
     return (
       <motion.div
         variants={rowVariants}
-        className="flex w-full max-w-[800px] items-center gap-[16px] rounded-[8px] bg-[rgba(255,255,255,0.05)] px-[16px] py-[12px]"
+        className="flex w-full max-w-[800px] items-start gap-[16px] rounded-[8px] bg-[rgba(255,255,255,0.05)] px-[16px] py-[12px]"
       >
-        <div className="flex min-w-0 flex-1 items-center gap-[8px]">
+        <div className="flex min-w-0 flex-1 items-start gap-[8px]">
           <motion.img variants={checkVariants} src={checkmarkUrl} alt="" className="size-[20px] shrink-0" />
           <span
             className="font-['Segoe_UI_Variable',sans-serif] text-[14px] font-semibold leading-[20px] text-white"
@@ -76,20 +76,18 @@ export default function EnabledFeatureRow({ feature, layout = "row" }: EnabledFe
         </div>
         <div className="flex shrink-0 items-center gap-[8px]">
           <span
-            className="whitespace-nowrap font-['Segoe_UI_Variable',sans-serif] text-[14px] leading-[20px] text-[rgba(255,255,255,0.7)]"
+            className="flex items-center gap-[4px] whitespace-nowrap font-['Segoe_UI_Variable',sans-serif] text-[14px] leading-[20px] text-[rgba(255,255,255,0.7)]"
             style={{ fontFeatureSettings: '"rclt" 0' }}
           >
             {feature.settingsName}
-          </span>
-          <div className="flex items-center gap-[8px]">
-            <span
-              className="flex items-end justify-center whitespace-nowrap rounded-[4px] bg-[rgba(255,255,255,0.05)] px-[12px] pb-[7px] pt-[5px] font-['Segoe_UI_Variable',sans-serif] text-[14px] font-semibold leading-[20px] text-white"
-              style={{ fontFeatureSettings: '"fina" 1, "init" 1' }}
-            >
-              {feature.value}
-            </span>
             <InfoTooltip content={feature.tooltip} />
-          </div>
+          </span>
+          <span
+            className="flex items-end justify-center whitespace-nowrap rounded-[8px] bg-[rgba(255,255,255,0.05)] px-[12px] pb-[7px] pt-[5px] font-['Segoe_UI_Variable',sans-serif] text-[14px] font-semibold leading-[20px] text-white"
+            style={{ fontFeatureSettings: '"fina" 1, "init" 1' }}
+          >
+            {feature.value}
+          </span>
         </div>
       </motion.div>
     );
@@ -102,10 +100,7 @@ export default function EnabledFeatureRow({ feature, layout = "row" }: EnabledFe
     // propagation, so its pop timing matches the row layout exactly.
     return (
       <div className="relative flex w-full flex-col gap-[6px] rounded-[8px] bg-[rgba(255,255,255,0.05)] px-[14px] py-[10px]">
-        <div className="absolute right-[10px] top-[10px]">
-          <InfoTooltip content={feature.tooltip} />
-        </div>
-        <div className="flex items-center gap-[8px] pr-[22px]">
+        <div className="flex items-start gap-[8px] pr-[22px]">
           <motion.img variants={checkVariants} src={checkmarkUrl} alt="" className="size-[18px] shrink-0" />
           <span
             className="min-w-0 font-['Segoe_UI_Variable',sans-serif] text-[13px] font-semibold leading-[18px] text-white"
@@ -116,13 +111,14 @@ export default function EnabledFeatureRow({ feature, layout = "row" }: EnabledFe
         </div>
         <div className="flex items-center gap-[8px] pl-[26px]">
           <span
-            className="whitespace-nowrap font-['Segoe_UI_Variable',sans-serif] text-[12px] leading-[16px] text-[rgba(255,255,255,0.7)]"
+            className="flex items-center gap-[4px] whitespace-nowrap font-['Segoe_UI_Variable',sans-serif] text-[12px] leading-[16px] text-[rgba(255,255,255,0.7)]"
             style={{ fontFeatureSettings: '"rclt" 0' }}
           >
             {feature.settingsName}
+            <InfoTooltip content={feature.tooltip} />
           </span>
           <span
-            className="flex items-end justify-center whitespace-nowrap rounded-[4px] bg-[rgba(255,255,255,0.05)] px-[10px] pb-[5px] pt-[3px] font-['Segoe_UI_Variable',sans-serif] text-[12px] font-semibold leading-[16px] text-white"
+            className="flex items-end justify-center whitespace-nowrap rounded-[8px] bg-[rgba(255,255,255,0.05)] px-[10px] pb-[5px] pt-[3px] font-['Segoe_UI_Variable',sans-serif] text-[12px] font-semibold leading-[16px] text-white"
             style={{ fontFeatureSettings: '"fina" 1, "init" 1' }}
           >
             {feature.value}
@@ -138,7 +134,6 @@ export default function EnabledFeatureRow({ feature, layout = "row" }: EnabledFe
     <div className="relative flex h-full flex-col rounded-[12px] bg-[rgba(255,255,255,0.05)] p-[14px]">
       <div className="flex items-start justify-between gap-[8px]">
         <motion.img variants={checkVariants} src={checkmarkUrl} alt="" className="size-[20px] shrink-0" />
-        <InfoTooltip content={feature.tooltip} />
       </div>
       <p
         className="mt-[10px] line-clamp-3 flex-1 font-['Segoe_UI_Variable',sans-serif] text-[13px] font-semibold leading-[18px] text-white"
@@ -148,13 +143,14 @@ export default function EnabledFeatureRow({ feature, layout = "row" }: EnabledFe
       </p>
       <div className="mt-[10px] flex items-center gap-[8px]">
         <span
-          className="min-w-0 flex-1 truncate font-['Segoe_UI_Variable',sans-serif] text-[12px] leading-[16px] text-[rgba(255,255,255,0.7)]"
+          className="flex min-w-0 flex-1 items-center gap-[4px] truncate font-['Segoe_UI_Variable',sans-serif] text-[12px] leading-[16px] text-[rgba(255,255,255,0.7)]"
           style={{ fontFeatureSettings: '"rclt" 0' }}
         >
           {feature.settingsName}
+          <InfoTooltip content={feature.tooltip} />
         </span>
         <span
-          className="flex shrink-0 items-end justify-center whitespace-nowrap rounded-[4px] bg-[rgba(255,255,255,0.05)] px-[10px] pb-[5px] pt-[3px] font-['Segoe_UI_Variable',sans-serif] text-[12px] font-semibold leading-[16px] text-white"
+          className="flex shrink-0 items-end justify-center whitespace-nowrap rounded-[8px] bg-[rgba(255,255,255,0.05)] px-[10px] pb-[5px] pt-[3px] font-['Segoe_UI_Variable',sans-serif] text-[12px] font-semibold leading-[16px] text-white"
           style={{ fontFeatureSettings: '"fina" 1, "init" 1' }}
         >
           {feature.value}

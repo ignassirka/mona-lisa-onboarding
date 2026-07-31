@@ -26,6 +26,9 @@ interface CompactListLayoutProps {
    * names/asset (the rest of `feature`, passed through to `EnabledFeatureRow`/
    * `PaidFeatureRow` unmodified) stay unchanged regardless of tone. */
   tone: ToneOfVoice;
+  /** Intent-aware Plus-section heading — see `plusSectionHeader` in
+   * `tuned-result/copy.ts`. */
+  plusSectionHeader: string;
   /** Stage 3 only — see `StackedLayout`'s doc for the exact contract. */
   unlockTransition?: { unlocked: boolean; showChip: boolean };
 }
@@ -51,6 +54,7 @@ export default function CompactListLayout({
   boundaryVisible,
   reduced,
   tone,
+  plusSectionHeader,
   unlockTransition,
 }: CompactListLayoutProps) {
   const showBoundary = !paidUnlocked || !!profiles;
@@ -193,7 +197,7 @@ export default function CompactListLayout({
       <div className="flex w-full flex-col items-center gap-[12px]">{result.enabled.map((_, i) => renderEnabledRow(i))}</div>
 
       <div className="flex w-full flex-col items-center gap-[12px]">
-        {showBoundary && <BoundaryDivider visible={boundaryVisible} reduced={reduced} />}
+        {showBoundary && <BoundaryDivider visible={boundaryVisible} reduced={reduced} header={plusSectionHeader} />}
         {profiles ? (
           <>
             {renderProfilesSummaryRow()}

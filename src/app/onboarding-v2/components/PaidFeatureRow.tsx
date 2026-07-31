@@ -62,9 +62,9 @@ export default function PaidFeatureRow({ feature, unlocked = false, layout = "ro
     return (
       <motion.div
         variants={rowVariants}
-        className="flex w-full max-w-[800px] items-center gap-[16px] rounded-[8px] border border-[rgba(255,255,255,0.1)] px-[16px] py-[12px] shadow-[0px_4px_4px_0px_rgba(0,0,0,0.25)]"
+        className="flex w-full max-w-[800px] items-start gap-[16px] rounded-[8px] border border-[rgba(255,255,255,0.1)] px-[16px] py-[12px] shadow-[0px_4px_4px_0px_rgba(0,0,0,0.25)]"
       >
-        <div className="flex min-w-0 flex-1 items-center gap-[8px]">
+        <div className="flex min-w-0 flex-1 items-start gap-[8px]">
           {unlocked ? (
             <motion.img variants={markVariants} src={checkmarkUrl} alt="" className="size-[20px] shrink-0" />
           ) : (
@@ -85,13 +85,13 @@ export default function PaidFeatureRow({ feature, unlocked = false, layout = "ro
               className={`size-[30px] shrink-0 object-contain ${unlocked ? "" : "opacity-50"}`}
             />
             <span
-              className={`whitespace-nowrap font-['Segoe_UI_Variable',sans-serif] text-[16px] font-semibold leading-[20px] ${featureNameColor}`}
+              className={`flex items-center gap-[4px] whitespace-nowrap font-['Segoe_UI_Variable',sans-serif] text-[16px] font-semibold leading-[20px] ${featureNameColor}`}
               style={{ fontFeatureSettings: '"fina" 1, "init" 1' }}
             >
               {feature.featureName}
+              <InfoTooltip content={feature.tooltip} />
             </span>
           </div>
-          <InfoTooltip content={feature.tooltip} />
         </div>
       </motion.div>
     );
@@ -105,10 +105,7 @@ export default function PaidFeatureRow({ feature, unlocked = false, layout = "ro
       <div
         className="relative flex w-full flex-col gap-[6px] rounded-[8px] border border-[rgba(255,255,255,0.1)] px-[14px] py-[10px] shadow-[0px_4px_4px_0px_rgba(0,0,0,0.25)]"
       >
-        <div className="absolute right-[10px] top-[10px]">
-          <InfoTooltip content={feature.tooltip} />
-        </div>
-        <div className="flex items-center gap-[8px] pr-[22px]">
+        <div className="flex items-start gap-[8px]">
           {unlocked ? (
             <motion.img variants={markVariants} src={checkmarkUrl} alt="" className="size-[18px] shrink-0" />
           ) : (
@@ -128,10 +125,11 @@ export default function PaidFeatureRow({ feature, unlocked = false, layout = "ro
             className={`size-[22px] shrink-0 object-contain ${unlocked ? "" : "opacity-50"}`}
           />
           <span
-            className={`whitespace-nowrap font-['Segoe_UI_Variable',sans-serif] text-[13px] font-semibold leading-[18px] ${featureNameColor}`}
+            className={`flex items-center gap-[4px] whitespace-nowrap font-['Segoe_UI_Variable',sans-serif] text-[13px] font-semibold leading-[18px] ${featureNameColor}`}
             style={{ fontFeatureSettings: '"fina" 1, "init" 1' }}
           >
             {feature.featureName}
+            <InfoTooltip content={feature.tooltip} />
           </span>
         </div>
       </div>
@@ -148,7 +146,6 @@ export default function PaidFeatureRow({ feature, unlocked = false, layout = "ro
         ) : (
           <img src={vpnPlusBadgeUrl} alt="Proton VPN Plus" className="h-[20px] w-[33px] shrink-0" />
         )}
-        <InfoTooltip content={feature.tooltip} />
       </div>
       <p
         className={`mt-[10px] line-clamp-3 flex-1 font-['Segoe_UI_Variable',sans-serif] text-[13px] font-semibold leading-[18px] ${outcomeColor}`}
@@ -163,10 +160,11 @@ export default function PaidFeatureRow({ feature, unlocked = false, layout = "ro
           className={`size-[24px] shrink-0 object-contain ${unlocked ? "" : "opacity-50"}`}
         />
         <span
-          className={`min-w-0 flex-1 truncate font-['Segoe_UI_Variable',sans-serif] text-[13px] font-semibold leading-[18px] ${featureNameColor}`}
+          className={`flex min-w-0 flex-1 items-center gap-[4px] truncate font-['Segoe_UI_Variable',sans-serif] text-[13px] font-semibold leading-[18px] ${featureNameColor}`}
           style={{ fontFeatureSettings: '"fina" 1, "init" 1' }}
         >
           {feature.featureName}
+          <InfoTooltip content={feature.tooltip} />
         </span>
       </div>
     </div>

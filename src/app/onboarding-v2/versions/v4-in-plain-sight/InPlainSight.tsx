@@ -5,6 +5,7 @@ import Spinner from "../../components/Spinner";
 import { PadlockOpen, PadlockClosed } from "../../components/Padlocks";
 import ConnectionBackdrop from "../lib/ConnectionBackdrop";
 import ConfirmationFooter from "../lib/ConfirmationFooter";
+import ConnectingNarration from "../../components/ConnectingNarration";
 import { useReducedMotion } from "../lib/useReducedMotion";
 import ActivityFeed from "./ActivityFeed";
 import { V4_TIMING } from "./timing";
@@ -22,7 +23,7 @@ const V4_CSS = `
 
 /** V4 — "In Plain Sight" (The Open Diary). Everyday internet life logged as a
  * diary; the click encrypts it line by line. Single centered column, no map. */
-export default function InPlainSight({ phase, isLive, onProtect, onContinue, copy }: StageOneVersionProps) {
+export default function InPlainSight({ phase, isLive, onProtect, onContinue, copy, connectingNarration = null, stillTrying = false }: StageOneVersionProps) {
   const reduced = useReducedMotion();
   const [revealed, setRevealed] = useState(0);
   const onRevealedCountChange = useCallback((n: number) => setRevealed(n), []);
@@ -36,7 +37,7 @@ export default function InPlainSight({ phase, isLive, onProtect, onContinue, cop
     phase === "protected"
       ? copy.protectedHeadline
       : phase === "connecting"
-        ? copy.connectingHeadline
+        ? connectingNarration ?? copy.connectingHeadline
         : copy.exposedHeadline;
 
   return (
@@ -91,6 +92,9 @@ export default function InPlainSight({ phase, isLive, onProtect, onContinue, cop
                 {copy.sealCard}
               </p>
             </motion.div>
+          )}
+          {phase === "connecting" && stillTrying && (
+            <ConnectingNarration narration={null} stillTrying className="mt-[6px]" />
           )}
         </div>
 

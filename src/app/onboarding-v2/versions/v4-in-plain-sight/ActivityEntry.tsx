@@ -8,7 +8,7 @@ import { useScramble } from "../lib/scramble";
 /** Crossed-out eye — the "hidden" counterpart to the `Eye` ("Visible") icon
  * above, shown once an entry redacts/seals. Custom mark (not a Lucide icon),
  * so it's a small local SVG rather than the shared icon set. */
-function EyeHiddenIcon({ size = 13, className }: { size?: number; className?: string }) {
+export function EyeHiddenIcon({ size = 13, className }: { size?: number; className?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 20 20" fill="none" className={className} xmlns="http://www.w3.org/2000/svg">
       <path
@@ -35,12 +35,14 @@ interface ActivityEntryProps {
   /** Protected act — locks tint teal. */
   sealed: boolean;
   reduced: boolean;
+  /** When false, `redact` still drives the eye/label state but main text stays readable. */
+  scrambleText?: boolean;
 }
 
 /** A single diary line: category icon + typed text on the left; an eye
  * (→ crossed-out eye) "Visible" → "Hidden" indicator on the right. */
 const ActivityEntry = forwardRef<HTMLDivElement, ActivityEntryProps>(function ActivityEntry(
-  { entry, visibleLabel, redactingLabel, sealedLabel, paused, redact, sealed, reduced },
+  { entry, visibleLabel, redactingLabel, sealedLabel, paused, redact, sealed, reduced, scrambleText = true },
   ref,
 ) {
   const Icon = entry.icon;
@@ -70,27 +72,26 @@ const ActivityEntry = forwardRef<HTMLDivElement, ActivityEntryProps>(function Ac
   const typed = full.slice(0, count);
   const typing = !reduced && !redact && !paused && count < full.length;
 
+  const maskText = redact && scrambleText;
+
   // Freeze whatever text is on screen the moment redaction starts, then scramble it.
   const [redactBase, setRedactBase] = useState<string | null>(null);
   const prevRedact = useRef(false);
   useEffect(() => {
-    if (redact && !prevRedact.current) setRedactBase(typed || full);
+    if (maskText && redact && !prevRedact.current) setRedactBase(typed || full);
     prevRedact.current = redact;
-  }, [redact, typed, full]);
+  }, [maskText, redact, typed, full]);
 
-  const scrambled = useScramble(redactBase ?? "", redact, {
+  const scrambled = useScramble(redactBase ?? "", maskText, {
     durationMs: V4_TIMING.redactionPerEntry,
     reduced,
   });
 
-  const displayText = redact ? scrambled : typed;
+  const displayText = maskText ? scrambled : typed;
 
-  // Hover-to-decrypt (only meaningful once an entry is actually masked —
-  // hovering a still-plaintext entry has nothing to reveal). The right-side
-  // "Hidden" indicator intentionally does NOT react to `hovered` — it
-  // always reflects the entry's real `redact`/`sealed` state, per spec.
+  // Hover-to-decrypt (only when text is actually masked).
   const [hovered, setHovered] = useState(false);
-  const revealing = redact && hovered;
+  const revealing = maskText && redact && hovered;
 
   return (
     <motion.div
@@ -111,7 +112,7 @@ const ActivityEntry = forwardRef<HTMLDivElement, ActivityEntryProps>(function Ac
       </span>
 
       <span className="min-w-0 flex-1 font-['Segoe_UI_Variable',sans-serif] text-[15px] leading-[20px] text-[rgba(255,255,255,0.92)]">
-        {redact ? (
+        {maskText ? (
           // Both states occupy the same grid cell so the crossfade dissolves
           // in place (same-length strings — `useScramble` never changes
           // character count) instead of a hard content swap.
@@ -133,7 +134,7 @@ const ActivityEntry = forwardRef<HTMLDivElement, ActivityEntryProps>(function Ac
           </span>
         ) : (
           <>
-            <span>{typed}</span>
+            <span>{redact ? full : typed}</span>
             {typing && <span className="ob2v4-caret" aria-hidden />}
           </>
         )}

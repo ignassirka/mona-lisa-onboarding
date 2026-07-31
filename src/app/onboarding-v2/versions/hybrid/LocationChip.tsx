@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useScramble } from "../lib/scramble";
 import type { ConnectionPhase } from "../types";
-import { VPN_SERVER } from "../../lib/server";
 import { HYBRID_TIMING, sec } from "./timing";
 
 interface LocationChipProps {
@@ -15,17 +14,25 @@ interface LocationChipProps {
    * elsewhere for the same "never block the opening on the API" rule. */
   isLive: boolean;
   reduced: boolean;
+  /** The resolved VPN destination shown in Act 3 (protected) — "Fastest
+   * country"'s `VPN_SERVER` by default, or the Plus user's explicitly
+   * selected country (`resolveVpnDestination`, `lib/server.ts`). Passed in
+   * rather than imported directly so this component never has to know
+   * whether a selection was made — it only ever renders the ALREADY-
+   * resolved real destination, honest either way. */
+  vpnCountry: string;
+  vpnCountryCode: string;
+  vpnIp: string;
 }
 
 /** The new location+IP pill: {flag} {country} · {IP}. A single persistent
  * container across all three acts — its real values scramble to asterisks in
- * Act 2 (via the shared `useScramble`, the same redaction feel as the
- * activity cards), then the container's inner content crossfades to the
- * resolved VPN identity in Act 3 (VPN IP in teal). The container itself never
- * unmounts; only its inner content swaps. */
-export default function LocationChip({ phase, country, countryCode, ip, isLive, reduced }: LocationChipProps) {
-  // Starts `chipScrambleDelay` after connecting begins, so the chip/cards/map
-  // "go dark" as one lightly-staggered coordinated moment, not all at once.
+ * Act 2 (via `useScramble`), then the container's inner content crossfades
+ * to the resolved VPN identity in Act 3 (VPN IP in teal). The container
+ * itself never unmounts; only its inner content swaps. */
+export default function LocationChip({ phase, country, countryCode, ip, isLive, reduced, vpnCountry, vpnCountryCode, vpnIp }: LocationChipProps) {
+  // Starts `chipScrambleDelay` after connecting begins, coordinated with the
+  // map's flyTo so the location/IP "goes dark" as the VPN connects.
   const [scrambling, setScrambling] = useState(false);
   useEffect(() => {
     if (phase !== "connecting") {
@@ -85,7 +92,7 @@ export default function LocationChip({ phase, country, countryCode, ip, isLive, 
             transition={{ duration: 0.4 }}
           >
             <img
-              src={`https://flagcdn.com/${VPN_SERVER.countryCode}.svg`}
+              src={`https://flagcdn.com/${vpnCountryCode}.svg`}
               alt=""
               className="h-[14px] w-[20px] shrink-0 rounded-[3px] object-cover"
             />
@@ -93,10 +100,10 @@ export default function LocationChip({ phase, country, countryCode, ip, isLive, 
               className="whitespace-nowrap font-['Segoe_UI_Variable',sans-serif] text-[14px] leading-[18px] text-white"
               style={{ fontFeatureSettings: '"fina" 1, "init" 1' }}
             >
-              {VPN_SERVER.country}
+              {vpnCountry}
             </span>
             <span className="text-[rgba(255,255,255,0.3)]">·</span>
-            <span className="whitespace-nowrap font-mono text-[13px] leading-[18px] text-[#2cffcc]">{VPN_SERVER.vpnIp}</span>
+            <span className="whitespace-nowrap font-mono text-[13px] leading-[18px] text-[#2cffcc]">{vpnIp}</span>
           </motion.div>
         )}
       </AnimatePresence>

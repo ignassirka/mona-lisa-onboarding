@@ -5,6 +5,7 @@ import Spinner from "../../components/Spinner";
 import { PadlockOpen, PadlockClosed } from "../../components/Padlocks";
 import ConnectionBackdrop from "../lib/ConnectionBackdrop";
 import ConfirmationFooter from "../lib/ConfirmationFooter";
+import ConnectingNarration from "../../components/ConnectingNarration";
 import { useReducedMotion } from "../lib/useReducedMotion";
 import ActivityFeed from "./ActivityFeed";
 import { V4_TIMING } from "./timing";
@@ -24,7 +25,7 @@ const V4_CSS = `
  * centered layout, arranged as a left rail (title/subtitle/CTA, matching the
  * "Location map spotlight" split's dashboard convention) + a right-hand diary
  * feed panel that fills the remaining height. */
-export default function InPlainSightSplit({ phase, isLive, onProtect, onContinue, copy }: StageOneVersionProps) {
+export default function InPlainSightSplit({ phase, isLive, onProtect, onContinue, copy, connectingNarration = null, stillTrying = false }: StageOneVersionProps) {
   const reduced = useReducedMotion();
   const [revealed, setRevealed] = useState(0);
   const onRevealedCountChange = useCallback((n: number) => setRevealed(n), []);
@@ -38,7 +39,7 @@ export default function InPlainSightSplit({ phase, isLive, onProtect, onContinue
     phase === "protected"
       ? copy.protectedHeadline
       : phase === "connecting"
-        ? copy.connectingHeadline
+        ? connectingNarration ?? copy.connectingHeadline
         : copy.exposedHeadline;
 
   return (
@@ -101,6 +102,9 @@ export default function InPlainSightSplit({ phase, isLive, onProtect, onContinue
                   {copy.sealCard}
                 </p>
               </motion.div>
+            )}
+            {phase === "connecting" && stillTrying && (
+              <ConnectingNarration narration={null} stillTrying align="left" className="mt-[6px]" />
             )}
           </div>
 

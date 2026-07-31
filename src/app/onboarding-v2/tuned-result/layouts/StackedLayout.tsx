@@ -5,7 +5,8 @@ import BoundaryDivider from "../BoundaryDivider";
 import ProfilesSummaryRow from "../ProfilesSummaryRow";
 import CircleSlashIcon from "../CircleSlashIcon";
 import { UnlockedChip } from "../TransformingPaidCell";
-import { narrateEnabling, narrateChecking, narratePreparingPlusPreview } from "../copy";
+import InfoTooltip from "../../versions/upsell/lib/InfoTooltip";
+import { narrateEnabling, narrateChecking, narratePreparingPlusPreview, moreSettingsTuned } from "../copy";
 import { toneOutcome } from "../../lib/jtbdTuningToneCopy";
 import { outcomeForEnabled, outcomeForPaid, type TuningResultLike, type ProfilePreview, type MergedPaidFeature } from "../../lib/jtbdMerge";
 import { TUNED_RESULT_TIMING as T, sec } from "../timing";
@@ -48,6 +49,14 @@ interface StackedLayoutProps {
   /** Tone of voice for the outcome sentences (`toneOutcome`) — settings
    * names/values/feature names/asset stay unchanged regardless of tone. */
   tone: ToneOfVoice;
+  /** Intent-aware Plus-section heading — see `plusSectionHeader` in
+   * `tuned-result/copy.ts`. */
+  plusSectionHeader: string;
+  /** Plus plan, Multiple mode only — the true overflow beyond the display
+   * caps (`TunedResult`'s `plusOverflowCount`). `0`/`undefined` everywhere
+   * else (Free plan, Single mode, or stage 3), which renders nothing —
+   * byte-for-byte unchanged for every existing call site. */
+  moreCount?: number;
   /** Stage 3 ("Upgrade to Plus" welcome) only: animates the 2 paid rows
    * from locked to unlocked in place instead of rendering the fixed final
    * state `paidUnlocked` would otherwise pick. Omit for stage 2's normal
@@ -58,7 +67,79 @@ interface StackedLayoutProps {
   unlockTransition?: { unlocked: boolean; showChip: boolean };
 }
 
-const ROW_CLASS = "flex w-full max-w-[800px] items-center gap-[16px] py-[12px]";
+const ROW_CLASS = "flex w-full max-w-[800px] items-start gap-[16px] py-[12px]";
+
+function SettingLabelPill({
+  label,
+  value,
+  tooltip,
+  muted = false,
+}: {
+  label: string;
+  value?: string;
+  tooltip?: string;
+  muted?: boolean;
+}) {
+  const labelColor = muted ? "text-[rgba(255,255,255,0.5)]" : "text-[rgba(255,255,255,0.7)]";
+  const valueColor = muted ? "text-[rgba(255,255,255,0.5)]" : "text-white";
+  return (
+    <span className="flex shrink-0 items-center gap-[4px] whitespace-nowrap rounded-[8px] bg-[rgba(255,255,255,0.05)] px-[12px] pb-[7px] pt-[5px]">
+      <span className={`font-['Segoe_UI_Variable',sans-serif] text-[14px] leading-[20px] ${labelColor}`} style={{ fontFeatureSettings: '"rclt" 0' }}>
+        {label}
+      </span>
+      {value ? (
+        <>
+          <span className={`font-['Segoe_UI_Variable',sans-serif] text-[14px] leading-[20px] ${labelColor}`}>:</span>
+          <span className={`font-['Segoe_UI_Variable',sans-serif] text-[14px] font-semibold leading-[20px] ${valueColor}`} style={{ fontFeatureSettings: '"fina" 1, "init" 1' }}>
+            {value}
+          </span>
+        </>
+      ) : null}
+      <InfoTooltip content={tooltip} />
+    </span>
+  );
+}
+
+function FeatureLabel({
+  name,
+  tooltip,
+  muted = false,
+}: {
+  name: string;
+  tooltip?: string;
+  muted?: boolean;
+}) {
+  const color = muted ? "text-[rgba(255,255,255,0.5)]" : "text-white";
+  return (
+    <span className={`flex items-center gap-[4px] whitespace-nowrap font-['Segoe_UI_Variable',sans-serif] text-[14px] font-semibold leading-[20px] ${color}`} style={{ fontFeatureSettings: '"fina" 1, "init" 1' }}>
+      {name}
+      <InfoTooltip content={tooltip} />
+    </span>
+  );
+}
+
+/** Paid-feature chip — mirrors `SettingLabelPill`'s container for free rows
+ * (rounded pill, same padding/bg) but holds asset + feature name instead of
+ * "label: value". Used for locked, unlocking, and unlocked Plus rows in
+ * Stacked so the bottom features read like the free chips above them. */
+function FeatureNamePill({
+  asset,
+  name,
+  tooltip,
+  muted = false,
+}: {
+  asset: string;
+  name: string;
+  tooltip?: string;
+  muted?: boolean;
+}) {
+  return (
+    <span className="flex shrink-0 items-center gap-[8px] whitespace-nowrap rounded-[8px] bg-[rgba(255,255,255,0.05)] px-[12px] pb-[7px] pt-[5px]">
+      <img src={asset} alt="" className={`size-[20px] shrink-0 object-contain ${muted ? "opacity-50" : ""}`} />
+      <FeatureLabel name={name} tooltip={tooltip} muted={muted} />
+    </span>
+  );
+}
 
 /** "Stacked" (default layout) — full-width rows, each a green check + benefit
  * sentence + a single merged "{settingsName}: {value}" pill; no per-row card
@@ -76,9 +157,18 @@ export default function StackedLayout({
   boundaryVisible,
   reduced,
   tone,
+  plusSectionHeader,
   unlockTransition,
+  moreCount,
 }: StackedLayoutProps) {
-  const showBoundary = !paidUnlocked || !!profiles;
+  // Stage 3 (`unlockTransition` present — VPN Plus Welcome, Free-path-only,
+  // untouched): unchanged formula, still shows the boundary while
+  // Multiple-mode profiles are present even once `paidUnlocked` flips true
+  // mid-animation. Stage 2 (`unlockTransition` absent — both plans): the
+  // boundary/"Available with VPN Plus" header only ever belongs to a locked
+  // state, so a Plus-plan run (`paidUnlocked` true) never shows it, single
+  // or multiple mode, regardless of `profiles`.
+  const showBoundary = unlockTransition ? !paidUnlocked || !!profiles : !paidUnlocked;
 
   const renderEnabledRow = (i: number) => {
     const feature = result.enabled[i];
@@ -92,21 +182,14 @@ export default function StackedLayout({
         className={ROW_CLASS}
         phase1Content={<PhaseOnePlaceholder narration={narrateEnabling(feature.settingsName)} />}
         resolvedContent={
-          <div className="flex w-full items-center gap-[16px]">
-            <div className="flex min-w-0 flex-1 items-center gap-[8px]">
+          <div className="flex w-full items-start gap-[16px]">
+            <div className="flex min-w-0 flex-1 items-start gap-[8px]">
               <motion.img variants={popVariants} src={checkmarkUrl} alt="" className="size-[20px] shrink-0" />
               <span className="font-['Segoe_UI_Variable',sans-serif] font-semibold text-white" style={{ fontFeatureSettings: '"fina" 1, "init" 1' }}>
                 {outcomeForEnabled(tone, result, i, feature)}
               </span>
             </div>
-            <span className="flex shrink-0 items-end justify-center gap-[4px] whitespace-nowrap rounded-[4px] bg-[rgba(255,255,255,0.05)] px-[12px] pb-[7px] pt-[5px] text-[14px] leading-[20px]">
-              <span className="font-['Segoe_UI_Variable',sans-serif] text-[rgba(255,255,255,0.7)]" style={{ fontFeatureSettings: '"rclt" 0' }}>
-                {feature.settingsName}:
-              </span>
-              <span className="font-['Segoe_UI_Variable',sans-serif] font-semibold text-white" style={{ fontFeatureSettings: '"fina" 1, "init" 1' }}>
-                {feature.value}
-              </span>
-            </span>
+            <SettingLabelPill label={feature.settingsName} value={feature.value} tooltip={feature.tooltip} />
           </div>
         }
       />
@@ -130,9 +213,9 @@ export default function StackedLayout({
           className={ROW_CLASS}
           phase1Content={null}
           resolvedContent={
-            <div className="relative flex w-full items-center gap-[16px]">
+            <div className="relative flex w-full items-start gap-[16px]">
               <UnlockedChip show={unlocked && showChip} stagger={stagger} className="-top-[9px] left-0" />
-              <div className="flex min-w-0 flex-1 items-center gap-[8px]">
+              <div className="flex min-w-0 flex-1 items-start gap-[8px]">
                 <div className="relative size-[20px] shrink-0">
                   <AnimatePresence mode="wait" initial={false}>
                     {unlocked ? (
@@ -169,23 +252,13 @@ export default function StackedLayout({
                   {toneOutcome(tone, result.jtbdKey, "paid", pIdx)}
                 </motion.span>
               </div>
-              <span className="flex shrink-0 items-center gap-[8px]">
-                <motion.img
-                  src={feature.asset}
-                  alt=""
-                  className="size-[20px] shrink-0 object-contain"
-                  animate={{ opacity: unlocked ? 1 : 0.5 }}
-                  transition={{ duration: 0.5, ease: "easeInOut", delay: stagger }}
-                />
-                <motion.span
-                  className="whitespace-nowrap font-['Segoe_UI_Variable',sans-serif] text-[14px] font-semibold leading-[20px]"
-                  style={{ fontFeatureSettings: '"fina" 1, "init" 1' }}
-                  animate={{ color: unlocked ? "rgba(255,255,255,1)" : "rgba(255,255,255,0.5)" }}
-                  transition={{ duration: 0.5, ease: "easeInOut", delay: stagger }}
-                >
-                  {feature.featureName}
-                </motion.span>
-              </span>
+              <motion.span
+                className="flex shrink-0"
+                animate={{ opacity: unlocked ? 1 : 0.85 }}
+                transition={{ duration: 0.5, ease: "easeInOut", delay: stagger }}
+              >
+                <FeatureNamePill asset={feature.asset} name={feature.featureName} tooltip={feature.tooltip} muted={!unlocked} />
+              </motion.span>
             </div>
           }
         />
@@ -193,10 +266,7 @@ export default function StackedLayout({
     }
 
     if (paidUnlocked) {
-      // Plus users: resolves as a free-style row. No value exists for paid
-      // features, so the resolved pill matches the existing plan-active
-      // convention (plain asset + name, no "label: value" pill) rather than
-      // fabricating one.
+      // Plus users: same chip treatment as free rows (`FeatureNamePill`).
       return (
         <MaterializingSlot
           key={`paid-${i}`}
@@ -205,19 +275,14 @@ export default function StackedLayout({
           className={ROW_CLASS}
           phase1Content={<PhaseOnePlaceholder narration={narrateEnabling(feature.featureName)} />}
           resolvedContent={
-            <div className="flex w-full items-center gap-[16px]">
-              <div className="flex min-w-0 flex-1 items-center gap-[8px]">
+            <div className="flex w-full items-start gap-[16px]">
+              <div className="flex min-w-0 flex-1 items-start gap-[8px]">
                 <motion.img variants={popVariants} src={checkmarkUrl} alt="" className="size-[20px] shrink-0" />
                 <span className="font-['Segoe_UI_Variable',sans-serif] font-semibold text-white" style={{ fontFeatureSettings: '"fina" 1, "init" 1' }}>
                   {toneOutcome(tone, result.jtbdKey, "paid", pIdx)}
                 </span>
               </div>
-              <span className="flex shrink-0 items-center gap-[8px]">
-                <img src={feature.asset} alt="" className="size-[20px] shrink-0 object-contain" />
-                <span className="whitespace-nowrap font-['Segoe_UI_Variable',sans-serif] text-[14px] font-semibold leading-[20px] text-white" style={{ fontFeatureSettings: '"fina" 1, "init" 1' }}>
-                  {feature.featureName}
-                </span>
-              </span>
+              <FeatureNamePill asset={feature.asset} name={feature.featureName} tooltip={feature.tooltip} />
             </div>
           }
         />
@@ -232,8 +297,8 @@ export default function StackedLayout({
         className={ROW_CLASS}
         phase1Content={<PhaseOnePlaceholder narration={narrateChecking(feature.featureName)} />}
         resolvedContent={
-          <div className="flex w-full items-center gap-[16px]">
-            <div className="flex min-w-0 flex-1 items-center gap-[8px]">
+          <div className="flex w-full items-start gap-[16px]">
+            <div className="flex min-w-0 flex-1 items-start gap-[8px]">
               <motion.span variants={settleVariants} className="flex size-[20px] shrink-0 items-center justify-center">
                 <CircleSlashIcon size={20} />
               </motion.span>
@@ -241,12 +306,7 @@ export default function StackedLayout({
                 {toneOutcome(tone, result.jtbdKey, "paid", pIdx)}
               </span>
             </div>
-            <span className="flex shrink-0 items-end justify-center gap-[8px] whitespace-nowrap rounded-[4px] bg-[rgba(255,255,255,0.05)] px-[12px] pb-[7px] pt-[5px]">
-              <img src={feature.asset} alt="" className="size-[20px] shrink-0 object-contain opacity-50" />
-              <span className="font-['Segoe_UI_Variable',sans-serif] text-[14px] font-semibold leading-[20px] text-[rgba(255,255,255,0.5)]" style={{ fontFeatureSettings: '"fina" 1, "init" 1' }}>
-                {feature.featureName}
-              </span>
-            </span>
+            <FeatureNamePill asset={feature.asset} name={feature.featureName} tooltip={feature.tooltip} muted />
           </div>
         }
       />
@@ -269,7 +329,14 @@ export default function StackedLayout({
         reduced={reduced}
         className={ROW_CLASS}
         phase1Content={<PhaseOnePlaceholder narration={narratePreparingPlusPreview()} />}
-        resolvedContent={<ProfilesSummaryRow profiles={profiles!} unlocked={unlockTransition?.unlocked ?? paidUnlocked} layout="row" />}
+        resolvedContent={
+          <ProfilesSummaryRow
+            profiles={profiles!}
+            unlocked={unlockTransition?.unlocked ?? paidUnlocked}
+            layout="row"
+            readyCopy={paidUnlocked && !unlockTransition}
+          />
+        }
       />
     );
   };
@@ -296,9 +363,9 @@ export default function StackedLayout({
           className={ROW_CLASS}
           phase1Content={null}
           resolvedContent={
-            <div className="relative flex w-full items-center gap-[16px]">
+            <div className="relative flex w-full items-start gap-[16px]">
               <UnlockedChip show={unlocked && showChip} stagger={stagger} className="-top-[9px] left-0" />
-              <div className="flex min-w-0 flex-1 items-center gap-[8px]">
+              <div className="flex min-w-0 flex-1 items-start gap-[8px]">
                 <div className="relative size-[20px] shrink-0">
                   <AnimatePresence mode="wait" initial={false}>
                     {unlocked ? (
@@ -335,23 +402,13 @@ export default function StackedLayout({
                   {outcomeForPaid(tone, feature)}
                 </motion.span>
               </div>
-              <span className="flex shrink-0 items-center gap-[8px]">
-                <motion.img
-                  src={feature.asset}
-                  alt=""
-                  className="size-[20px] shrink-0 object-contain"
-                  animate={{ opacity: unlocked ? 1 : 0.5 }}
-                  transition={{ duration: 0.5, ease: "easeInOut", delay: stagger }}
-                />
-                <motion.span
-                  className="whitespace-nowrap font-['Segoe_UI_Variable',sans-serif] text-[14px] font-semibold leading-[20px]"
-                  style={{ fontFeatureSettings: '"fina" 1, "init" 1' }}
-                  animate={{ color: unlocked ? "rgba(255,255,255,1)" : "rgba(255,255,255,0.5)" }}
-                  transition={{ duration: 0.5, ease: "easeInOut", delay: stagger }}
-                >
-                  {feature.featureName}
-                </motion.span>
-              </span>
+              <motion.span
+                className="flex shrink-0"
+                animate={{ opacity: unlocked ? 1 : 0.85 }}
+                transition={{ duration: 0.5, ease: "easeInOut", delay: stagger }}
+              >
+                <FeatureNamePill asset={feature.asset} name={feature.featureName} tooltip={feature.tooltip} muted={!unlocked} />
+              </motion.span>
             </div>
           }
         />
@@ -367,19 +424,14 @@ export default function StackedLayout({
           className={ROW_CLASS}
           phase1Content={<PhaseOnePlaceholder narration={narrateEnabling(feature.featureName)} />}
           resolvedContent={
-            <div className="flex w-full items-center gap-[16px]">
-              <div className="flex min-w-0 flex-1 items-center gap-[8px]">
+            <div className="flex w-full items-start gap-[16px]">
+              <div className="flex min-w-0 flex-1 items-start gap-[8px]">
                 <motion.img variants={popVariants} src={checkmarkUrl} alt="" className="size-[20px] shrink-0" />
                 <span className="font-['Segoe_UI_Variable',sans-serif] font-semibold text-white" style={{ fontFeatureSettings: '"fina" 1, "init" 1' }}>
                   {outcomeForPaid(tone, feature)}
                 </span>
               </div>
-              <span className="flex shrink-0 items-center gap-[8px]">
-                <img src={feature.asset} alt="" className="size-[20px] shrink-0 object-contain" />
-                <span className="whitespace-nowrap font-['Segoe_UI_Variable',sans-serif] text-[14px] font-semibold leading-[20px] text-white" style={{ fontFeatureSettings: '"fina" 1, "init" 1' }}>
-                  {feature.featureName}
-                </span>
-              </span>
+              <FeatureNamePill asset={feature.asset} name={feature.featureName} tooltip={feature.tooltip} />
             </div>
           }
         />
@@ -394,8 +446,8 @@ export default function StackedLayout({
         className={ROW_CLASS}
         phase1Content={<PhaseOnePlaceholder narration={narrateChecking(feature.featureName)} />}
         resolvedContent={
-          <div className="flex w-full items-center gap-[16px]">
-            <div className="flex min-w-0 flex-1 items-center gap-[8px]">
+          <div className="flex w-full items-start gap-[16px]">
+            <div className="flex min-w-0 flex-1 items-start gap-[8px]">
               <motion.span variants={settleVariants} className="flex size-[20px] shrink-0 items-center justify-center">
                 <CircleSlashIcon size={20} />
               </motion.span>
@@ -403,12 +455,7 @@ export default function StackedLayout({
                 {outcomeForPaid(tone, feature)}
               </span>
             </div>
-            <span className="flex shrink-0 items-end justify-center gap-[8px] whitespace-nowrap rounded-[4px] bg-[rgba(255,255,255,0.05)] px-[12px] pb-[7px] pt-[5px]">
-              <img src={feature.asset} alt="" className="size-[20px] shrink-0 object-contain opacity-50" />
-              <span className="font-['Segoe_UI_Variable',sans-serif] text-[14px] font-semibold leading-[20px] text-[rgba(255,255,255,0.5)]" style={{ fontFeatureSettings: '"fina" 1, "init" 1' }}>
-                {feature.featureName}
-              </span>
-            </span>
+            <FeatureNamePill asset={feature.asset} name={feature.featureName} tooltip={feature.tooltip} muted />
           </div>
         }
       />
@@ -425,7 +472,7 @@ export default function StackedLayout({
           and the first row's own top padding, reading as an oversized gap
           under "Available with VPN Plus". */}
       <div className="flex w-full flex-col items-center gap-[2px]">
-        {showBoundary && <BoundaryDivider visible={boundaryVisible} reduced={reduced} />}
+        {showBoundary && <BoundaryDivider visible={boundaryVisible} reduced={reduced} header={plusSectionHeader} />}
         <div className="flex w-full flex-col items-center gap-[8px]">
           {profiles ? (
             <>
@@ -437,6 +484,15 @@ export default function StackedLayout({
           )}
         </div>
       </div>
+
+      {/* Plus plan, Multiple mode only — static footnote for whatever's
+          beyond the display caps (never rendered on the Free path — its own
+          overflow was always silently dropped, unchanged). */}
+      {!!moreCount && moreCount > 0 && (
+        <p className="w-full max-w-[800px] text-left font-['Segoe_UI_Variable',sans-serif] text-[14px] leading-[20px] text-[rgba(255,255,255,0.5)]">
+          {moreSettingsTuned(moreCount)}
+        </p>
+      )}
     </div>
   );
 }

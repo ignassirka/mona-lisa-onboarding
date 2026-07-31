@@ -24,7 +24,7 @@ export default function PhaseOnePlaceholder({ narration, arrangement = "row", sp
   }
 
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-[8px]">
+    <div className="flex min-w-0 flex-1 items-start gap-[8px]">
       <span className="flex size-[20px] shrink-0 items-center justify-center">
         <Spinner size={spinnerSize} />
       </span>

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import ConceptFrame from "./ConceptFrame";
 import { useTuningConceptData, type TuningRow } from "./useTuningConceptData";
 import { useReducedMotion } from "../../versions/lib/useReducedMotion";
-import { narrateEnabling, narrateChecking, narratePreparingPlusPreview } from "../copy";
+import { narrateEnabling, narrateChecking, narratePreparingPlusPreview, plusSectionHeader } from "../copy";
 import { TUNING_CONCEPTS_COPY } from "../conceptsCopy";
 import { TUNING_CONCEPT_TIMING } from "../timing";
 import checkmarkUrl from "../../assets/checkmark-circle-filled.svg";
@@ -26,13 +26,13 @@ function narrationFor(row: TuningRow): string {
 function FreeRow({ row }: { row: TuningRow }) {
   return (
     <div className="flex w-full items-center gap-[16px]">
-      <div className="flex min-w-0 flex-1 items-center gap-[8px]">
+      <div className="flex min-w-0 flex-1 items-start gap-[8px]">
         <img src={checkmarkUrl} alt="" className="size-[18px] shrink-0" />
         <span className="font-['Segoe_UI_Variable',sans-serif] text-[14px] font-semibold text-white" style={{ fontFeatureSettings: '"fina" 1, "init" 1' }}>
           {row.outcome}
         </span>
       </div>
-      <span className="flex shrink-0 items-end justify-center gap-[4px] whitespace-nowrap rounded-[4px] bg-[rgba(255,255,255,0.05)] px-[10px] pb-[6px] pt-[4px] text-[13px] leading-[18px]">
+      <span className="flex shrink-0 items-end justify-center gap-[4px] whitespace-nowrap rounded-[8px] bg-[rgba(255,255,255,0.05)] px-[10px] pb-[6px] pt-[4px] text-[13px] leading-[18px]">
         <span className="font-['Segoe_UI_Variable',sans-serif] text-[rgba(255,255,255,0.6)]">{row.label}:</span>
         <span className="font-['Segoe_UI_Variable',sans-serif] font-semibold text-white">{row.value}</span>
       </span>
@@ -45,7 +45,7 @@ function LockedRow({ row }: { row: TuningRow }) {
     return (
       <div className="flex w-full flex-wrap items-center gap-[8px]">
         {row.profiles.map((p) => (
-          <span key={p.jtbd} className="flex items-center gap-[6px] whitespace-nowrap rounded-[4px] bg-[rgba(255,255,255,0.05)] px-[10px] py-[5px]">
+          <span key={p.jtbd} className="flex items-center gap-[6px] whitespace-nowrap rounded-[8px] bg-[rgba(255,255,255,0.05)] px-[10px] py-[5px]">
             <img src={p.icon} alt="" className="size-[14px] shrink-0 opacity-50" />
             <span className="font-['Segoe_UI_Variable',sans-serif] text-[12px] font-semibold text-[rgba(255,255,255,0.5)]">{p.label}</span>
           </span>
@@ -55,7 +55,7 @@ function LockedRow({ row }: { row: TuningRow }) {
   }
   return (
     <div className="flex w-full items-center gap-[16px]">
-      <div className="flex min-w-0 flex-1 items-center gap-[8px]">
+      <div className="flex min-w-0 flex-1 items-start gap-[8px]">
         {row.asset && <img src={row.asset} alt="" className="size-[18px] shrink-0 object-contain opacity-50" />}
         <span className="font-['Segoe_UI_Variable',sans-serif] text-[14px] font-semibold text-[rgba(255,255,255,0.5)]" style={{ fontFeatureSettings: '"fina" 1, "init" 1' }}>
           {row.outcome}
@@ -166,7 +166,7 @@ export default function ProgressRingConcept({ jtbdKey, selectionMode = "single",
                   <div className="mb-[10px] flex items-center gap-[8px]">
                     <img src={vpnPlusBadgeUrl} alt="Proton VPN Plus" className="h-[18px] w-[30px]" />
                     <span className="font-['Segoe_UI_Variable',sans-serif] text-[13px] font-semibold text-white">
-                      {TUNING_CONCEPTS_COPY.progressRing.unlockHeading}
+                      {plusSectionHeader(data.jtbdLabel, data.selectionCount)}
                     </span>
                   </div>
                   <div className="flex flex-col gap-[8px]">

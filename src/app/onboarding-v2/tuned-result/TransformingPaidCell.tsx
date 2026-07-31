@@ -68,7 +68,7 @@ export function UnlockedChip({ show, stagger, className }: { show: boolean; stag
       {show && (
         <motion.span
           key="chip"
-          className={`absolute rounded-[4px] bg-[rgba(44,255,204,0.15)] px-[6px] py-[1px] font-['Segoe_UI_Variable',sans-serif] text-[11px] font-semibold leading-[16px] text-[#2cffcc] ${className}`}
+          className={`absolute rounded-[8px] bg-[rgba(44,255,204,0.15)] px-[6px] py-[1px] font-['Segoe_UI_Variable',sans-serif] text-[11px] font-semibold leading-[16px] text-[#2cffcc] ${className}`}
           initial={{ opacity: 0, scale: 0.85 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0 }}
@@ -106,7 +106,7 @@ export default function TransformingPaidCell({ feature, unlocked, index, showChi
     return (
       <motion.div
         variants={rowVariants}
-        className="relative flex w-full max-w-[800px] items-center gap-[16px] rounded-[8px] px-[16px] py-[12px]"
+        className="relative flex w-full max-w-[800px] items-start gap-[16px] rounded-[8px] px-[16px] py-[12px]"
         animate={
           unlocked
             ? { backgroundColor: "rgba(255,255,255,0.05)", borderColor: "rgba(255,255,255,0.05)", boxShadow: "none" }
@@ -117,7 +117,7 @@ export default function TransformingPaidCell({ feature, unlocked, index, showChi
       >
         <UnlockedChip show={unlocked && showChip} stagger={stagger} className="-top-[9px] left-[12px]" />
 
-        <div className="flex min-w-0 flex-1 items-center gap-[8px]">
+        <div className="flex min-w-0 flex-1 items-start gap-[8px]">
           <div className="relative size-[20px] shrink-0">
             <AnimatePresence mode="wait" initial={false}>
               {unlocked ? (
@@ -179,7 +179,7 @@ export default function TransformingPaidCell({ feature, unlocked, index, showChi
             {unlocked && (
               <motion.span
                 key="pill"
-                className="flex items-end justify-center whitespace-nowrap rounded-[4px] bg-[rgba(255,255,255,0.05)] px-[12px] pb-[7px] pt-[5px] font-['Segoe_UI_Variable',sans-serif] text-[14px] font-semibold leading-[20px] text-white"
+                className="flex items-end justify-center whitespace-nowrap rounded-[8px] bg-[rgba(255,255,255,0.05)] px-[12px] pb-[7px] pt-[5px] font-['Segoe_UI_Variable',sans-serif] text-[14px] font-semibold leading-[20px] text-white"
                 style={{ fontFeatureSettings: '"fina" 1, "init" 1' }}
                 initial={{ opacity: 0, x: 8 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -208,7 +208,7 @@ export default function TransformingPaidCell({ feature, unlocked, index, showChi
           <InfoTooltip content={feature.tooltip} />
         </div>
 
-        <div className="flex items-center gap-[8px] pr-[22px]">
+        <div className="flex items-start gap-[8px] pr-[22px]">
           <div className="relative size-[18px] shrink-0">
             <AnimatePresence mode="wait" initial={false}>
               {unlocked ? (

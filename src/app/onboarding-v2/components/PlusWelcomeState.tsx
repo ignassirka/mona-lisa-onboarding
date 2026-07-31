@@ -7,6 +7,7 @@ import CompactListLayout from "../tuned-result/layouts/CompactListLayout";
 import SplitByStatusLayout from "../tuned-result/layouts/SplitByStatusLayout";
 import CardGridLayout from "../tuned-result/layouts/CardGridLayout";
 import { TUNED_RESULT_TIMING as T } from "../tuned-result/timing";
+import { plusSectionHeader } from "../tuned-result/copy";
 import { JTBD_TUNING_RESULT, type JTBDKey } from "../lib/jtbdTuningResult";
 import { JTBD_PLUS_WELCOME, plusWelcomeSubtitleMultiple } from "../lib/jtbdUpsell";
 import {
@@ -149,6 +150,7 @@ export default function PlusWelcomeState({
   const rowStages = Array.from({ length: totalRows }, () => "resolved" as const);
   const rowMounted = Array.from({ length: totalRows }, () => true);
   const unlockTransition = { unlocked, showChip };
+  const plusHeaderText = plusSectionHeader(result.jtbdLabel, isMultipleActive ? selectedJtbds!.length : 1);
 
   const layoutProps = {
     result,
@@ -160,6 +162,7 @@ export default function PlusWelcomeState({
     boundaryVisible: true,
     reduced,
     tone,
+    plusSectionHeader: plusHeaderText,
     unlockTransition,
   };
 

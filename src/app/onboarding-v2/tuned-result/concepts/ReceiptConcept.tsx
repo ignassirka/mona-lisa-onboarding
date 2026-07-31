@@ -25,7 +25,7 @@ function ReceiptLine({ row }: { row: TuningRow }) {
         </div>
         <div className="flex flex-wrap gap-[6px] pl-[34px]">
           {row.profiles.map((p) => (
-            <span key={p.jtbd} className="flex items-center gap-[5px] whitespace-nowrap rounded-[4px] bg-[rgba(255,255,255,0.05)] px-[8px] py-[3px]">
+            <span key={p.jtbd} className="flex items-center gap-[5px] whitespace-nowrap rounded-[8px] bg-[rgba(255,255,255,0.05)] px-[8px] py-[3px]">
               <img src={p.icon} alt="" className="size-[13px] shrink-0 opacity-50" />
               <span className="font-['Segoe_UI_Variable',sans-serif] text-[12px] font-semibold text-[rgba(255,255,255,0.5)]">{p.label}</span>
             </span>

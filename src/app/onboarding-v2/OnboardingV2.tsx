@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import OnboardingMapV2 from "./OnboardingMapV2";
 import WindowChrome from "./components/WindowChrome";
@@ -20,16 +20,23 @@ import LoaderScreen from "./components/LoaderScreen";
 import PlusWelcomeState from "./components/PlusWelcomeState";
 import ControlPanelOverlay from "./components/ControlPanelOverlay";
 import SkipConnectionLaterButton from "./components/SkipConnectionLaterButton";
+import ConnectingNarration from "./components/ConnectingNarration";
+import ConnectionFailedOverlay from "./components/ConnectionFailedOverlay";
 import InPlainSight from "./versions/v4-in-plain-sight/InPlainSight";
 import InPlainSightSplit from "./versions/v4-in-plain-sight/InPlainSightSplit";
 import Hybrid from "./versions/hybrid/Hybrid";
 import HybridSplit from "./versions/hybrid/HybridSplit";
 import { useIpDetection } from "./lib/useIpDetection";
-import { VPN_SERVER } from "./lib/server";
+import { VPN_SERVER, resolveVpnDestination } from "./lib/server";
 import { ENTRANCE_TIMING, sec } from "./lib/entranceTiming";
 import { CONNECTION_COPY, resolveIspKnown, type ToneOfVoice } from "./lib/toneOfVoice";
+import { useConnectionAttempt } from "./lib/useConnectionAttempt";
+import { resolveFailureSimPreset, type FailureCause } from "./lib/connectionSimulator";
+import { trackConnectionFailureEvent, setAnalyticsPlan } from "./lib/analytics";
 import type { JtbdId, SelectionMode } from "./lib/jtbdData";
+import type { SessionPlan } from "../lib/sessionPlan";
 import type { PinStatus } from "./lib/mapKit";
+import { useReducedMotion } from "./versions/lib/useReducedMotion";
 import windowsWallpaperUrl from "../assets/windows-wallpaper.png";
 
 // No separate "tuning" (loader) phase — the consolidated result step
@@ -38,6 +45,7 @@ import windowsWallpaperUrl from "../assets/windows-wallpaper.png";
 type Phase =
   | "unprotected"
   | "connecting"
+  | "failed"
   | "protected"
   | "jtbd"
   | "tuned"
@@ -52,7 +60,7 @@ type Phase =
 export type OnboardingStage = "connection" | "tuning" | "upgrade" | "personalization";
 
 export const ONBOARDING_STAGES: Record<OnboardingStage, { name: string; phases: Phase[] }> = {
-  connection: { name: "Establishing VPN connection", phases: ["unprotected", "connecting", "protected"] },
+  connection: { name: "Establishing VPN connection", phases: ["unprotected", "connecting", "failed", "protected"] },
   tuning: { name: "Personalized JTBD tuning", phases: ["jtbd", "tuned"] },
   upgrade: { name: "Upgrade to Plus", phases: ["upsell", "web-checkout", "checkout", "plus-welcome"] },
   personalization: { name: "Final personalization", phases: [] }, // lives in App.tsx (MakeYoursModal), not this phase machine
@@ -61,6 +69,7 @@ export const ONBOARDING_STAGES: Record<OnboardingStage, { name: string; phases: 
 const PHASE_STAGE: Record<Phase, Exclude<OnboardingStage, "personalization">> = {
   unprotected: "connection",
   connecting: "connection",
+  failed: "connection",
   protected: "connection",
   jtbd: "tuning",
   tuned: "tuning",
@@ -106,7 +115,6 @@ export const STAGE_VERSIONS: Record<OnboardingStage, { value: string; label: str
 };
 
 const EASE = [0.25, 0.46, 0.45, 0.94] as const;
-const CONNECT_MS = 3200; // simulated VPN connect (>= 2.5s minimum)
 
 /** Content variant for the Unprotected → Connecting → Protected steps.
  * v1 = original (threat + data card); v2 = "You're in control" (empowerment, keeps data card);
@@ -228,8 +236,13 @@ interface OnboardingV2Props {
    * the full ordered selection), so the main app can default to the
    * Profiles tab and generate profile items for them. Empty/omitted when
    * onboarding is abandoned via Skip (no real intent was ever committed).
-   * The second argument is the session plan: `"free"` for Continue free and
-   * all Skip exits; `"plus"` only after in-session checkout → Plus Welcome.
+   * The second argument is the session plan: `"free"` for upsell Continue
+   * free; `"plus"` after in-session checkout → Plus Welcome, OR directly
+   * from a Plus-plan run's tuning result (skipping checkout entirely — see
+   * "Plan awareness" in docs/features/onboarding-v2.md). Skip/Tier-3/Go-to-
+   * app-directly exits mid-run pass through whatever the "Plan" controller
+   * (`plan` prop below) was set to, rather than a hardcoded `"free"`, so a
+   * Plus-plan run that bails out early still lands on the Plus app state.
    * The third argument can set `vpnConnected: false` (e.g. JTBD **Go to app
    * directly**) to land in the main app without an active VPN session. */
   onExit?: (
@@ -237,6 +250,19 @@ interface OnboardingV2Props {
     plan?: import("../lib/sessionPlan").SessionPlan,
     options?: import("../lib/sessionPlan").OnboardingExitOptions,
   ) => void;
+  /** Prototype HUD control — which `FAILURE_SIM_PRESETS` id to simulate for
+   * the connection stage. Defaults to `"none"` (the untouched happy path).
+   * There is no real connection service to detect a genuine failure from
+   * (see docs/features/onboarding-v2.md → "Connection failure path",
+   * checkpoint 0), so every cause/tier in the three-tier failure path is
+   * demoed by deliberately choosing a preset here. */
+  failureSimPresetId?: string;
+  /** True only when this mount is the deferred-onboarding resume entry
+   * point (main app's "Want to finish personalizing your VPN?" banner) —
+   * the user is ALREADY connected (Tier 3 landed them disconnected, but
+   * they connected themselves afterward), so this skips stages 1 entirely
+   * and opens directly on the intent picker. */
+  resumeAtJtbd?: boolean;
   /** Fired by the window chrome's "X" close control — distinct from
    * `onExit` (which hands off to the main app once onboarding completes
    * normally): this returns to the prototype's initial start screen (the
@@ -264,6 +290,22 @@ interface OnboardingV2Props {
   selectionMode?: SelectionMode;
   /** Fired whenever the active stage changes, so prototype controls (App.tsx) can display it. */
   onStageChange?: (stage: OnboardingStage) => void;
+  /** The prototype's "Plan" controller (Sign In screen only) — the single
+   * source of truth for this entire run. `"free"` (default) is this whole
+   * component's pre-existing behavior, byte-for-byte. `"plus"` makes the
+   * tuning result materialize every feature as applied (no locked rows, no
+   * divider) and skips straight from tuning to `onExit` — the upsell,
+   * simulated checkout, and Plus Welcome phases become unreachable (they
+   * remain intact for the Free path). See docs/features/onboarding-v2.md →
+   * "Plan awareness". */
+  plan?: SessionPlan;
+  /** Plus-only prototype sub-toggle (Sign In screen, next to "Plan") — lets
+   * a reviewer preview Plus's tuning/skip-upsell behavior with or without
+   * the Hybrid/Hybrid Split country selector (`CountrySelect`), since that
+   * selector is an additive feature ON TOP of Plus, not a defining part of
+   * every Plus preview. Defaults to `true` (the feature's own default once
+   * Plus is picked); irrelevant when `plan !== "plus"`. */
+  countrySelectionEnabled?: boolean;
 }
 
 const ICON_SIZE = 34;
@@ -294,10 +336,19 @@ export default function OnboardingV2({
   tone = "straightforward",
   selectionMode = "single",
   onStageChange,
+  failureSimPresetId = "none",
+  resumeAtJtbd = false,
+  plan = "free",
+  countrySelectionEnabled = true,
 }: OnboardingV2Props) {
   const { geo, isLive } = useIpDetection();
-  const [phase, setPhase] = useState<Phase>("unprotected");
-  const [scrambleActive, setScrambleActive] = useState(false);
+  const [phase, setPhase] = useState<Phase>(resumeAtJtbd ? "jtbd" : "unprotected");
+  const reducedMotion = useReducedMotion();
+  // Populated once Tier 1's auto-remedies exhaust (→ Tier 2's failure
+  // screen). `tier2Retried` tracks whether the ONE allowed user retry has
+  // already been used, for analytics only — the retry button itself is
+  // simply disabled while `connectRender.retrying` is true.
+  const [failureInfo, setFailureInfo] = useState<{ cause: FailureCause; tier2Retried: boolean } | null>(null);
   const [selectedJtbd, setSelectedJtbd] = useState<JtbdId | null>(null);
   // Multiple mode only — ordered selection (first-selected first). Single
   // mode never reads or writes this; toggling a JTBD in/out preserves every
@@ -326,6 +377,20 @@ export default function OnboardingV2({
   // reports the offset needed to keep the map pin centered in it (see
   // Hybrid.tsx). Unused by every other variant (stays 0).
   const [hybridPinOffsetY, setHybridPinOffsetY] = useState(0);
+  // Plus-only country selection (Hybrid/Hybrid Split's `CountrySelect`) —
+  // `null` = "Fastest country", the default and the ENTIRE Free-plan
+  // behavior, byte-for-byte. Single source of truth for both the shared
+  // map's protected-state flyTo destination and the chip's resolved VPN
+  // identity once connected — see `resolveVpnDestination` (`lib/server.ts`).
+  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
+  const protectedDestination = useMemo(() => resolveVpnDestination(selectedCountry), [selectedCountry]);
+  // Plus's country selector is an additive feature ON TOP of the plan, not a
+  // defining part of it — the Sign In screen's "Country selection" sub-
+  // toggle (Plus-only, defaults to "With") lets a reviewer preview the rest
+  // of Plus's behavior (tuning, skip-upsell) without it. `selectedCountry`
+  // simply stays `null` ("Fastest country") whenever this is `false`, since
+  // Hybrid/Hybrid Split never render the selector to change it.
+  const showCountrySelect = plan === "plus" && countrySelectionEnabled;
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => () => timers.current.forEach(clearTimeout), []);
@@ -336,16 +401,83 @@ export default function OnboardingV2({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);
 
+  // Every onboarding analytics event should carry the active plan — rather
+  // than threading a new field through every existing payload/call site,
+  // `setAnalyticsPlan` lets `analytics.ts` auto-inject it into whatever gets
+  // logged (confirmed at checkpoint).
+  useEffect(() => {
+    setAnalyticsPlan(plan);
+  }, [plan]);
+
+  // ── Connection failure path (three tiers — see docs/features/onboarding-v2.md) ──
+  const failureSimConfig = useMemo(() => resolveFailureSimPreset(failureSimPresetId), [failureSimPresetId]);
+
+  const { render: connectRender, start: startConnectAttempt, retry: retryConnectAttempt } = useConnectionAttempt({
+    simConfig: failureSimConfig,
+    // An explicit Plus-plan country choice must never be silently overridden
+    // by the Tier 1 "try a different country" auto-remedy narration (which
+    // never actually changes the destination anyway) — see the hook's own
+    // doc for how this substitutes remedy1's copy.
+    hasExplicitCountry: selectedCountry !== null,
+    onSucceed: ({ resolvedAt, attempts }) => {
+      trackConnectionFailureEvent("connection_resolved", {
+        cause: failureSimConfig.cause,
+        resolvedAt,
+        attempts,
+        variant,
+        selectedCountry,
+        resolvedCountry: protectedDestination.country,
+      });
+      setFailureInfo(null);
+      setPhase("protected");
+    },
+    onTier1Exhausted: ({ cause, attempts }) => {
+      trackConnectionFailureEvent("connection_tier1_exhausted", { cause, attempts, variant });
+      trackConnectionFailureEvent("connection_tier2_view", { cause, variant });
+      setFailureInfo({ cause, tier2Retried: false });
+      setPhase("failed");
+    },
+    onTier2RetryFailed: ({ attempts }) => {
+      trackConnectionFailureEvent("connection_tier2_exit", {
+        cause: failureInfo?.cause ?? "generic",
+        attempts,
+        tier2Retried: true,
+        exit: "auto_after_retry_fail",
+        variant,
+      });
+      // Tier 3 — the single allowed retry also failed: exit to the app
+      // automatically, no second failure screen. Never the upsell; never
+      // marked complete (resumable). Plan-aware: a Plus-plan run still lands
+      // on the Plus app state here, since this exit never reaches tuning.
+      onExit?.([], plan, { vpnConnected: false, deferredDueToConnectionFailure: true });
+    },
+  });
+
   const handleProtect = useCallback(() => {
+    setFailureInfo(null);
     setPhase("connecting");
-    timers.current.push(setTimeout(() => setScrambleActive(true), 400));
-    timers.current.push(
-      setTimeout(() => {
-        setScrambleActive(false);
-        setPhase("protected");
-      }, CONNECT_MS),
-    );
-  }, []);
+    trackConnectionFailureEvent("connection_attempt_start", { cause: failureSimConfig.cause, variant, selectedCountry });
+    startConnectAttempt();
+  }, [startConnectAttempt, failureSimConfig, variant, selectedCountry]);
+
+  const handleFailureRetry = useCallback(() => {
+    setFailureInfo((f) => (f ? { ...f, tier2Retried: true } : f));
+    trackConnectionFailureEvent("connection_tier2_retry", { cause: failureInfo?.cause, variant });
+    retryConnectAttempt();
+  }, [retryConnectAttempt, failureInfo, variant]);
+
+  /** "Go to the app" — available from the FIRST failure screen, never
+   * gated. Skips the rest of onboarding entirely; never shows the upsell;
+   * marks onboarding resumable (not completed) via `deferredDueToConnectionFailure`. */
+  const handleFailureGoToApp = useCallback(() => {
+    trackConnectionFailureEvent("connection_tier2_exit", {
+      cause: failureInfo?.cause ?? "generic",
+      tier2Retried: failureInfo?.tier2Retried ?? false,
+      exit: "go_to_app",
+      variant,
+    });
+    onExit?.([], plan, { vpnConnected: false, deferredDueToConnectionFailure: true });
+  }, [onExit, failureInfo, variant, plan]);
 
   const handleContinue = useCallback(() => setPhase("jtbd"), []);
 
@@ -370,14 +502,32 @@ export default function OnboardingV2({
 
   // ── Map focus per phase ─────────────────────────────────────────────────────
   const stage = PHASE_STAGE[phase];
+  // `"failed"` (Tier 2's calm failure screen) reuses "connecting"'s visual
+  // treatment for every underlying element (map/pin/gradient/chip/cards) —
+  // deliberately NOT the danger/unprotected styling (the reveal already made
+  // the exposure point) and NOT protected (nothing succeeded). Version
+  // components are handed this instead of the raw phase wherever they only
+  // need to know what to RENDER (not the failure-screen affordances, which
+  // live in `ConnectionFailedOverlay` alone, layered on top).
+  const visualPhase: "unprotected" | "connecting" | "protected" =
+    phase === "unprotected"
+      ? "unprotected"
+      : phase === "connecting" || phase === "failed"
+        ? "connecting"
+        : "protected"; // "protected" itself, and every later-stage phase (jtbd/tuned/upsell/etc.) — matches the original mapStatus fallback exactly.
   // `skippedConnection` overrides the usual "protected once you reach tuning/
   // upgrade" assumption — there was no connect, so the map keeps showing the
   // user's real (unprotected) location and pin color for the rest of the flow.
   const isProtectedSide = !skippedConnection && (phase === "protected" || stage === "tuning" || stage === "upgrade");
-  const mapStatus: PinStatus = skippedConnection ? "unprotected" : phase === "unprotected" ? "unprotected" : phase === "connecting" ? "connecting" : "protected";
-  const mapLat = isProtectedSide ? VPN_SERVER.lat : geo.lat;
-  const mapLng = isProtectedSide ? VPN_SERVER.lng : geo.lng;
-  const mapZoom = phase === "connecting" ? 3 : phase === "jtbd" ? 4 : 5;
+  const mapStatus: PinStatus = skippedConnection ? "unprotected" : visualPhase;
+  // `protectedDestination` resolves to `VPN_SERVER` (Netherlands) whenever
+  // `selectedCountry` is null — i.e. always, for Free plan and for any
+  // version other than Hybrid/Hybrid Split (only they render the selector)
+  // — so this is byte-for-byte the prior hardcoded behavior unless a Plus
+  // user actually picked a country.
+  const mapLat = isProtectedSide ? protectedDestination.lat : geo.lat;
+  const mapLng = isProtectedSide ? protectedDestination.lng : geo.lng;
+  const mapZoom = phase === "connecting" || phase === "failed" ? 3 : phase === "jtbd" ? 4 : 5;
   const isMapSpotlightSplit = variant === "v2";
   // Pin offset-right amount for the two split layouts that keep the map
   // visible beside a left rail (v2's rail is 400px; Hybrid's split rail is an
@@ -394,9 +544,11 @@ export default function OnboardingV2({
   let cardHeading: ReactNode = null;
   const cardFootnote: ReactNode = null;
 
-  if (phase === "unprotected" || phase === "connecting") {
-    // v1 / v2 — real data card.
-    const active = phase === "connecting";
+  if (phase === "unprotected" || phase === "connecting" || phase === "failed") {
+    // v1 / v2 — real data card. `active` (masked) covers both "connecting"
+    // and the frozen "failed" visual (`visualPhase`) — never re-scrambles,
+    // never resolves to protected values.
+    const active = visualPhase === "connecting";
     rows = [
       {
         key: "loc",
@@ -430,9 +582,16 @@ export default function OnboardingV2({
   }
 
   // ── Headline / subtext / CTA copy per variant & phase (tone-selected) ───────
+  // Tier 1's narration REPLACES the connecting-state headline (never the
+  // reverse — the version's own default "Protecting your online
+  // activity…." copy still shows for the very first attempt, before any
+  // remedy narration exists). `"failed"` keeps showing whatever headline
+  // was last computed for "connecting" (via `connectRender.narration`,
+  // which itself freezes once Tier 1 exhausts) — the Tier 2 screen is a
+  // separate overlay on top, not a headline change.
   const headline: ReactNode = (() => {
     if (phase === "unprotected") return mapCopy.exposedHeadline;
-    if (phase === "connecting") return mapCopy.connectingHeadline;
+    if (phase === "connecting" || phase === "failed") return connectRender.narration ?? mapCopy.connectingHeadline;
     return mapCopy.protectedHeadline;
   })();
 
@@ -440,12 +599,15 @@ export default function OnboardingV2({
     const ispKnown = resolveIspKnown(geo);
     if (phase === "unprotected") return mapCopy.exposedSub(geo.isp, ispKnown);
     if (phase === "protected") return mapCopy.protectedSub(geo.isp, ispKnown);
+    if (phase === "connecting" || phase === "failed") {
+      return connectRender.stillTrying ? <ConnectingNarration narration={null} stillTrying /> : null;
+    }
     return null;
   })();
 
   const ctaProtectLabel = mapCopy.ctaProtect;
 
-  const showOverlayContent = phase === "unprotected" || phase === "connecting" || phase === "protected";
+  const showOverlayContent = phase === "unprotected" || phase === "connecting" || phase === "failed" || phase === "protected";
 
   return (
     // The "desktop" behind the onboarding window — same native Windows
@@ -500,48 +662,62 @@ export default function OnboardingV2({
             >
               {variant === "v4" && (
                 <InPlainSight
-                  phase={phase as "unprotected" | "connecting" | "protected"}
+                  phase={visualPhase}
                   geo={geo}
                   isLive={isLive}
                   onProtect={handleProtect}
                   onContinue={handleContinue}
                   copy={browsingCopy}
+                  connectingNarration={connectRender.narration}
+                  stillTrying={connectRender.stillTrying}
                 />
               )}
               {variant === "v4-split" && (
                 <InPlainSightSplit
-                  phase={phase as "unprotected" | "connecting" | "protected"}
+                  phase={visualPhase}
                   geo={geo}
                   isLive={isLive}
                   onProtect={handleProtect}
                   onContinue={handleContinue}
                   copy={browsingCopy}
+                  connectingNarration={connectRender.narration}
+                  stillTrying={connectRender.stillTrying}
                 />
               )}
               {variant === "hybrid" && (
                 <Hybrid
-                  phase={phase as "unprotected" | "connecting" | "protected"}
+                  phase={visualPhase}
                   geo={geo}
                   isLive={isLive}
                   onProtect={handleProtect}
                   onContinue={handleContinue}
                   tone={tone}
                   onPinOffsetChange={setHybridPinOffsetY}
+                  connectingNarration={connectRender.narration}
+                  stillTrying={connectRender.stillTrying}
+                  showCountrySelect={showCountrySelect}
+                  selectedCountry={selectedCountry}
+                  onSelectCountry={setSelectedCountry}
                 />
               )}
               {variant === "hybrid-split" && (
                 <HybridSplit
-                  phase={phase as "unprotected" | "connecting" | "protected"}
+                  phase={visualPhase}
                   geo={geo}
                   isLive={isLive}
                   onProtect={handleProtect}
                   onContinue={handleContinue}
                   tone={tone}
+                  connectingNarration={connectRender.narration}
+                  stillTrying={connectRender.stillTrying}
+                  showCountrySelect={showCountrySelect}
+                  selectedCountry={selectedCountry}
+                  onSelectCountry={setSelectedCountry}
                 />
               )}
               {variant === "v2" && (
                 <ControlPanelOverlay
-                  phase={phase as "unprotected" | "connecting" | "protected"}
+                  phase={visualPhase}
                   headline={headline}
                   subtext={subtext}
                   rows={rows}
@@ -557,23 +733,23 @@ export default function OnboardingV2({
               {/* Header (icon + title + subtext) — keyed remount per phase.
                   Unprotected uses the long entrance delays; later phases use a
                   quick stagger so transitions stay snappy. */}
-              <div key={phase} className="absolute left-1/2 top-[60px] w-[640px] -translate-x-1/2 text-center">
+              <div key={visualPhase} className="absolute left-1/2 top-[60px] w-[640px] -translate-x-1/2 text-center">
                 <motion.div
                   className="mb-[12px] flex h-[40px] items-center justify-center"
                   initial={{ opacity: 0, y: -15 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: phase === "unprotected" ? sec(ENTRANCE_TIMING.padlockAppear) : 0, duration: 0.5, ease: "easeOut" }}
+                  transition={{ delay: visualPhase === "unprotected" ? sec(ENTRANCE_TIMING.padlockAppear) : 0, duration: 0.5, ease: "easeOut" }}
                 >
-                  {phase === "unprotected" && <PadlockOpen />}
-                  {phase === "connecting" && <Spinner />}
-                  {phase === "protected" && <PadlockClosed />}
+                  {visualPhase === "unprotected" && <PadlockOpen />}
+                  {visualPhase === "connecting" && <Spinner />}
+                  {visualPhase === "protected" && <PadlockClosed />}
                 </motion.div>
                 <motion.h1
                   className="font-['Segoe_UI_Variable',sans-serif] text-[28px] font-semibold leading-[36px] text-white"
                   style={{ fontVariationSettings: "'opsz' 24" }}
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: phase === "unprotected" ? sec(ENTRANCE_TIMING.headlineAppear) : 0.12, duration: 0.5, ease: "easeOut" }}
+                  transition={{ delay: visualPhase === "unprotected" ? sec(ENTRANCE_TIMING.headlineAppear) : 0.12, duration: 0.5, ease: "easeOut" }}
                 >
                   {headline}
                 </motion.h1>
@@ -582,7 +758,7 @@ export default function OnboardingV2({
                     className="mt-[8px] mx-auto max-w-[420px] font-['Segoe_UI_Variable',sans-serif] text-[16px] leading-[20px] text-[rgba(255,255,255,0.7)]"
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: phase === "unprotected" ? sec(ENTRANCE_TIMING.subtextAppear) : 0.24, duration: 0.5, ease: "easeOut" }}
+                    transition={{ delay: visualPhase === "unprotected" ? sec(ENTRANCE_TIMING.subtextAppear) : 0.24, duration: 0.5, ease: "easeOut" }}
                   >
                     {subtext}
                   </motion.p>
@@ -643,6 +819,24 @@ export default function OnboardingV2({
           )}
         </AnimatePresence>
 
+        {/* ── Tier 2: calm, cause-specific failure screen — layered on top of
+            the frozen "connecting" visual above (map/pin/gradient/chip/cards
+            all hold via `visualPhase`, unchanged by anything in this block).
+            Version-agnostic: one implementation for all 6 connection-stage
+            versions, per the cross-cutting requirement. ── */}
+        <AnimatePresence>
+          {phase === "failed" && failureInfo && (
+            <ConnectionFailedOverlay
+              key="connection-failed"
+              cause={failureInfo.cause}
+              retrying={connectRender.retrying}
+              onRetry={handleFailureRetry}
+              onGoToApp={handleFailureGoToApp}
+              reduced={reducedMotion}
+            />
+          )}
+        </AnimatePresence>
+
         {/* ══════════════════ Stage 2: Personalized JTBD tuning ══════════════════ */}
         {/* ── JTBD two-column workspace (state 4) ── */}
         <AnimatePresence>
@@ -659,7 +853,7 @@ export default function OnboardingV2({
                 selected={selectedJtbd}
                 onSelect={setSelectedJtbd}
                 onContinue={() => effectiveJtbdKey && setPhase("tuned")}
-                onSkip={() => handleExit([], "free", { vpnConnected: false })}
+                onSkip={() => handleExit([], plan, { vpnConnected: false })}
                 tone={tone}
                 selectionMode={selectionMode}
                 selectedMultiple={selectedJtbds}
@@ -691,10 +885,14 @@ export default function OnboardingV2({
                   jtbdKey={effectiveJtbdKey}
                   selectionMode={selectionMode}
                   selectedJtbds={selectedJtbds}
-                  userPlan="free"
+                  userPlan={plan}
                   layout="stacked"
                   tone={tone}
-                  onContinue={() => setPhase("upsell")}
+                  // Plus plan: every feature already materialized as applied
+                  // (no upsell to offer) — go straight to the app, skipping
+                  // the upsell/checkout/Plus-Welcome phases entirely. Free
+                  // plan: unchanged, continues into the upsell as before.
+                  onContinue={() => (plan === "plus" ? handleExit(effectiveSelectedJtbds, "plus") : setPhase("upsell"))}
                   onBack={() => setPhase("jtbd")}
                 />
               )}

@@ -47,20 +47,22 @@ export const TUNED_RESULT_TIMING = {
   subtextCrossfade: 250,
 
   // ── Multiple mode ("Selection" prototype control) pacing guard — the
-  // merged free list can exceed the single-mode fixed 3 rows (up to ~10
-  // unique settings across all 6 JTBDs); past `pacingGuardRowThreshold`
-  // total rows, `spinnerHold` is compressed to `spinnerHoldCompressed` so
-  // total passive materialization time stays under ~12s. Single mode's
-  // totalRows is always 5 (3 enabled + 2 paid), so this never activates
-  // there — purely additive. ──
+  // merged free list can exceed the single-mode fixed 2 rows, though with
+  // only 2 unique settings (`"Protocol"` / `"Kill Switch"`) across all 6
+  // JTBDs it now never actually exceeds 2 either; past
+  // `pacingGuardRowThreshold` total rows, `spinnerHold` is compressed to
+  // `spinnerHoldCompressed` so total passive materialization time stays
+  // under ~12s. Single mode's totalRows is always 4 (2 enabled + 2 paid),
+  // so this never activates there — purely additive. ──
   pacingGuardRowThreshold: 6,
   spinnerHoldCompressed: 700,
 
   // ── Multiple mode result curation — display caps for the FREE and PLUS
   // sections (see `lib/jtbdMerge.ts` → `rankFreeSettings`/`rankPaidFeatures`/
-  // `capList`). The merged/deduped union can be as large as 10 free settings
-  // or 12 paid features across 6 selected JTBDs; capping the DISPLAYED rows
-  // keeps the screen height stable from 1 to 6 interests, while the
+  // `capList`). The merged/deduped FREE union now maxes out at 2 unique
+  // settings (`"Protocol"` / `"Kill Switch"`, see `JTBD_TUNING_RESULT`),
+  // well under `freeRowCap`; the PAID union can still be as large as 12
+  // features across 6 selected JTBDs. Capping the DISPLAYED rows
   // completion counts (`TunedResult.tsx`) still reflect the true,
   // uncapped totals — only what's shown is curated, never the numbers.
   // `paidFeatureCap` (1) + the profiles-summary row = 2 total Plus-section

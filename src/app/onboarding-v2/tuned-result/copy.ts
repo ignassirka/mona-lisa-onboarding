@@ -10,7 +10,6 @@ import { TUNING_COPY, type ToneOfVoice } from "../lib/toneOfVoice";
  * `TUNING_COPY` (`lib/toneOfVoice.tsx`) instead — see the tone-aware
  * wrappers below, which delegate there. */
 export const TUNED_RESULT_COPY = {
-  plusHeader: "Available with VPN Plus",
   continue: "Continue",
   /** Split by Status column headers. */
   activeNowHeader: "Active now",
@@ -22,8 +21,15 @@ export const TUNED_RESULT_COPY = {
  * (`ProfilesSummaryRow`). Fixed/tone-constant: each selected interest's own
  * pill (icon + name) on the row's right side carries the per-interest
  * detail, so this line stays a plain, unparameterized label — same
- * precedent as `TUNED_RESULT_COPY.plusHeader`. */
+ * precedent as `plusSectionHeader`. */
 export const PROFILES_INTRO_TEXT = "One-click profiles for your interest";
+
+/** Plus plan only (`readyCopy` on `ProfilesSummaryRow`) — profiles are
+ * genuinely created and already live in the sidebar, so the Free path's
+ * "one-click"/potential framing above would be inaccurate here (honesty
+ * rule: don't undersell what's already true). Tone-CONSTANT, same precedent
+ * as `PROFILES_INTRO_TEXT` and `plusSectionHeader` (confirmed at checkpoint). */
+export const PROFILES_READY_TEXT = "Profiles ready for your interest";
 
 /** The JTBD word used in "Tuning for {jtbd}…" / "Tuned for {jtbd}" — the
  * existing `jtbdLabel` (from `JTBD_TUNING_RESULT`) lowercased. For "bypass",
@@ -33,6 +39,17 @@ export const PROFILES_INTRO_TEXT = "One-click profiles for your interest";
  * lookup table needed. */
 export function jtbdWord(jtbdLabel: string): string {
   return jtbdLabel.toLowerCase();
+}
+
+/** Plus-section boundary heading (Stacked / Compact List) — intent-aware.
+ * Single mode / 1 selected: "More benefits for {intent} available with VPN Plus".
+ * Multiple mode (2+): generic "your interests" wording so one line covers every
+ * combination without picking a single contributor's label. */
+export function plusSectionHeader(jtbdLabel: string, selectionCount = 1): string {
+  if (selectionCount >= 2) {
+    return "More benefits for your interests available with VPN Plus";
+  }
+  return `More benefits for ${jtbdWord(jtbdLabel)} available with VPN Plus`;
 }
 
 /** Header intro subtext, Phase 1/3 ("during") — tone-varying, delegates to
@@ -92,6 +109,29 @@ export function summarySubtextMultiple(tone: ToneOfVoice, applied: number, featu
   return (t.summarySubtextMultiple ?? TUNING_COPY.straightforward.summarySubtextMultiple!)(applied, features);
 }
 
+/** Plus plan, Multiple mode — the flat-list completion subtext: applied
+ * count only, no "· N available/features with VPN Plus" clause (there's
+ * nothing locked to report). `applied` is the TRUE merged total (never the
+ * capped/displayed row count — see `TunedResult`'s `truePlusAppliedTotal`),
+ * consistent with single mode's own `summarySubtext(tone, applied, 0)`
+ * branch. Same optional-field/straightforward-fallback precedent as
+ * `summarySubtextMultiple` (full per-tone variants for Multiple-mode extras
+ * confirmed out of scope at an earlier checkpoint). */
+export function summarySubtextMultiplePlus(tone: ToneOfVoice, applied: number): string {
+  const t = TUNING_COPY[tone] ?? TUNING_COPY.straightforward;
+  return (t.summarySubtextMultiplePlus ?? TUNING_COPY.straightforward.summarySubtextMultiplePlus!)(applied);
+}
+
+/** Plus plan, Multiple mode only — the display-cap overflow footnote. `count`
+ * is the TRUE overflow beyond what's shown (`TunedResult`'s
+ * `plusOverflowCount`, itself the sum of the existing free/paid caps' own
+ * `overflow` fields — no new cap introduced, confirmed at checkpoint).
+ * Tone-constant (matches `plusSectionHeader`'s precedent for structural,
+ * non-benefit copy on this screen). */
+export function moreSettingsTuned(count: number): string {
+  return `+${count} more setting${count === 1 ? "" : "s"} tuned for you`;
+}
+
 /** Phase-1 narration for the Multiple-mode Plus section's one-line
  * profiles-summary row (`ProfilesSummaryRow`) — tone-CONSTANT, same
  * precedent as `narrateChecking`/`narrateEnabling`. */
@@ -117,15 +157,7 @@ export function summarySubtext(tone: ToneOfVoice, applied: number, locked: numbe
  * default without touching this file). */
 const ENABLING_NARRATION: Record<string, string> = {
   "Kill Switch": "Enabling Kill Switch…",
-  "LAN setting": "Configuring LAN setting…",
-  "NAT type": "Configuring NAT type…",
-  "Hidden IP": "Hiding your IP…",
-  "Smart Protocol": "Selecting protocol…",
-  "Stealth protocol": "Selecting protocol…",
-  "Alternative Routing": "Setting up alternative routing…",
-  "Encrypted connection": "Turning on encrypted connection…",
-  "Device support": "Setting up device support…",
-  "WireGuard Kernel": "Enabling WireGuard Kernel…",
+  Protocol: "Selecting protocol…",
   NetShield: "Enabling NetShield…",
   "Secure Core": "Routing through Secure Core…",
   "Moderate NAT": "Easing NAT restrictions…",

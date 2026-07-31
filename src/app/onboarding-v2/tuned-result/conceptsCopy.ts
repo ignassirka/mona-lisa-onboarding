@@ -10,11 +10,9 @@
 export const TUNING_CONCEPTS_COPY = {
   progressRing: {
     completeLabel: "Setup complete",
-    unlockHeading: "Available with VPN Plus",
   },
   checklist: {
     progressLabel: (applied: number, total: number) => `${applied} of ${total} complete`,
-    unlockHeading: "Available with VPN Plus",
   },
   receipt: {
     heading: "Here's your setup",

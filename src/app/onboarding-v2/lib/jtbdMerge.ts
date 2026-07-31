@@ -11,19 +11,33 @@ import type { ToneOfVoice } from "./toneOfVoice";
  * docs/features/onboarding-v2.md → "Multiple-mode tuning" for the full
  * design writeup and the confirmed conflict-resolution checkpoint.
  *
- * CONFLICT LIST (derived from `JTBD_TUNING_RESULT`, confirmed at checkpoint):
- * enumerating every `enabled` setting across all 6 JTBDs, exactly ONE
- * settings name is ever contributed with a genuinely different value by two
- * different JTBDs — `"LAN setting"` (privacy: "Blocked", travel: "Off").
- * Every other setting that co-occurs across JTBDs (Kill Switch, NAT type,
- * Smart Protocol, Stealth protocol, Encrypted connection) already uses an
- * IDENTICAL value everywhere it appears, so no ranking is needed for those.
- * `SETTING_CONFLICT_RESOLUTION` is therefore a minimal, confirmed map rather
- * than a full multi-value strictness table — extend it here if new JTBDs or
- * settings ever introduce a genuine conflict. */
-export const SETTING_CONFLICT_RESOLUTION: Record<string, string> = {
-  "LAN setting": "Off", // both "Blocked" (privacy) and "Off" (travel) mean "LAN access disabled" — "Off" wins (confirmed at checkpoint, matches the common On/Off toggle convention).
+ * CONFLICT RESOLUTION: since the only 2 free settings (`"Protocol"` /
+ * `"Kill Switch"`, see `JTBD_TUNING_RESULT`'s `enabled` doc comment) each
+ * take a genuinely different value per JTBD, selecting 2+ JTBDs whose values
+ * differ is the COMMON case here (unlike the old, effectively-never-hit LAN
+ * setting conflict this replaced). Resolved by "strictest wins" — the value
+ * that's a superset of what any weaker value also does, so the merged
+ * result is never a downgrade for any contributing JTBD's actual need:
+ * Kill Switch's Advanced (blocks all non-VPN traffic, even before
+ * connecting) fully covers what Standard promises (only cuts internet after
+ * a drop), and Protocol's Stealth (works even where VPNs are actively
+ * blocked) and WireGuard UDP (fastest, low-latency) both cover what Smart
+ * (network-appropriate default) already does. Order is index-based, lower
+ * = stricter/wins. */
+export const SETTING_VALUE_PRIORITY: Record<string, readonly string[]> = {
+  "Kill Switch": ["Advanced", "Standard"],
+  Protocol: ["Stealth", "WireGuard UDP", "Smart"],
 };
+
+/** Looks up `value`'s priority index within `settingsName`'s order in
+ * `SETTING_VALUE_PRIORITY` — lower is stricter/wins. Unranked settings/values
+ * (shouldn't happen — every current value is covered) sort last so an
+ * unexpected new value never silently overrides a known one. */
+function strictnessIndex(settingsName: string, value: string): number {
+  const order = SETTING_VALUE_PRIORITY[settingsName];
+  const index = order?.indexOf(value) ?? -1;
+  return index === -1 ? Infinity : index;
+}
 
 export interface MergedEnabledFeature extends EnabledFeature {
   /** Which selected JTBDs contribute this settings name, in selection order. */
@@ -61,9 +75,8 @@ export function mergeFreeSettings(selectedJtbds: JtbdId[]): MergedEnabledFeature
         return;
       }
       existing.sourceJtbds.push(jtbd);
-      const preferred = SETTING_CONFLICT_RESOLUTION[feature.settingsName];
-      if (preferred && existing.value !== preferred && feature.value === preferred) {
-        existing.value = preferred;
+      if (strictnessIndex(feature.settingsName, feature.value) < strictnessIndex(feature.settingsName, existing.value)) {
+        existing.value = feature.value;
       }
     });
   }

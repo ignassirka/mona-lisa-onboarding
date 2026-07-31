@@ -17,6 +17,8 @@ import OnboardingV2, {
   type TuningConcept,
 } from "./onboarding-v2/OnboardingV2";
 import { STAGE_SUPPORTS_TONE, TONE_OPTIONS, type ToneOfVoice } from "./onboarding-v2/lib/toneOfVoice";
+import { FAILURE_SIM_PRESETS } from "./onboarding-v2/lib/connectionSimulator";
+import { trackConnectionFailureEvent } from "./onboarding-v2/lib/analytics";
 import type { JtbdId, SelectionMode } from "./onboarding-v2/lib/jtbdData";
 import MakeYoursModal from "./components/MakeYoursModal";
 import SignInScreen from "./components/SignInScreen";
@@ -27,6 +29,13 @@ import type { MapLayerOption } from "../imports/RightVpnFeatures";
 import { TRANSITION_TIMING } from "./transitionTiming";
 import type { SessionPlan, OnboardingExitOptions } from "./lib/sessionPlan";
 import windowsWallpaperUrl from "./assets/windows-wallpaper.png";
+
+/** Prototype-only persistence for the connection-failure path's Tier 3
+ * resumability — a real app would key this off the account/session, but
+ * this prototype has neither, so `localStorage` (matching every other
+ * "has this been shown/dismissed before" flag in this file) is the closest
+ * available stand-in. */
+const DEFERRED_ONBOARDING_KEY = "onboardingDeferredDueToFailure";
 
 export type VpnStatus = "unprotected" | "connecting" | "protected";
 
@@ -62,12 +71,14 @@ function PrototypeControls({
   upsellVariant,
   tone,
   selectionMode,
+  failureSimPresetId,
   onVariantChange,
   onResultLayoutChange,
   onTuningConceptChange,
   onUpsellVariantChange,
   onToneChange,
   onSelectionModeChange,
+  onFailureSimChange,
 }: {
   stage: OnboardingStage;
   variant: OnboardingVariant;
@@ -76,18 +87,18 @@ function PrototypeControls({
   upsellVariant: UpsellVariant;
   tone: ToneOfVoice;
   selectionMode: SelectionMode;
+  failureSimPresetId: string;
   onVariantChange: (v: OnboardingVariant) => void;
   onResultLayoutChange: (v: ResultLayout) => void;
   onTuningConceptChange: (v: TuningConcept) => void;
   onUpsellVariantChange: (v: UpsellVariant) => void;
   onToneChange: (t: ToneOfVoice) => void;
   onSelectionModeChange: (m: SelectionMode) => void;
+  onFailureSimChange: (id: string) => void;
 }) {
   // "Selection" — Single (default, untouched) / Multiple JTBD picking. Only
   // meaningful for the "tuning" stage's JTBD picker + result.
   const showSelectionSelect = stage === "tuning";
-  const stageNumber = STAGE_ORDER.indexOf(stage) + 1;
-  const stageName = ONBOARDING_STAGES[stage].name;
   const isConnection = stage === "connection";
   const showToneSelect = STAGE_SUPPORTS_TONE.has(stage);
 
@@ -125,11 +136,6 @@ function PrototypeControls({
       className={`fixed bottom-0 left-0 right-0 z-[3000] flex w-full items-center justify-center gap-[16px] border-t border-[rgba(255,255,255,0.15)] bg-[rgba(20,18,26,0.92)] px-[16px] py-[8px] text-[rgba(255,255,255,0.75)] shadow-[0px_-8px_24px_rgba(0,0,0,0.35)] backdrop-blur ${textClass}`}
       style={{ pointerEvents: "auto" }}
     >
-      <span className={textClass}>
-        Stage: <strong className={`text-white ${textClass}`}>{`${stageNumber} ${stageName}`}</strong>
-      </span>
-      <span className="h-[16px] w-px bg-[rgba(255,255,255,0.15)]" />
-
       {isConnection ? (
         <>
           <label className={`flex items-center gap-[6px] ${textClass}`}>
@@ -257,6 +263,113 @@ function PrototypeControls({
           </label>
         </>
       )}
+
+      {/* Connection-failure simulation — there is no real connection service
+          to detect a genuine failure from (see docs/features/onboarding-v2.md
+          → "Connection failure path", checkpoint 0), so this is the only way
+          to demo every tier/cause of the three-tier failure path. */}
+      {isConnection && (
+        <>
+          <span className="h-[16px] w-px bg-[rgba(255,255,255,0.15)]" />
+          <label className={`flex items-center gap-[6px] ${textClass}`}>
+            Simulate connection:
+            <select
+              value={failureSimPresetId}
+              onChange={(e) => onFailureSimChange(e.target.value)}
+              className={selectClass}
+            >
+              {FAILURE_SIM_PRESETS.map((p) => (
+                <option key={p.id} value={p.id} className={optionClass}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Prototype stage indicator — fixed top-center above the app window, separate
+ * from the bottom `PrototypeControls` bar so the stage label reads as a
+ * header over the window rather than part of the dev HUD dock. */
+function StageIndicator({ stage }: { stage: OnboardingStage }) {
+  const textClass = "font-mono text-[12px] leading-[16px]";
+  const stageNumber = STAGE_ORDER.indexOf(stage) + 1;
+  const stageName = ONBOARDING_STAGES[stage].name;
+
+  return (
+    <div
+      className={`fixed left-1/2 top-[24px] z-[3000] -translate-x-1/2 rounded-[6px] border border-[rgba(255,255,255,0.15)] bg-[rgba(20,18,26,0.92)] px-[12px] py-[6px] text-[rgba(255,255,255,0.75)] shadow-[0px_8px_24px_rgba(0,0,0,0.35)] backdrop-blur ${textClass}`}
+      style={{ pointerEvents: "auto" }}
+    >
+      Stage: <strong className={`text-white ${textClass}`}>{`${stageNumber} ${stageName}`}</strong>
+    </div>
+  );
+}
+
+/** "Plan" prototype controller — Free (default) / Plus. Deliberately rendered
+ * ONLY on the Sign In screen (confirmed at checkpoint), not in the persistent
+ * `PrototypeControls` HUD that spans the rest of the flow: the choice is made
+ * once, before the run starts, then read from this single source of truth by
+ * every downstream screen (`OnboardingV2`'s `plan` prop) for the whole run.
+ * A segmented tab switcher (both options always visible, no dropdown) rather
+ * than `PrototypeControls`' own `<select>` convention — kept as a standalone
+ * component since it lives outside that bar's stage-gated bottom dock, fixed
+ * top-center of the screen. */
+function SignInPlanControl({
+  plan,
+  onPlanChange,
+  countrySelectionEnabled,
+  onCountrySelectionChange,
+}: {
+  plan: SessionPlan;
+  onPlanChange: (p: SessionPlan) => void;
+  /** Plus-only sub-toggle — lets a reviewer preview the Plus tuning/skip-
+   * upsell behavior with or without the Hybrid/Hybrid Split country
+   * selector (`CountrySelect`), since that's an additive feature ON TOP of
+   * Plus, not something every Plus preview needs to show. Irrelevant (and
+   * hidden) on Free. */
+  countrySelectionEnabled: boolean;
+  onCountrySelectionChange: (enabled: boolean) => void;
+}) {
+  const textClass = "font-mono text-[12px] leading-[16px]";
+  const tabClass = (active: boolean) =>
+    `rounded-[4px] px-[12px] py-[4px] transition-colors duration-150 ${
+      active ? "bg-[rgba(255,255,255,0.16)] text-white" : "text-[rgba(255,255,255,0.5)] hover:text-white"
+    } ${textClass}`;
+
+  return (
+    <div
+      className={`fixed left-1/2 top-[24px] z-[3000] flex -translate-x-1/2 flex-col items-center gap-[8px] rounded-[6px] border border-[rgba(255,255,255,0.15)] bg-[rgba(20,18,26,0.92)] px-[12px] py-[6px] text-[rgba(255,255,255,0.75)] shadow-[0px_8px_24px_rgba(0,0,0,0.35)] backdrop-blur ${textClass}`}
+      style={{ pointerEvents: "auto" }}
+    >
+      <div className="flex items-center gap-[12px]">
+        <span className={textClass}>Plan:</span>
+        <div className="flex items-center gap-[2px] rounded-[6px] border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.04)] p-[2px]">
+          <button type="button" onClick={() => onPlanChange("free")} className={tabClass(plan === "free")}>
+            Free
+          </button>
+          <button type="button" onClick={() => onPlanChange("plus")} className={tabClass(plan === "plus")}>
+            Plus
+          </button>
+        </div>
+      </div>
+
+      {plan === "plus" && (
+        <div className="flex items-center gap-[12px] border-t border-[rgba(255,255,255,0.1)] pt-[8px]">
+          <span className={textClass}>Country selection:</span>
+          <div className="flex items-center gap-[2px] rounded-[6px] border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.04)] p-[2px]">
+            <button type="button" onClick={() => onCountrySelectionChange(true)} className={tabClass(countrySelectionEnabled)}>
+              With
+            </button>
+            <button type="button" onClick={() => onCountrySelectionChange(false)} className={tabClass(!countrySelectionEnabled)}>
+              Without
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -291,12 +404,37 @@ function AppInner() {
    * `"plus"` only after in-session checkout). Drives the free-tier connection
    * card, disabled onboarding profiles, and Plus teaser banner. */
   const [sessionPlan, setSessionPlan] = useState<SessionPlan>("plus");
+  /** The prototype's "Plan" controller (Free default / Plus) — set on the
+   * Sign In screen only (`SignInPlanControl`), single source of truth for
+   * the ENTIRE onboarding run that follows. Threaded into `OnboardingV2` as
+   * `plan`; distinct from `sessionPlan` above, which is the POST-exit main
+   * app's own plan flag (derived FROM this value once onboarding completes —
+   * see `OnboardingV2`'s `plan`-aware exits). */
+  const [onboardingPlan, setOnboardingPlan] = useState<SessionPlan>("free");
+  /** Plus-only prototype sub-toggle — whether the Hybrid/Hybrid Split
+   * country selector (`CountrySelect`) appears at all this run. Default
+   * `true` (the country-selection feature's own default when Plus is
+   * picked). Irrelevant on Free — `OnboardingV2` only ever reads it when
+   * `onboardingPlan === "plus"`. */
+  const [countrySelectionEnabled, setCountrySelectionEnabled] = useState(true);
   /** Incremented to ask `CountryBrowser` to switch to the Countries tab
    * (wired from the free-tier connection card's "Change server" button). */
   const [countriesTabFocusKey, setCountriesTabFocusKey] = useState(0);
   // Fires the calm, auto-dismissing welcome banner exactly once, right
   // after the "Set it up your way" modal closes. See `handleModalClose`.
   const [showWelcomeBanner, setShowWelcomeBanner] = useState(false);
+  // Tier 3 of the connection-failure path — true once onboarding was
+  // deferred (never "completed") rather than skipped deliberately. Drives
+  // `DeferredOnboardingBanner`'s presence; cleared once the deferred
+  // personalization is actually finished (see `handleEnterApp`).
+  const [deferredOnboarding, setDeferredOnboarding] = useState(
+    () => typeof window !== "undefined" && localStorage.getItem(DEFERRED_ONBOARDING_KEY) === "true",
+  );
+  const [deferredBannerDismissed, setDeferredBannerDismissed] = useState(false);
+  // True once the user has connected at least once WHILE `deferredOnboarding`
+  // is active — flips the banner from "retry" to "resume" copy/action and
+  // fires the "connected later" analytics event exactly once.
+  const connectedLaterTrackedRef = useRef(false);
 
   // Which onboarding content variant the user picked on the start screen
   const [variant, setVariant] = useState<OnboardingVariant>("hybrid");
@@ -321,6 +459,13 @@ function AppInner() {
   // so nothing about Single mode's behavior changed — only which one this
   // top-level state starts as.
   const [selectionMode, setSelectionMode] = useState<SelectionMode>("multiple");
+  // Prototype-only: which `FAILURE_SIM_PRESETS` id to simulate for the
+  // connection stage — "none" is the untouched happy path.
+  const [failureSimPresetId, setFailureSimPresetId] = useState("none");
+  // Set once, right before mounting a resumed onboarding session (Tier 3's
+  // "Continue" action) — tells `OnboardingV2` to open directly on the intent
+  // picker instead of stage 1, since the user is already connected.
+  const [resumeAtJtbd, setResumeAtJtbd] = useState(false);
 
   // Prototype controls: current stage of the flow, shown in the HUD above the window
   const [currentStage, setCurrentStage] = useState<OnboardingStage>("connection");
@@ -370,6 +515,39 @@ function AppInner() {
     connectTimerRef.current = setTimeout(() => setVpnStatus("protected"), 3000);
   }, []);
 
+  // Fires exactly once — the first time the user connects (by any means)
+  // while onboarding is still deferred — satisfying the "whether they
+  // connected later in-app" analytics capture for the connection-failure
+  // path (docs/features/onboarding-v2.md → "Connection failure path").
+  useEffect(() => {
+    if (vpnStatus !== "protected" || !deferredOnboarding || connectedLaterTrackedRef.current) return;
+    connectedLaterTrackedRef.current = true;
+    setDeferredBannerDismissed(false); // the situation changed — show the "resume" banner even if "retry" was dismissed
+    trackConnectionFailureEvent("connection_deferred_connected_later", {});
+  }, [vpnStatus, deferredOnboarding]);
+
+  // Tier 3's retry banner — reuses the exact same connect simulation the
+  // free-tier connection card itself uses, since this is genuinely just "try
+  // connecting again", not a special path.
+  const handleDeferredRetry = useCallback(() => {
+    handleConnect("Netherlands");
+  }, [handleConnect]);
+
+  const handleDeferredDismiss = useCallback(() => {
+    setDeferredBannerDismissed(true);
+  }, []);
+
+  // Tier 3's resume banner ("Want to finish personalizing your VPN?") — the
+  // minimal re-run entry point: reopens onboarding directly on the intent
+  // picker, since the user is already connected. On completion,
+  // `handleEnterApp` fires again (this time without
+  // `deferredDueToConnectionFailure`), which clears `deferredOnboarding`.
+  const handleDeferredResume = useCallback(() => {
+    setResumeAtJtbd(true);
+    setCurrentStage("tuning");
+    setAppState("onboarding");
+  }, []);
+
   const handleDisconnect = useCallback(() => {
     if (connectTimerRef.current) clearTimeout(connectTimerRef.current);
     setVpnStatus("unprotected");
@@ -383,8 +561,17 @@ function AppInner() {
   // it once `appState` is "start"), so its internal phase/selection state
   // is naturally reset the next time onboarding is started again.
   const handleCloseOnboarding = useCallback(() => {
+    if (resumeAtJtbd) {
+      // Closing a RESUMED session (Tier 3's "Continue" entry point) returns
+      // to the already-running main app, not the prototype's start screen —
+      // there's a real session behind it to go back to, unlike a fresh
+      // onboarding run.
+      setResumeAtJtbd(false);
+      setAppState("app");
+      return;
+    }
     setAppState("start");
-  }, []);
+  }, [resumeAtJtbd]);
 
   // Fires once the "Set it up your way" modal closes (Apply or Not now,
   // both funnel through the SAME `onClose` prop) — the final beat of
@@ -405,7 +592,8 @@ function AppInner() {
     options: OnboardingExitOptions = {},
   ) => {
     const vpnConnected = options.vpnConnected !== false;
-    suppressWelcomeBannerRef.current = !vpnConnected;
+    const deferred = options.deferredDueToConnectionFailure === true;
+    suppressWelcomeBannerRef.current = !vpnConnected || deferred;
 
     setSessionPlan(plan);
     if (vpnConnected) {
@@ -420,20 +608,45 @@ function AppInner() {
     setAppState("transitioning");
     setCurrentStage("personalization");
     setOnboardingJtbds(selectedJtbds);
+    setResumeAtJtbd(false);
+
+    if (deferred) {
+      // Tier 3: mark onboarding RESUMABLE, not completed — never the
+      // upsell/checkout/Plus-welcome flow, no completion flag. The retry
+      // banner takes over as the one acknowledgment of what happened.
+      setDeferredOnboarding(true);
+      setDeferredBannerDismissed(false);
+      connectedLaterTrackedRef.current = false;
+      localStorage.setItem(DEFERRED_ONBOARDING_KEY, "true");
+    } else if (deferredOnboarding) {
+      // The deferred personalization (picked up via the "resume" banner)
+      // just completed normally — clear the resumable flag entirely.
+      setDeferredOnboarding(false);
+      localStorage.removeItem(DEFERRED_ONBOARDING_KEY);
+      trackConnectionFailureEvent("connection_deferred_onboarding_completed", {});
+    }
 
     // After the last panel finishes sliding in, show the modal (once) —
-    // skipped when the user bailed straight to the app (Go to app directly).
+    // skipped when the user bailed straight to the app (Go to app directly,
+    // or the connection-failure path's Tier 2/3 exits — neither ever ran
+    // the personalization step this modal represents).
     const totalDuration = TRANSITION_TIMING.leftPanel.start + TRANSITION_TIMING.leftPanel.duration + 400;
     modalTimerRef.current = setTimeout(() => {
-      if (vpnConnected && !localStorage.getItem(SHOWN_KEY)) {
+      if (vpnConnected && !deferred && !localStorage.getItem(SHOWN_KEY)) {
         setShowModal(true);
       }
     }, totalDuration);
-  }, []);
+  }, [deferredOnboarding]);
 
   const handleChangeServer = useCallback(() => {
     setCountriesTabFocusKey((k) => k + 1);
   }, []);
+
+  // Tier 3's banner: "retry" while still disconnected, "resume" once the
+  // user has connected on their own — `null` hides it (never shown at all,
+  // or dismissed).
+  const deferredBannerMode: "retry" | "resume" | null =
+    !deferredOnboarding || deferredBannerDismissed ? null : vpnStatus === "protected" ? "resume" : "retry";
 
   // ── Main app panel ──────────────────────────────────────────────────────────
   // The "desktop" behind the app window — a real Windows desktop shows its
@@ -469,6 +682,9 @@ function AppInner() {
             showWelcomeBanner={showWelcomeBanner}
             sessionPlan={sessionPlan}
             onChangeServer={handleChangeServer}
+            deferredOnboardingBannerMode={deferredBannerMode}
+            onDeferredOnboardingAction={deferredBannerMode === "resume" ? handleDeferredResume : handleDeferredRetry}
+            onDeferredOnboardingDismiss={handleDeferredDismiss}
           />
         </div>
 
@@ -567,11 +783,25 @@ function AppInner() {
     const startOnboarding = () => {
       localStorage.removeItem(SHOWN_KEY);
       localStorage.removeItem(WELCOME_BANNER_SHOWN_KEY);
+      localStorage.removeItem(DEFERRED_ONBOARDING_KEY);
       setShowWelcomeBanner(false);
+      setDeferredOnboarding(false);
+      setDeferredBannerDismissed(false);
+      setResumeAtJtbd(false);
       setCurrentStage("connection");
       setAppState("onboarding");
     };
-    return <SignInScreen onSignIn={startOnboarding} onClose={handleCloseOnboarding} />;
+    return (
+      <>
+        <SignInScreen onSignIn={startOnboarding} onClose={handleCloseOnboarding} />
+        <SignInPlanControl
+          plan={onboardingPlan}
+          onPlanChange={setOnboardingPlan}
+          countrySelectionEnabled={countrySelectionEnabled}
+          onCountrySelectionChange={setCountrySelectionEnabled}
+        />
+      </>
+    );
   }
 
   if (appState === "overview") {
@@ -587,6 +817,7 @@ function AppInner() {
       className="relative w-screen h-screen"
       data-theme={effectiveTheme}
     >
+      <StageIndicator stage={currentStage} />
       <PrototypeControls
         stage={currentStage}
         variant={variant}
@@ -595,12 +826,14 @@ function AppInner() {
         upsellVariant={upsellVariant}
         tone={tone}
         selectionMode={selectionMode}
+        failureSimPresetId={failureSimPresetId}
         onVariantChange={setVariant}
         onResultLayoutChange={setResultLayout}
         onTuningConceptChange={setTuningConcept}
         onUpsellVariantChange={setUpsellVariant}
         onToneChange={setTone}
         onSelectionModeChange={setSelectionMode}
+        onFailureSimChange={setFailureSimPresetId}
       />
 
       {appState !== "onboarding" && (
@@ -621,6 +854,8 @@ function AppInner() {
             <OnboardingV2
               onExit={handleEnterApp}
               onClose={handleCloseOnboarding}
+              plan={onboardingPlan}
+              countrySelectionEnabled={countrySelectionEnabled}
               variant={variant}
               resultLayout={resultLayout}
               tuningConcept={tuningConcept}
@@ -628,6 +863,8 @@ function AppInner() {
               tone={tone}
               selectionMode={selectionMode}
               onStageChange={setCurrentStage}
+              failureSimPresetId={failureSimPresetId}
+              resumeAtJtbd={resumeAtJtbd}
             />
           </motion.div>
         )}

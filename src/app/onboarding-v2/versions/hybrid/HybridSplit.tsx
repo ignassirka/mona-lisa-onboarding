@@ -2,11 +2,15 @@ import { motion, AnimatePresence } from "motion/react";
 import { PadlockOpen, PadlockClosed } from "../../components/Padlocks";
 import Spinner from "../../components/Spinner";
 import ActivityEntry from "../v4-in-plain-sight/ActivityEntry";
+import ConnectingNarration from "../../components/ConnectingNarration";
 import LocationChip from "./LocationChip";
+import CountrySelect from "../../components/CountrySelect";
+import CyclingActivityCard from "./CyclingActivityCard";
 import { useReducedMotion } from "../lib/useReducedMotion";
 import { useHybridReveal, HYBRID_CARDS } from "./useHybridReveal";
 import { HYBRID_TIMING, sec } from "./timing";
 import { CONNECTION_COPY, resolveIspKnown, type ToneOfVoice } from "../../lib/toneOfVoice";
+import { resolveVpnDestination } from "../../lib/server";
 import type { ConnectionPhase } from "../types";
 import type { GeoInfo } from "../../lib/useIpDetection";
 
@@ -17,6 +21,14 @@ interface HybridSplitProps {
   onProtect: () => void;
   onContinue: () => void;
   tone?: ToneOfVoice;
+  connectingNarration?: string | null;
+  stillTrying?: boolean;
+  /** See `Hybrid.tsx`'s `HybridProps` doc — identical Plus-only country
+   * selector contract, just rendered in the left rail here instead of
+   * centered above the CTA. */
+  showCountrySelect?: boolean;
+  selectedCountry?: string | null;
+  onSelectCountry?: (country: string | null) => void;
 }
 
 /** "Hybrid", Split view. Same content, data and `HYBRID_TIMING` pacing as the
@@ -38,13 +50,26 @@ interface HybridSplitProps {
  * reservation) so the CTA below it doesn't drift as cards reveal
  * progressively (the rail centers its content as one block via
  * `justify-center`). */
-export default function HybridSplit({ phase, geo, isLive, onProtect, onContinue, tone = "straightforward" }: HybridSplitProps) {
+export default function HybridSplit({
+  phase,
+  geo,
+  isLive,
+  onProtect,
+  onContinue,
+  tone = "straightforward",
+  connectingNarration = null,
+  stillTrying = false,
+  showCountrySelect = false,
+  selectedCountry = null,
+  onSelectCountry,
+}: HybridSplitProps) {
   const reduced = useReducedMotion();
   const copy = CONNECTION_COPY[tone].hybrid;
   const cardCopy = CONNECTION_COPY[tone].browsing;
   const ispKnown = resolveIspKnown(geo);
-  const { revealedCount, redactCount, showConnectHelp, sealed } = useHybridReveal(phase, reduced);
+  const { revealedCount, redactCount, sealed } = useHybridReveal(phase, reduced);
   const isUnprotected = phase === "unprotected";
+  const vpnDestination = resolveVpnDestination(selectedCountry);
 
   return (
     <div className="absolute inset-0 flex">
@@ -87,12 +112,14 @@ export default function HybridSplit({ phase, geo, isLive, onProtect, onContinue,
               exit={{ opacity: 0, transition: { duration: 0.2 } }}
               transition={{ delay: isUnprotected ? sec(HYBRID_TIMING.headlineAppear) : 0.12, duration: 0.5, ease: "easeOut" }}
             >
-              {phase === "protected" ? copy.protectedHeadline : phase === "connecting" ? copy.connectingHeadline : copy.exposedHeadline}
+              {phase === "protected" ? copy.protectedHeadline : phase === "connecting" ? (connectingNarration ?? copy.connectingHeadline) : copy.exposedHeadline}
             </motion.h1>
           </AnimatePresence>
 
           <AnimatePresence mode="wait">
-            {phase !== "connecting" && (
+            {phase === "connecting" ? (
+              stillTrying && <ConnectingNarration key="still-trying" narration={null} stillTrying align="left" className="mt-[10px]" />
+            ) : (
               <motion.p
                 key={phase === "protected" ? "protected-sub" : "exposed-sub"}
                 className="mt-[10px] font-['Segoe_UI_Variable',sans-serif] text-[15px] leading-[20px] text-[rgba(255,255,255,0.7)]"
@@ -107,74 +134,102 @@ export default function HybridSplit({ phase, geo, isLive, onProtect, onContinue,
           </AnimatePresence>
         </div>
 
-        {/* 3 activity cards — same component + redaction as "Browsing
-            experience", moved here (between the text and the CTA) per the
-            confirmed rail arrangement. Reserves the full 3-card height up
-            front (`min-h`, matching the Centered layout's own reservation) so
-            the CTA below doesn't drift as cards reveal progressively. */}
-        <div className="mx-auto mt-[20px] flex min-h-[164px] w-full max-w-[440px] flex-col gap-[8px]">
-          {HYBRID_CARDS.slice(0, revealedCount).map((entry, i) => (
-            <ActivityEntry
-              key={entry.id}
-              entry={entry}
-              visibleLabel={cardCopy.visibleLabel}
-              redactingLabel={cardCopy.redactingLabel}
-              sealedLabel={cardCopy.sealedLabel}
-              paused={phase !== "unprotected"}
-              redact={i < redactCount}
-              sealed={sealed}
-              reduced={reduced}
-            />
-          ))}
+        {/* Activity card(s) — same component as "Browsing experience", but
+            without Act 2 text scrambling (only labels + eye icon redact; the
+            location chip owns the asterisk scramble). Moved here (between the
+            text and the CTA) per the confirmed rail arrangement. When the
+            Plus country selector is showing, swaps to a single slot-machine
+            style cycling card — see `Hybrid.tsx`'s identical doc. Reserves
+            the taller (3-card) height whenever that's the active variant
+            (matching the Centered layout's own reservation) so the CTA below
+            doesn't drift as cards reveal progressively. */}
+        <div className={`mx-auto mt-[20px] flex w-full max-w-[440px] flex-col gap-[8px] ${showCountrySelect ? "" : "min-h-[164px]"}`}>
+          {showCountrySelect ? (
+            revealedCount > 0 && (
+              <CyclingActivityCard
+                entries={HYBRID_CARDS}
+                visibleLabel={cardCopy.visibleLabel}
+                redactingLabel={cardCopy.redactingLabel}
+                sealedLabel={cardCopy.sealedLabel}
+                redact={redactCount > 0}
+                sealed={sealed}
+                reduced={reduced}
+                paused={phase === "connecting"}
+              />
+            )
+          ) : (
+            HYBRID_CARDS.slice(0, revealedCount).map((entry, i) => (
+              <ActivityEntry
+                key={entry.id}
+                entry={entry}
+                visibleLabel={cardCopy.visibleLabel}
+                redactingLabel={cardCopy.redactingLabel}
+                sealedLabel={cardCopy.sealedLabel}
+                paused={phase !== "unprotected"}
+                redact={i < redactCount}
+                sealed={sealed}
+                reduced={reduced}
+                scrambleText={false}
+              />
+            ))
+          )}
         </div>
 
-        {/* CTA / Continue — part of the centered group */}
-        <div className="mt-[24px] flex flex-col gap-[12px]">
-          <AnimatePresence mode="wait">
-            {phase === "unprotected" && (
-              <motion.button
-                key="cta-protect"
-                onClick={onProtect}
-                disabled={!isLive}
-                className="ob2-cta-glow w-full rounded-[6px] bg-[#6d4aff] px-[24px] pb-[12px] pt-[10px] font-['Segoe_UI_Variable',sans-serif] text-[16px] font-semibold leading-[20px] text-white transition-all duration-150 hover:bg-[#7c5cff] active:scale-[0.98] disabled:cursor-default disabled:opacity-50"
-                style={{ fontVariationSettings: "'opsz' 12" }}
-                initial={{ opacity: 0, y: 16, scale: 0.96 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.2 } }}
-                transition={{ delay: sec(HYBRID_TIMING.ctaAppear), duration: 0.45, ease: "easeOut" }}
-              >
-                {copy.ctaProtect}
-              </motion.button>
-            )}
-            {phase === "protected" && (
-              <motion.button
-                key="cta-continue"
-                onClick={onContinue}
-                className="w-full rounded-[6px] bg-[#6d4aff] px-[24px] pb-[12px] pt-[10px] font-['Segoe_UI_Variable',sans-serif] text-[16px] font-semibold leading-[20px] text-white transition-all duration-150 hover:bg-[#7c5cff] active:scale-[0.98]"
-                style={{ fontVariationSettings: "'opsz' 12" }}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, transition: { duration: 0.3 } }}
-                transition={{ duration: 0.5, delay: 0.4, ease: "easeOut" }}
-              >
-                Continue
-              </motion.button>
-            )}
-          </AnimatePresence>
+        {(() => {
+          const renderCtaButtons = (skipEntrance = false) => (
+            <AnimatePresence mode="wait">
+              {phase === "unprotected" && (
+                <motion.button
+                  key="cta-protect"
+                  onClick={onProtect}
+                  disabled={!isLive}
+                  className="ob2-cta-glow w-full rounded-[6px] bg-[#6d4aff] px-[24px] pb-[12px] pt-[10px] font-['Segoe_UI_Variable',sans-serif] text-[16px] font-semibold leading-[20px] text-white transition-all duration-150 hover:bg-[#7c5cff] active:scale-[0.98] disabled:cursor-default disabled:opacity-50"
+                  style={{ fontVariationSettings: "'opsz' 12" }}
+                  initial={skipEntrance ? false : { opacity: 0, y: 16, scale: 0.96 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.2 } }}
+                  transition={skipEntrance ? { duration: 0.45, ease: "easeOut" } : { delay: sec(HYBRID_TIMING.ctaAppear), duration: 0.45, ease: "easeOut" }}
+                >
+                  {copy.ctaProtect}
+                </motion.button>
+              )}
+              {phase === "protected" && (
+                <motion.button
+                  key="cta-continue"
+                  onClick={onContinue}
+                  className="w-full rounded-[6px] bg-[#6d4aff] px-[24px] pb-[12px] pt-[10px] font-['Segoe_UI_Variable',sans-serif] text-[16px] font-semibold leading-[20px] text-white transition-all duration-150 hover:bg-[#7c5cff] active:scale-[0.98]"
+                  style={{ fontVariationSettings: "'opsz' 12" }}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, transition: { duration: 0.3 } }}
+                  transition={{ duration: 0.5, delay: 0.4, ease: "easeOut" }}
+                >
+                  Continue
+                </motion.button>
+              )}
+            </AnimatePresence>
+          );
 
-          <AnimatePresence>
-            {showConnectHelp && phase === "connecting" && (
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="animate-pulse font-['Segoe_UI_Variable',sans-serif] text-[13px] leading-[18px] text-[rgba(255,255,255,0.5)]"
-              >
-                Still connecting…
-              </motion.p>
-            )}
-          </AnimatePresence>
-        </div>
+          // showCountrySelect: the country selector and the CTA share one
+          // translucent, rounded action-area container (persists across
+          // phases so the selector's own mount/unmount at `unprotected`'s
+          // end doesn't remount the CTA's AnimatePresence) — otherwise
+          // unchanged, the bare CTA block exactly as before.
+          if (!showCountrySelect) {
+            return <div className="mt-[24px] flex flex-col gap-[12px]">{renderCtaButtons()}</div>;
+          }
+          return (
+            <motion.div
+              className="mx-auto mt-[24px] flex w-full max-w-[440px] flex-col gap-[16px] rounded-[16px] bg-[rgba(255,255,255,0.05)] p-[16px] backdrop-blur-[6px]"
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ delay: reduced ? 0 : sec(HYBRID_TIMING.ctaAppear), duration: 0.5, ease: "easeOut" }}
+            >
+              {phase === "unprotected" && <CountrySelect value={selectedCountry} onChange={(c) => onSelectCountry?.(c)} />}
+              {renderCtaButtons(true)}
+            </motion.div>
+          );
+        })()}
       </div>
 
       {/* Right panel — the location+IP chip only (the activity cards moved to
@@ -187,7 +242,17 @@ export default function HybridSplit({ phase, geo, isLive, onProtect, onContinue,
       <div className="flex w-1/2 min-w-0 flex-col px-[36px] py-[64px]">
         <div className="flex-1" />
         <div className="flex flex-1 items-center justify-center">
-          <LocationChip phase={phase} country={geo.country} countryCode={geo.countryCode} ip={geo.ip} isLive={isLive} reduced={reduced} />
+          <LocationChip
+            phase={phase}
+            country={geo.country}
+            countryCode={geo.countryCode}
+            ip={geo.ip}
+            isLive={isLive}
+            reduced={reduced}
+            vpnCountry={vpnDestination.country}
+            vpnCountryCode={vpnDestination.countryCode}
+            vpnIp={vpnDestination.vpnIp}
+          />
         </div>
       </div>
     </div>

@@ -9,19 +9,20 @@ interface JtbdGridTileProps {
    * deselects it — see `JtbdGridPanel`). */
   selected: boolean;
   onSelect: () => void;
-  /** Multiple mode only — shows a top-right checkbox indicator (unselected:
-   * a plain ring; selected: a filled purple checkbox with a checkmark).
-   * Defaults to `false`, which is Single mode's entire pre-existing
-   * behavior, byte-for-byte. */
+  /** Multiple mode only — shows a top-left rounded-square checkbox indicator
+   * (unselected: a plain ring; selected: a filled purple checkbox with a
+   * checkmark). Defaults to `false`, which is Single mode's entire
+   * pre-existing behavior, byte-for-byte. */
   multiple?: boolean;
 }
 
 /** Grid tile for `JtbdGridPanel` — icon + label, with a persistent selected
  * treatment (tinted background + accent border, icon un-grayscales) since
  * selecting here doesn't advance by itself — `JtbdGridPanel` still needs an
- * explicit Continue. Multiple mode adds a top-right checkbox indicator so
- * the multi-select affordance reads clearly even before a tile is picked
- * (a ring, same convention as the tile's own selected border color). */
+ * explicit Continue. Multiple mode adds a top-left rounded-square checkbox
+ * indicator so the multi-select affordance reads clearly even before a tile
+ * is picked (a ring, same convention as the tile's own selected border
+ * color). */
 export default function JtbdGridTile({ jtbd, label, selected, onSelect, multiple = false }: JtbdGridTileProps) {
   return (
     <button
@@ -37,7 +38,7 @@ export default function JtbdGridTile({ jtbd, label, selected, onSelect, multiple
       {multiple && (
         <span
           aria-hidden="true"
-          className="absolute right-[10px] top-[10px] flex size-[20px] shrink-0 items-center justify-center rounded-full border-2 transition-colors duration-150"
+          className="absolute left-[10px] top-[10px] flex size-[20px] shrink-0 items-center justify-center rounded-[4px] border-2 transition-colors duration-150"
           style={{
             borderColor: selected ? "#6d4aff" : "rgba(255,255,255,0.35)",
             backgroundColor: selected ? "#6d4aff" : "transparent",
