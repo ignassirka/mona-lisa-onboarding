@@ -1,3 +1,5 @@
+import type { JtbdId } from "../onboarding-v2/lib/jtbdData";
+
 /** Distinguishes free vs. paid (VPN Plus) landing after onboarding completes. */
 export type SessionPlan = "free" | "plus";
 
@@ -15,4 +17,21 @@ export type OnboardingExitOptions = {
    * directly"), which is an intentional choice, not a failure to recover
    * from. */
   deferredDueToConnectionFailure?: boolean;
+  /** The country the user picked on the Plus-only country selector during
+   * onboarding, or null/undefined for "Fastest country" — the default, and
+   * the entire Free-plan behaviour. Personalizes the destination line on
+   * onboarding-generated sidebar profiles, so what the tuning screen said
+   * and what the sidebar says agree. Absent on the connection-failure and
+   * "Go to app directly" exits, which never reached a country selection. */
+  selectedCountry?: string | null;
+  /** Set only when the user exited by pressing Connect on a SPECIFIC
+   * profile card (Profiles carousel v1/v2's per-card Connect) rather than
+   * the screen's own Continue, or a plain country/"Fastest" connect. Drives
+   * the main app's connection card into its profile variant — profile icon
+   * and name in place of the flag and country — for exactly that one
+   * profile, until the user connects to something else by any other means
+   * (a manual country pick, "Fastest", or disconnecting). Absent on every
+   * other exit path, which have no single profile to attribute the
+   * connection to. */
+  connectedProfileJtbd?: JtbdId | null;
 };

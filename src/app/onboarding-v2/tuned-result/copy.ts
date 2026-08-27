@@ -80,6 +80,14 @@ export function counterSubtext(applied: number, total: number): string {
   return `Applying ${applied} of ${total} settings`;
 }
 
+/** Free path of the "Minimal list" concept only — what the header counter
+ * says once both settings have been applied and the value-claim rows are
+ * still arriving. The counter above can't cover them: nothing is being
+ * applied for a claim, so counting them as settings would be the one
+ * inaccurate sentence on an otherwise literal screen. Tone-constant, same
+ * precedent as `counterSubtext` itself. */
+export const FREE_MINIMAL_CLAIMS_COUNTER = "Confirming what's already included\u2026";
+
 // ── Multiple mode (Selection: Multiple) — additive; Single mode's functions
 // above are all untouched. ──────────────────────────────────────────────
 
@@ -158,6 +166,7 @@ export function summarySubtext(tone: ToneOfVoice, applied: number, locked: numbe
 const ENABLING_NARRATION: Record<string, string> = {
   "Kill Switch": "Enabling Kill Switch…",
   Protocol: "Selecting protocol…",
+  "Auto Connect": "Setting up Auto Connect…",
   NetShield: "Enabling NetShield…",
   "Secure Core": "Routing through Secure Core…",
   "Moderate NAT": "Easing NAT restrictions…",

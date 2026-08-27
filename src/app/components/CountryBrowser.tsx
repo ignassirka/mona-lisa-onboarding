@@ -17,7 +17,8 @@ import icArrowRightLeft from "../../imports/profile-icons/ic-arrow-right-arrow-l
 import recentsEmptyIcon from "../../imports/recents-empty-icon.svg";
 import checkmarkCircleFilled from "../onboarding-v2/assets/checkmark-circle-filled.svg";
 import vpnPlusBadgeUrl from "../onboarding-v2/assets/vpn-plus-badge.svg";
-import { JTBD_PROFILE_LABEL, type JtbdId } from "../onboarding-v2/lib/jtbdData";
+import { type JtbdId } from "../onboarding-v2/lib/jtbdData";
+import { JTBD_PROFILES, sidebarSubtitle } from "../onboarding-v2/lib/jtbdProfiles";
 import { useReducedMotion } from "../onboarding-v2/versions/lib/useReducedMotion";
 import type { SessionPlan } from "../lib/sessionPlan";
 
@@ -366,7 +367,7 @@ const JTBD_TO_PROFILE_ID: Record<JtbdId, string> = {
 // ─── Onboarding-profiles banner (i18n-ready copy; centralized here per the
 // project's established precedent — no i18n framework exists yet). ─────────
 const PROFILES_ONBOARDING_BANNER_COPY = {
-  message: "We created these profiles from what you told us matters. Switch between them anytime.",
+  message: "Connect through one of these profiles — each one is already tuned for what you told us matters.",
   dismissLabel: "Dismiss",
 } as const;
 
@@ -506,10 +507,18 @@ type CountryBrowserProps = {
    * `skipOnboarding` bypassed onboarding entirely) falls back to this
    * component's entire pre-existing behavior, byte-for-byte. */
   onboardingJtbds?: JtbdId[];
+  /** The Plus-plan country picked during onboarding (`App.tsx`'s
+   * `onboardingCountry`), or null for "Fastest country". Overrides the
+   * destination line on generated profiles that target a FIXED country — see
+   * `sidebarSubtitle`. Always null on Free, which never sees a selector. */
+  onboardingCountry?: string | null;
   /** Free vs. paid landing — disables onboarding-generated profiles on Free. */
   sessionPlan?: SessionPlan;
   /** Increment to switch to the Countries tab (free-tier "Change server"). */
   countriesTabFocusKey?: number;
+  /** Attached to the Profiles tab's content block (header → "New profile"),
+   * so `App.tsx` can measure it for the post-onboarding spotlight. */
+  profilesSectionRef?: React.Ref<HTMLDivElement>;
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -521,8 +530,10 @@ export function CountryBrowser({
   onVpnDisconnect,
   physicalCountry = "Belarus",
   onboardingJtbds,
+  onboardingCountry = null,
   sessionPlan = "plus",
   countriesTabFocusKey = 0,
+  profilesSectionRef,
 }: CountryBrowserProps = {}) {
   const hasOnboardingIntents = !!onboardingJtbds && onboardingJtbds.length > 0;
   const isFreePlan = sessionPlan === "free";
@@ -558,28 +569,42 @@ export function CountryBrowser({
   }, [countriesTabFocusKey]);
 
   // Profile items generated from the onboarding selection, in selection
-  // order — reorders/filters the SAME 6 hardcoded profiles above (server
-  // targeting/icon/P2P tag untouched), never invents new ones, but renames
-  // each to the exact intent name the user picked during onboarding
-  // (`JTBD_PROFILE_LABEL` — the same short label the tuning stage's picker/
-  // profile-preview already use for this JTBD) rather than the profile's
-  // own generic default title — e.g. `travel` reads "Travel", not "Work and
-  // school". Falls back to the full default list (default titles) when
-  // there's no onboarding selection to draw from.
+  // order — reorders/filters the SAME 6 hardcoded profiles above (id and the
+  // P2P tag untouched), never invents new ones.
+  //
+  // Title, destination and glyph all come from `JTBD_PROFILES`, the same
+  // source the tuning stage reads, so what a user was shown while tuning is
+  // what they find here. That matters for two intents specifically: `privacy`
+  // and `downloading`, whose default subtitles ("Fastest - Secure Core",
+  // "Fastest country") contradicted the destinations tuning names
+  // (Switzerland, Netherlands). The title is still `JTBD_PROFILE_LABEL` —
+  // `TunedProfile.name` reads from it — so the existing renaming behaviour is
+  // preserved rather than replaced, and the icons resolve to the same six
+  // `profile-icon-*.svg` assets `profilesList` already imports.
+  //
+  // Falls back to the full default list, byte-for-byte, when there's no
+  // onboarding selection to draw from (skipped onboarding, `skipOnboarding`,
+  // the connection-failure exits).
   const displayedProfiles = useMemo(() => {
     if (!hasOnboardingIntents) return profilesList;
     const byId = new Map(profilesList.map((p) => [p.id, p]));
     const seen = new Set<string>();
     const mapped: ProfileEntry[] = [];
     for (const jtbd of onboardingJtbds!) {
-      const profile = byId.get(JTBD_TO_PROFILE_ID[jtbd]);
-      if (profile && !seen.has(profile.id)) {
-        seen.add(profile.id);
-        mapped.push({ ...profile, title: JTBD_PROFILE_LABEL[jtbd] });
+      const base = byId.get(JTBD_TO_PROFILE_ID[jtbd]);
+      const profile = JTBD_PROFILES[jtbd];
+      if (base && profile && !seen.has(base.id)) {
+        seen.add(base.id);
+        mapped.push({
+          ...base,
+          title: profile.name,
+          subtitle: sidebarSubtitle(profile, onboardingCountry),
+          icon: profile.icon,
+        });
       }
     }
     return mapped.length > 0 ? mapped : profilesList;
-  }, [hasOnboardingIntents, onboardingJtbds]);
+  }, [hasOnboardingIntents, onboardingJtbds, onboardingCountry]);
 
   const filteredCountries = useMemo(() => {
     let list: string[];
@@ -840,110 +865,116 @@ export function CountryBrowser({
       {/* Profiles section */}
       {activeNav === "profiles" && (
         <div className="flex-1 min-h-0 flex flex-col overflow-y-auto px-[8px]">
-          {/* Section header */}
-          <div
-            className="shrink-0 flex items-center"
-            style={{ gap: 8, padding: "16px 8px 8px" }}
-          >
-            <span
-              style={{ ...fontSemibold, fontSize: 14, lineHeight: "20px", color: "rgba(255,255,255,0.7)" }}
+          {/* Content block — everything from the header down to "New profile",
+              wrapped so it can be measured as one region (the scroll container
+              above stretches to the panel's full height, which would make the
+              spotlight ring the empty space below the list too). */}
+          <div ref={profilesSectionRef} className="shrink-0 flex flex-col">
+            {/* Section header */}
+            <div
+              className="shrink-0 flex items-center"
+              style={{ gap: 8, padding: "16px 8px 8px" }}
             >
-              Profiles ({displayedProfiles.length})
-            </span>
-            <img src={icInfoCircle} alt="info" width={16} height={16} className="shrink-0" />
-          </div>
+              <span
+                style={{ ...fontSemibold, fontSize: 14, lineHeight: "20px", color: "rgba(255,255,255,0.7)" }}
+              >
+                Profiles ({displayedProfiles.length})
+              </span>
+              <img src={icInfoCircle} alt="info" width={16} height={16} className="shrink-0" />
+            </div>
 
-          {/* Onboarding-profiles banner — inline note, not a floating toast;
-              sits directly beneath the title, above the first row. Never
-              blocks selecting a profile or "New profile" below it. */}
-          {showPlusTeaserBanner && (
-            <motion.div
-              className="shrink-0 flex items-start rounded-[8px]"
-              style={{ gap: 8, padding: 12, margin: "0 8px 8px", background: "rgba(255,255,255,0.05)" }}
-              initial={reducedMotion ? undefined : { opacity: 0 }}
-              animate={reducedMotion ? undefined : { opacity: 1 }}
-              transition={{ duration: 0.2 }}
-            >
-              <img src={vpnPlusBadgeUrl} alt="" width={30} height={18} className="shrink-0 mt-[2px]" />
-              <div className="flex-1 flex flex-col" style={{ gap: 4 }}>
-                <span
-                  style={{ ...fontSemibold, fontSize: 13, lineHeight: "18px", color: "rgba(255,255,255,0.9)" }}
+            {/* Onboarding-profiles banner — inline note, not a floating toast;
+                sits directly beneath the title, above the first row. Never
+                blocks selecting a profile or "New profile" below it. */}
+            {showPlusTeaserBanner && (
+              <motion.div
+                className="shrink-0 flex items-start rounded-[8px]"
+                style={{ gap: 8, padding: 12, margin: "0 8px 8px", background: "rgba(255,255,255,0.05)" }}
+                initial={reducedMotion ? undefined : { opacity: 0 }}
+                animate={reducedMotion ? undefined : { opacity: 1 }}
+                transition={{ duration: 0.2 }}
+              >
+                <img src={vpnPlusBadgeUrl} alt="" width={30} height={18} className="shrink-0 mt-[2px]" />
+                <div className="flex-1 flex flex-col" style={{ gap: 4 }}>
+                  <span
+                    style={{ ...fontSemibold, fontSize: 13, lineHeight: "18px", color: "rgba(255,255,255,0.9)" }}
+                  >
+                    {PROFILES_PLUS_TEASER_BANNER_COPY.message}
+                  </span>
+                  <span
+                    style={{ ...fontRegular, fontSize: 13, lineHeight: "18px", color: "rgba(255,255,255,0.7)" }}
+                  >
+                    {PROFILES_PLUS_TEASER_BANNER_COPY.supporting}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={dismissOnboardingBanner}
+                  aria-label={PROFILES_PLUS_TEASER_BANNER_COPY.dismissLabel}
+                  className="shrink-0 flex items-center justify-center rounded-[4px] cursor-pointer transition-colors duration-150"
+                  style={{ width: 20, height: 20, background: "transparent" }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.08)"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
                 >
-                  {PROFILES_PLUS_TEASER_BANNER_COPY.message}
-                </span>
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M1 1L9 9M9 1L1 9" stroke="white" strokeOpacity="0.6" strokeWidth="1.3" strokeLinecap="round" />
+                  </svg>
+                </button>
+              </motion.div>
+            )}
+
+            {showPaidOnboardingBanner && (
+              <motion.div
+                className="shrink-0 flex items-start rounded-[8px]"
+                style={{ gap: 8, padding: 12, margin: "0 8px 8px", background: "rgba(255,255,255,0.05)" }}
+                initial={reducedMotion ? undefined : { opacity: 0 }}
+                animate={reducedMotion ? undefined : { opacity: 1 }}
+                transition={{ duration: 0.2 }}
+              >
+                <img src={checkmarkCircleFilled} alt="" width={16} height={16} className="shrink-0 mt-[2px]" />
                 <span
+                  className="flex-1"
                   style={{ ...fontRegular, fontSize: 13, lineHeight: "18px", color: "rgba(255,255,255,0.7)" }}
                 >
-                  {PROFILES_PLUS_TEASER_BANNER_COPY.supporting}
+                  {PROFILES_ONBOARDING_BANNER_COPY.message}
                 </span>
-              </div>
+                <button
+                  type="button"
+                  onClick={dismissOnboardingBanner}
+                  aria-label={PROFILES_ONBOARDING_BANNER_COPY.dismissLabel}
+                  className="shrink-0 flex items-center justify-center rounded-[4px] cursor-pointer transition-colors duration-150"
+                  style={{ width: 20, height: 20, background: "transparent" }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.08)"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                >
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M1 1L9 9M9 1L1 9" stroke="white" strokeOpacity="0.6" strokeWidth="1.3" strokeLinecap="round" />
+                  </svg>
+                </button>
+              </motion.div>
+            )}
+
+            {/* Profile rows */}
+            {displayedProfiles.map((profile) => (
+              <ProfileRow key={profile.id} profile={profile} disabled={profilesLocked} />
+            ))}
+
+            {/* New profile button — sits directly after the last row */}
+            <div className="shrink-0" style={{ padding: "4px 0px 8px" }}>
               <button
-                type="button"
-                onClick={dismissOnboardingBanner}
-                aria-label={PROFILES_PLUS_TEASER_BANNER_COPY.dismissLabel}
-                className="shrink-0 flex items-center justify-center rounded-[4px] cursor-pointer transition-colors duration-150"
-                style={{ width: 20, height: 20, background: "transparent" }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.08)"; }}
+                className="flex items-center justify-center rounded-[4px] transition-colors duration-150 cursor-pointer"
+                style={{ gap: 8, padding: 8, background: "transparent" }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
               >
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M1 1L9 9M9 1L1 9" stroke="white" strokeOpacity="0.6" strokeWidth="1.3" strokeLinecap="round" />
-                </svg>
+                <img src={icPlus20} alt="plus" width={20} height={20} className="shrink-0" />
+                <span
+                  style={{ ...fontSemibold, fontSize: 16, lineHeight: "20px", color: "#9880FF" }}
+                >
+                  New profile
+                </span>
               </button>
-            </motion.div>
-          )}
-
-          {showPaidOnboardingBanner && (
-            <motion.div
-              className="shrink-0 flex items-start rounded-[8px]"
-              style={{ gap: 8, padding: 12, margin: "0 8px 8px", background: "rgba(255,255,255,0.05)" }}
-              initial={reducedMotion ? undefined : { opacity: 0 }}
-              animate={reducedMotion ? undefined : { opacity: 1 }}
-              transition={{ duration: 0.2 }}
-            >
-              <img src={checkmarkCircleFilled} alt="" width={16} height={16} className="shrink-0 mt-[2px]" />
-              <span
-                className="flex-1"
-                style={{ ...fontRegular, fontSize: 13, lineHeight: "18px", color: "rgba(255,255,255,0.7)" }}
-              >
-                {PROFILES_ONBOARDING_BANNER_COPY.message}
-              </span>
-              <button
-                type="button"
-                onClick={dismissOnboardingBanner}
-                aria-label={PROFILES_ONBOARDING_BANNER_COPY.dismissLabel}
-                className="shrink-0 flex items-center justify-center rounded-[4px] cursor-pointer transition-colors duration-150"
-                style={{ width: 20, height: 20, background: "transparent" }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.08)"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
-              >
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M1 1L9 9M9 1L1 9" stroke="white" strokeOpacity="0.6" strokeWidth="1.3" strokeLinecap="round" />
-                </svg>
-              </button>
-            </motion.div>
-          )}
-
-          {/* Profile rows */}
-          {displayedProfiles.map((profile) => (
-            <ProfileRow key={profile.id} profile={profile} disabled={profilesLocked} />
-          ))}
-
-          {/* New profile button — sits directly after the last row */}
-          <div className="shrink-0" style={{ padding: "4px 0px 8px" }}>
-            <button
-              className="flex items-center justify-center rounded-[4px] transition-colors duration-150 cursor-pointer"
-              style={{ gap: 8, padding: 8, background: "transparent" }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
-            >
-              <img src={icPlus20} alt="plus" width={20} height={20} className="shrink-0" />
-              <span
-                style={{ ...fontSemibold, fontSize: 16, lineHeight: "20px", color: "#9880FF" }}
-              >
-                New profile
-              </span>
-            </button>
+            </div>
           </div>
         </div>
       )}

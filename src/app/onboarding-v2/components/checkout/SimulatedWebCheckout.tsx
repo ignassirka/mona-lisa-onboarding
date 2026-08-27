@@ -6,6 +6,10 @@ import ValueStack from "../../versions/upsell/ValueStack";
 import CardGrid from "../../versions/upsell/CardGrid";
 import PlanSelector from "../../versions/upsell/PlanSelector";
 import HeroSpotlight from "../../versions/upsell/HeroSpotlight";
+import ProfilesHeroTabs from "../../versions/upsell/ProfilesHeroTabs";
+import ProfilesBand from "../../versions/upsell/ProfilesBand";
+import ProfilesPaired from "../../versions/upsell/ProfilesPaired";
+import ProfilesFan from "../../versions/upsell/ProfilesFan";
 import BrowserWindowChrome from "./BrowserWindowChrome";
 import CheckoutPage from "./CheckoutPage";
 import CheckoutSuccess from "./CheckoutSuccess";
@@ -43,7 +47,7 @@ export default function SimulatedWebCheckout({
   jtbdKey,
   selectionMode = "single",
   selectedJtbds,
-  upsellVariant = "default",
+  upsellVariant = "profiles-fan",
   billingCountry,
   onReturnToApp,
 }: SimulatedWebCheckoutProps) {
@@ -106,6 +110,18 @@ export default function SimulatedWebCheckout({
         )}
         {upsellVariant === "hero-spotlight" && (
           <HeroSpotlight jtbdKey={jtbdKey} selectionMode={selectionMode} selectedJtbds={selectedJtbds} onUpgrade={noop} onContinueFree={noop} onBack={noop} />
+        )}
+        {upsellVariant === "profiles-hero-tabs" && (
+          <ProfilesHeroTabs jtbdKey={jtbdKey} selectionMode={selectionMode} selectedJtbds={selectedJtbds} onUpgrade={noop} onContinueFree={noop} onBack={noop} />
+        )}
+        {upsellVariant === "profiles-band" && (
+          <ProfilesBand jtbdKey={jtbdKey} selectionMode={selectionMode} selectedJtbds={selectedJtbds} onUpgrade={noop} onContinueFree={noop} onBack={noop} />
+        )}
+        {upsellVariant === "profiles-paired" && (
+          <ProfilesPaired jtbdKey={jtbdKey} selectionMode={selectionMode} selectedJtbds={selectedJtbds} onUpgrade={noop} onContinueFree={noop} onBack={noop} />
+        )}
+        {upsellVariant === "profiles-fan" && (
+          <ProfilesFan jtbdKey={jtbdKey} selectionMode={selectionMode} selectedJtbds={selectedJtbds} onUpgrade={noop} onContinueFree={noop} onBack={noop} />
         )}
       </div>
 

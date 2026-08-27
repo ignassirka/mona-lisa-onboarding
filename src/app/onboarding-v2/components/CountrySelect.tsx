@@ -17,14 +17,24 @@ export const COUNTRY_SELECT_COPY = {
 const COUNTRY_NAMES = countryMarkers.map((c) => c.name);
 
 interface CountrySelectProps {
-  /** `null` = "Fastest country" (the default). */
+  /** `null` = "Fastest country" (the default), or one of `ruleOptions`' ids
+   * when those are supplied, or a country name. */
   value: string | null;
   onChange: (country: string | null) => void;
+  /** Rule-based entries shown above the country list, each with the Fastest
+   * glyph rather than a flag — destinations that describe a BEHAVIOUR
+   * ("fastest P2P country") rather than a place, and so have no flag to
+   * show. Supplying these REPLACES the single built-in "Fastest country"
+   * entry, whose value is `null`; ids must be namespaced (`rule:…`) so they
+   * can't collide with one of the 93 country names. Omitted by every caller
+   * that only needs real countries plus "Fastest". */
+  ruleOptions?: readonly { id: string; label: string }[];
 }
 
-/** Plus-only, Hybrid-only searchable country dropdown, rendered directly
- * above the primary CTA on the unprotected reveal screen (see
- * docs/features/onboarding-v2.md → "Plus country selection"). A plain
+/** Plus-only searchable country dropdown. Rendered directly above the
+ * primary CTA on Hybrid's unprotected reveal screen (see
+ * docs/features/onboarding-v2.md → "Plus country selection"), and once per
+ * card in the Profiles-carousel-v2 concept, which supplies `ruleOptions`. A plain
  * custom combobox (button + popover), not a native `<select>`, so the list
  * can be searchable with flags — same visual language (rounded-[4px],
  * `rgba(255,255,255,0.05)` fill) as `CountryBrowser`'s own search bar.
@@ -32,21 +42,30 @@ interface CountrySelectProps {
  * never touches the chip, map, or copy elsewhere (that wiring lives one
  * level up, in `Hybrid`/`OnboardingV2`, and only reads `value` once the CTA
  * is actually pressed). Opens with no animation flourish, per spec. */
-export default function CountrySelect({ value, onChange }: CountrySelectProps) {
+export default function CountrySelect({ value, onChange, ruleOptions }: CountrySelectProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [highlighted, setHighlighted] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  // The built-in "Fastest country" entry is just the degenerate one-rule
+  // case, so both paths below run the same code.
+  const rules = useMemo<readonly { id: string | null; label: string }[]>(
+    () => ruleOptions ?? [{ id: null, label: COUNTRY_SELECT_COPY.fastestLabel }],
+    [ruleOptions],
+  );
+  const ruleLabelById = useMemo(() => new Map<string | null, string>(rules.map((r) => [r.id, r.label])), [rules]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     const names = q ? COUNTRY_NAMES.filter((n) => n.toLowerCase().includes(q)) : COUNTRY_NAMES;
-    // "Fastest country" always leads the list, filtered by the same query
-    // (so typing "fast" still surfaces it), matching a normal combobox.
-    const includeFastest = !q || COUNTRY_SELECT_COPY.fastestLabel.toLowerCase().includes(q);
-    return includeFastest ? [null, ...names] : names;
-  }, [query]);
+    // Rule entries always lead the list, filtered by the same query (so
+    // typing "fast" still surfaces them), matching a normal combobox.
+    const matchingRules = rules.filter((r) => !q || r.label.toLowerCase().includes(q)).map((r) => r.id);
+    return [...matchingRules, ...names];
+  }, [query, rules]);
 
   useEffect(() => {
     if (!open) return;
@@ -68,6 +87,17 @@ export default function CountrySelect({ value, onChange }: CountrySelectProps) {
   }, [open]);
 
   const select = (country: string | null) => {
+    // Move focus back to the trigger BEFORE the option/search-input unmount,
+    // rather than after. Selecting closes the popover, which removes the
+    // option that currently holds focus — if we let that removal happen
+    // first, the browser has to decide where focus goes with no guarantee a
+    // parent listening for `blur`/`focusout` ever sees a clean transition,
+    // which is what left this control's host (a card that opens on
+    // hover/focus) stuck open forever after a selection. Calling `.focus()`
+    // here fires a normal blur/focus pair between two elements that both
+    // still exist, so the host's own focus tracking sees an unambiguous
+    // "focus moved to the trigger, still inside me" transition instead.
+    triggerRef.current?.focus();
     onChange(country);
     setOpen(false);
   };
@@ -75,6 +105,9 @@ export default function CountrySelect({ value, onChange }: CountrySelectProps) {
   const handleKeyDown = (e: ReactKeyboardEvent) => {
     if (e.key === "Escape") {
       e.preventDefault();
+      // Same reasoning as `select` — Escape closes the popover out from
+      // under the still-focused search input.
+      triggerRef.current?.focus();
       setOpen(false);
       return;
     }
@@ -95,13 +128,15 @@ export default function CountrySelect({ value, onChange }: CountrySelectProps) {
     }
   };
 
-  const triggerLabel = value ?? COUNTRY_SELECT_COPY.fastestLabel;
-  const triggerFlagUrl = value ? getFlagUrl(value) : null;
-  const isFastestTrigger = !value;
+  const triggerRuleLabel = ruleLabelById.get(value);
+  const isFastestTrigger = triggerRuleLabel !== undefined;
+  const triggerLabel = triggerRuleLabel ?? value ?? COUNTRY_SELECT_COPY.fastestLabel;
+  const triggerFlagUrl = isFastestTrigger || !value ? null : getFlagUrl(value);
 
   return (
     <div ref={rootRef} className="relative w-full">
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
@@ -144,9 +179,10 @@ export default function CountrySelect({ value, onChange }: CountrySelectProps) {
           </div>
           <div className="max-h-[220px] overflow-y-auto py-[4px]">
             {filtered.map((name, i) => {
-              const isFastest = name === null;
-              const label = isFastest ? COUNTRY_SELECT_COPY.fastestLabel : name;
-              const flagUrl = isFastest ? null : getFlagUrl(name);
+              const ruleLabel = ruleLabelById.get(name);
+              const isFastest = ruleLabel !== undefined;
+              const label = ruleLabel ?? name ?? COUNTRY_SELECT_COPY.fastestLabel;
+              const flagUrl = isFastest || name === null ? null : getFlagUrl(name);
               const isSelected = value === name;
               const isHighlighted = i === highlighted;
               return (

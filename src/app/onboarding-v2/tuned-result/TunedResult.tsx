@@ -19,7 +19,10 @@ import {
   summarySubtextMultiple,
   summarySubtextMultiplePlus,
   plusSectionHeader,
+  FREE_MINIMAL_CLAIMS_COUNTER,
 } from "./copy";
+import { buildFreeMinimalContent } from "./freeMinimalContent";
+import FreeMinimalList from "./FreeMinimalList";
 import StackedLayout from "./layouts/StackedLayout";
 import CompactListLayout from "./layouts/CompactListLayout";
 import SplitByStatusLayout from "./layouts/SplitByStatusLayout";
@@ -85,7 +88,14 @@ interface TunedResultProps {
  * `layout`), replaying the whole sequence from the centered intro in the
  * newly selected arrangement — confirmed as the desired prototype behavior
  * (so reviewers can see the full intro + materialization in any layout they
- * pick, not just its static end state). */
+ * pick, not just its static end state).
+ *
+ * One arrangement/plan combination has its own body: `stacked` + `free` (the
+ * "Minimal list" concept as a Free user actually meets it, which is the only
+ * way stage 2 renders it today). There, steps 3 and 4 above run over
+ * `FreeMinimalList` instead — two real settings and a short set of value
+ * claims, with no "Available with VPN Plus" section at all. See
+ * `freeMinimalContent.ts`. */
 export default function TunedResult({
   jtbdKey,
   userPlan,
@@ -104,6 +114,17 @@ export default function TunedResult({
   // — with exactly 1, every phase of this screen behaves identically to
   // single mode (confirmed design: "1 selected → exactly as today").
   const isMultipleActive = selectionMode === "multiple" && (selectedJtbds?.length ?? 0) >= 2;
+
+  // The Free path of the "Minimal list" arrangement has its own body: two
+  // real settings (Protocol, Auto Connect) plus value claims, and NO Plus
+  // section at all. Everything below still runs — the Plus path, and the
+  // other three arrangements the Plus Welcome step reuses, are unchanged —
+  // it's simply not what gets rendered when this is non-null. See
+  // `freeMinimalContent.ts` and docs/features/onboarding-v2.md.
+  const freeMinimal =
+    layout === "stacked" && userPlan === "free"
+      ? buildFreeMinimalContent(isMultipleActive ? selectedJtbds! : [jtbdKey], tone)
+      : null;
 
   // The FULL merged/deduped unions — never truncated. These feed the
   // completion counts (true totals) AND the ranked/capped lists below (the
@@ -134,19 +155,24 @@ export default function TunedResult({
   // profiles summary, + capped Plus feature rows. Neither section shows a
   // "+X/+Y more" overflow footnote (confirmed at checkpoint) — anything
   // beyond the caps is simply not listed.
-  const totalRows = isMultipleActive
-    ? freeCapped!.displayed.length + 1 + paidCapped!.displayed.length
-    : result.enabled.length + result.paid.length;
+  const totalRows = freeMinimal
+    ? freeMinimal.settings.length + freeMinimal.claims.length
+    : isMultipleActive
+      ? freeCapped!.displayed.length + 1 + paidCapped!.displayed.length
+      : result.enabled.length + result.paid.length;
   // Plus plan: every row materializes as applied — there is no free/paid
   // tier boundary to pause for or reveal a divider at, so `boundaryIndex` is
   // pushed outside the valid range (`useTunedMaterialization`'s `hasBoundary`
-  // check), skipping both the pacing pause and the divider entirely. Free
-  // plan: unchanged.
-  const boundaryIndex = paidUnlocked
-    ? totalRows
-    : isMultipleActive
-      ? freeCapped!.displayed.length
-      : result.enabled.length;
+  // check), skipping both the pacing pause and the divider entirely. The
+  // `freeMinimal` path does the same, for the same reason from the other
+  // direction: every one of its rows is something the user already has, so
+  // there's no tier to divide. Free plan on the other layouts: unchanged.
+  const boundaryIndex =
+    paidUnlocked || freeMinimal
+      ? totalRows
+      : isMultipleActive
+        ? freeCapped!.displayed.length
+        : result.enabled.length;
   // Plus + Multiple mode only — the true combined total beyond the display
   // caps, split by type so the "+X more settings tuned for you" line can
   // reuse the existing per-type caps' own overflow counts (confirmed at
@@ -191,6 +217,27 @@ export default function TunedResult({
   const truePlusAppliedTotal = isMultipleActive ? mergedEnabledFull!.length + mergedPaidFull!.length : 0;
   const selectionCount = selectedJtbds?.length ?? 1;
   const plusHeaderText = plusSectionHeader(result.jtbdLabel, isMultipleActive ? selectionCount : 1);
+
+  // Header subtext, Phase 3 (materializing). On the `freeMinimal` path the
+  // counter can only speak for the settings rows, so once those are done it
+  // hands over to a line about the claims still arriving rather than counting
+  // them as settings. `claimsPhase` also feeds the crossfade key — without it
+  // the handover would be an instant text swap mid-sentence.
+  const claimsPhase = !!freeMinimal && appliedSoFar > freeMinimal.settings.length;
+  const counterText = claimsPhase
+    ? FREE_MINIMAL_CLAIMS_COUNTER
+    : counterSubtext(appliedSoFar, freeMinimal ? freeMinimal.settings.length : totalRows);
+
+  // Header subtext, Phase 4 (complete). `freeMinimal` reports only the
+  // settings it actually applied, and has no locked clause to add — the value
+  // claims aren't settings and were never counted as any.
+  const summaryText = freeMinimal
+    ? summarySubtext(tone, freeMinimal.settings.length, 0)
+    : isMultipleActive
+      ? paidUnlocked
+        ? summarySubtextMultiplePlus(tone, truePlusAppliedTotal)
+        : summarySubtextMultiple(tone, appliedCount, truePaidFeatureCount)
+      : summarySubtext(tone, appliedCount, lockedOrPreviewCount);
 
   return (
     // Transparent overlay — same protected teal-top gradient background as
@@ -335,21 +382,13 @@ export default function TunedResult({
             <p className="text-center font-['Segoe_UI_Variable',sans-serif] text-[16px] leading-[20px] text-[rgba(255,255,255,0.7)]">
               <AnimatePresence mode="wait" initial={false}>
                 <motion.span
-                  key={!introDone ? "intro" : rowsComplete ? "summary" : "counter"}
+                  key={!introDone ? "intro" : rowsComplete ? "summary" : claimsPhase ? "claims" : "counter"}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: sec(T.subtextCrossfade) }}
                 >
-                  {!introDone
-                    ? introSubtext(tone)
-                    : rowsComplete
-                      ? isMultipleActive
-                        ? paidUnlocked
-                          ? summarySubtextMultiplePlus(tone, truePlusAppliedTotal)
-                          : summarySubtextMultiple(tone, appliedCount, truePaidFeatureCount)
-                        : summarySubtext(tone, appliedCount, lockedOrPreviewCount)
-                      : counterSubtext(appliedSoFar, totalRows)}
+                  {!introDone ? introSubtext(tone) : rowsComplete ? summaryText : counterText}
                 </motion.span>
               </AnimatePresence>
             </p>
@@ -363,7 +402,16 @@ export default function TunedResult({
               (top-anchored), this no longer matters, so it can safely
               rejoin the normal flow the moment `introDone` flips. */}
           <div className={`flex w-full flex-col items-center gap-[24px] ${!reduced && !introDone ? "invisible absolute inset-x-0" : "relative"}`}>
-            {layout === "stacked" && (
+            {freeMinimal && (
+              <FreeMinimalList
+                settings={freeMinimal.settings}
+                claims={freeMinimal.claims}
+                rowStages={rowStages}
+                rowMounted={rowMounted}
+                reduced={reduced}
+              />
+            )}
+            {!freeMinimal && layout === "stacked" && (
               <StackedLayout
                 result={result}
                 profiles={profiles}

@@ -20,14 +20,34 @@ const STREAMING_LOGOS = [
 /** Streaming-service logo row — lifted from `VPNPlusUpsell.tsx` (only shown
  * when the streaming JTBD is part of the selection) so every alternative
  * layout reuses the identical existing assets rather than each importing
- * its own copy. */
-export default function StreamingLogos({ variants, className = "" }: { variants?: Variants; className?: string }) {
+ * its own copy.
+ *
+ * `compact` exists for the Profiles-carousel-v2 card, where all seven logos
+ * have to fit inside 248px: it shrinks them and drops the "+ and more"
+ * trailer, which is what makes the row 184px wide instead of 326px. */
+export default function StreamingLogos({
+  variants,
+  className = "",
+  compact = false,
+}: {
+  variants?: Variants;
+  className?: string;
+  compact?: boolean;
+}) {
   return (
-    <motion.div variants={variants} className={`flex items-center gap-[10px] ${className}`}>
+    <motion.div variants={variants} className={`flex items-center ${compact ? "gap-[5px]" : "gap-[10px]"} ${className}`}>
       {STREAMING_LOGOS.map(({ src, alt }) => (
-        <img key={alt} src={src} alt={alt} title={alt} className="size-[28px] rounded-[6px] object-cover" />
+        <img
+          key={alt}
+          src={src}
+          alt={alt}
+          title={alt}
+          className={`object-cover ${compact ? "size-[22px] rounded-[5px]" : "size-[28px] rounded-[6px]"}`}
+        />
       ))}
-      <span className="font-['Segoe_UI_Variable',sans-serif] text-[13px] leading-[18px] text-[rgba(255,255,255,0.5)]">+ and more</span>
+      {compact ? null : (
+        <span className="font-['Segoe_UI_Variable',sans-serif] text-[13px] leading-[18px] text-[rgba(255,255,255,0.5)]">+ and more</span>
+      )}
     </motion.div>
   );
 }

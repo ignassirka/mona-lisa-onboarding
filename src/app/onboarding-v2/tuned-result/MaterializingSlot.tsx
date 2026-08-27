@@ -37,6 +37,20 @@ interface MaterializingSlotProps {
   resolvedContent: ReactNode;
   /** Wrapper className — sizing/width for the outer entrance element. */
   className?: string;
+  /** Direction the outer entrance slides in from. `"bottom"` (default,
+   * `y: 8`) is every stacked/row/card layout's existing feel. `"right"`
+   * (`x: 24`) is for horizontal carousels, where a new card visibly joining
+   * from the direction the track reads in is what makes it feel like the
+   * next item in a row rather than a row appearing out of nowhere. */
+  enterFrom?: "bottom" | "right";
+  /** Animates the slot's own position via Framer's `layout` prop — needed
+   * only in a horizontal carousel that re-centers (`justify-center`) as
+   * cards are added: a new card growing the row's total width shifts every
+   * existing card's on-screen position, and without `layout` that shift is
+   * an instant jump rather than part of the same slide. Off by default;
+   * every other `MaterializingSlot` caller never has this problem (its
+   * siblings' positions don't move when it mounts). */
+  layoutAnimate?: boolean;
 }
 
 /** A single materializing item — Phase 1 (narrated spinner) then Phase 2
@@ -49,13 +63,23 @@ interface MaterializingSlotProps {
  * motion skips Phase 1 entirely (the caller never passes `stage="spinner"`
  * in that case) and renders `resolvedContent` directly via a simple,
  * non-popping fade. */
-export default function MaterializingSlot({ stage, reduced, phase1Content, resolvedContent, className }: MaterializingSlotProps) {
+export default function MaterializingSlot({
+  stage,
+  reduced,
+  phase1Content,
+  resolvedContent,
+  className,
+  enterFrom = "bottom",
+  layoutAnimate = false,
+}: MaterializingSlotProps) {
+  const enterOffset = enterFrom === "right" ? { x: 24 } : { y: 8 };
   return (
     <motion.div
+      layout={layoutAnimate && !reduced ? "position" : undefined}
       className={className}
-      initial={reduced ? { opacity: 0 } : { opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: reduced ? 0.3 : 0.2 }}
+      initial={reduced ? { opacity: 0 } : { opacity: 0, ...enterOffset }}
+      animate={{ opacity: 1, x: 0, y: 0 }}
+      transition={{ duration: reduced ? 0.3 : 0.35, ease: [0.16, 1, 0.3, 1] }}
     >
       {reduced ? (
         <motion.div className="w-full" variants={resolvedVariantsReduced} initial="hidden" animate="show">

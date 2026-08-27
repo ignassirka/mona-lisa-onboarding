@@ -9,7 +9,9 @@ import OnboardingV2, {
   STAGE_ORDER,
   STAGE_VERSIONS,
   UPSELL_VERSIONS,
-  TUNING_CONCEPTS,
+  tuningConceptsForPlan,
+  effectiveTuningConcept,
+  defaultTuningConceptForPlan,
   type OnboardingStage,
   type OnboardingVariant,
   type ResultLayout,
@@ -20,7 +22,10 @@ import { STAGE_SUPPORTS_TONE, TONE_OPTIONS, type ToneOfVoice } from "./onboardin
 import { FAILURE_SIM_PRESETS } from "./onboarding-v2/lib/connectionSimulator";
 import { trackConnectionFailureEvent } from "./onboarding-v2/lib/analytics";
 import type { JtbdId, SelectionMode } from "./onboarding-v2/lib/jtbdData";
+import { resolveVpnDestination } from "./onboarding-v2/lib/server";
+import { JTBD_PROFILES } from "./onboarding-v2/lib/jtbdProfiles";
 import MakeYoursModal from "./components/MakeYoursModal";
+import { ProfilesSpotlight, type SpotlightRect } from "./components/ProfilesSpotlight";
 import SignInScreen from "./components/SignInScreen";
 import FlowOverview from "./components/FlowOverview";
 import PrdOverview from "./components/PrdOverview";
@@ -49,12 +54,24 @@ const NL_LNG = 4.9;
 const NL_ZOOM = 4;
 
 const SHOWN_KEY = "makeYoursModalShown";
+
+// Disabled at the user's request — the "Set it up your way" modal
+// (`MakeYoursModal`) is currently hidden across every entry path. Flip back
+// to `true` to restore it; everything else about it (component, state,
+// `handleModalClose`'s welcome-banner handoff) is left fully wired.
+const MAKE_YOURS_MODAL_ENABLED = false;
 // Dedicated flag for the post-onboarding welcome banner — decoupled from
 // `SHOWN_KEY` (which specifically gates the "Set it up your way" modal's own
 // re-display) even though today both are cleared together on every
 // `startOnboarding` (so the banner replays alongside the modal on each
 // prototype demo run, not literally "once ever").
 const WELCOME_BANNER_SHOWN_KEY = "welcomeBannerShown";
+
+/** Plus-only prototype sub-toggle — whether the Hybrid/Hybrid Split country
+ * selector (`CountrySelect`) appears at all this run. Hidden from the Sign In
+ * UI but persisted here so the option survives reloads and can still be set
+ * programmatically (e.g. via devtools). Default `false` ("Without"). */
+const COUNTRY_SELECTION_ENABLED_KEY = "countrySelectionEnabled";
 
 // "overview" — the informational "Flow overview" screen, reachable only
 // from the start screen's secondary button; "prd" — the informational "PRD
@@ -68,6 +85,7 @@ function PrototypeControls({
   variant,
   resultLayout,
   tuningConcept,
+  plan,
   upsellVariant,
   tone,
   selectionMode,
@@ -84,6 +102,10 @@ function PrototypeControls({
   variant: OnboardingVariant;
   resultLayout: ResultLayout;
   tuningConcept: TuningConcept;
+  /** The run's plan — gates the Plus-only entries out of the Concept
+   * dropdown (`tuningConceptsForPlan`). Read-only here; the control that
+   * SETS it lives on the Sign In screen (`SignInPlanControl`). */
+  plan: SessionPlan;
   upsellVariant: UpsellVariant;
   tone: ToneOfVoice;
   selectionMode: SelectionMode;
@@ -193,11 +215,11 @@ function PrototypeControls({
           <label className={`flex items-center gap-[6px] ${textClass}`}>
             Concept:
             <select
-              value={tuningConcept}
+              value={effectiveTuningConcept(tuningConcept, plan)}
               onChange={(e) => onTuningConceptChange(e.target.value as TuningConcept)}
               className={selectClass}
             >
-              {TUNING_CONCEPTS.map((c) => (
+              {tuningConceptsForPlan(plan).map((c) => (
                 <option key={c.value} value={c.value} className={optionClass}>
                   {c.label}
                 </option>
@@ -321,18 +343,9 @@ function StageIndicator({ stage }: { stage: OnboardingStage }) {
 function SignInPlanControl({
   plan,
   onPlanChange,
-  countrySelectionEnabled,
-  onCountrySelectionChange,
 }: {
   plan: SessionPlan;
   onPlanChange: (p: SessionPlan) => void;
-  /** Plus-only sub-toggle — lets a reviewer preview the Plus tuning/skip-
-   * upsell behavior with or without the Hybrid/Hybrid Split country
-   * selector (`CountrySelect`), since that's an additive feature ON TOP of
-   * Plus, not something every Plus preview needs to show. Irrelevant (and
-   * hidden) on Free. */
-  countrySelectionEnabled: boolean;
-  onCountrySelectionChange: (enabled: boolean) => void;
 }) {
   const textClass = "font-mono text-[12px] leading-[16px]";
   const tabClass = (active: boolean) =>
@@ -356,20 +369,6 @@ function SignInPlanControl({
           </button>
         </div>
       </div>
-
-      {plan === "plus" && (
-        <div className="flex items-center gap-[12px] border-t border-[rgba(255,255,255,0.1)] pt-[8px]">
-          <span className={textClass}>Country selection:</span>
-          <div className="flex items-center gap-[2px] rounded-[6px] border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.04)] p-[2px]">
-            <button type="button" onClick={() => onCountrySelectionChange(true)} className={tabClass(countrySelectionEnabled)}>
-              With
-            </button>
-            <button type="button" onClick={() => onCountrySelectionChange(false)} className={tabClass(!countrySelectionEnabled)}>
-              Without
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -383,6 +382,13 @@ function AppInner() {
   const [selectedMapLayer, setSelectedMapLayer] = useState<MapLayerOption>("none");
   const [vpnStatus, setVpnStatus] = useState<VpnStatus>("protected");
   const [connectedCountry, setConnectedCountry] = useState<string | null>("Netherlands");
+  /** Set only when the current connection came from pressing Connect on a
+   * specific profile card during onboarding (Profiles carousel v1/v2) —
+   * drives the connection card's profile variant (icon + name in place of
+   * the flag) for exactly that connection. Cleared by any other way of
+   * connecting/disconnecting, so it never survives past the connection it
+   * describes. */
+  const [connectedProfileJtbd, setConnectedProfileJtbd] = useState<JtbdId | null>(null);
   const [physicalCountry, setPhysicalCountry] = useState("United Kingdom");
   const connectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const modalTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -399,6 +405,12 @@ function AppInner() {
   // onboarding was skipped) — drives the main app's Profiles tab default
   // and which profile items it generates. See `handleEnterApp`.
   const [onboardingJtbds, setOnboardingJtbds] = useState<JtbdId[]>([]);
+  /** The Plus-plan country picked during onboarding, or null for "Fastest
+   * country" (and always null on Free, which never sees a country selector).
+   * Personalizes the destination line on onboarding-generated sidebar
+   * profiles. Deliberately distinct from `selectedCountry`, which is the main
+   * app's own live connection target. */
+  const [onboardingCountry, setOnboardingCountry] = useState<string | null>(null);
   /** Whether the user landed in the main app on Free or VPN Plus — set by
    * `handleEnterApp` from onboarding exit (`"free"` for Continue free + Skip,
    * `"plus"` only after in-session checkout). Drives the free-tier connection
@@ -413,16 +425,34 @@ function AppInner() {
   const [onboardingPlan, setOnboardingPlan] = useState<SessionPlan>("free");
   /** Plus-only prototype sub-toggle — whether the Hybrid/Hybrid Split
    * country selector (`CountrySelect`) appears at all this run. Default
-   * `true` (the country-selection feature's own default when Plus is
-   * picked). Irrelevant on Free — `OnboardingV2` only ever reads it when
-   * `onboardingPlan === "plus"`. */
-  const [countrySelectionEnabled, setCountrySelectionEnabled] = useState(true);
+   * `false` ("Without") when Plus is picked — country selection is an
+   * additive preview ON TOP of Plus, not the default Plus path. Hidden from
+   * the Sign In UI but persisted to `localStorage` under
+   * `COUNTRY_SELECTION_ENABLED_KEY`. Irrelevant on Free — `OnboardingV2`
+   * only ever reads it when `onboardingPlan === "plus"`. */
+  const [countrySelectionEnabled, setCountrySelectionEnabledState] = useState(
+    () => typeof window !== "undefined" && localStorage.getItem(COUNTRY_SELECTION_ENABLED_KEY) === "true",
+  );
+  const setCountrySelectionEnabled = useCallback((enabled: boolean) => {
+    localStorage.setItem(COUNTRY_SELECTION_ENABLED_KEY, enabled ? "true" : "false");
+    setCountrySelectionEnabledState(enabled);
+  }, []);
   /** Incremented to ask `CountryBrowser` to switch to the Countries tab
    * (wired from the free-tier connection card's "Change server" button). */
   const [countriesTabFocusKey, setCountriesTabFocusKey] = useState(0);
   // Fires the calm, auto-dismissing welcome banner exactly once, right
   // after the "Set it up your way" modal closes. See `handleModalClose`.
   const [showWelcomeBanner, setShowWelcomeBanner] = useState(false);
+  // Post-onboarding spotlight — dims the whole window except the Profiles
+  // list and rings it in white, to point at what onboarding just generated.
+  // Armed in `handleEnterApp`; `ProfilesSpotlight` owns its own 5s timeout and
+  // click-anywhere dismissal, both of which call back into
+  // `dismissProfilesSpotlight`. Non-null rect == visible.
+  const [spotlightRect, setSpotlightRect] = useState<SpotlightRect | null>(null);
+  const spotlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** The Profiles tab's content block (header → "New profile"), measured to
+   * position the spotlight cutout. */
+  const profilesSectionRef = useRef<HTMLDivElement>(null);
   // Tier 3 of the connection-failure path — true once onboarding was
   // deferred (never "completed") rather than skipped deliberately. Drives
   // `DeferredOnboardingBanner`'s presence; cleared once the deferred
@@ -439,16 +469,18 @@ function AppInner() {
   // Which onboarding content variant the user picked on the start screen
   const [variant, setVariant] = useState<OnboardingVariant>("hybrid");
   // Which tuned-result layout is active (prototype control)
-  const [resultLayout, setResultLayout] = useState<ResultLayout>("stacked");
+  const [resultLayout, setResultLayout] = useState<ResultLayout>("profiles-showcase");
   // Which "Personalized JTBD tuning" content concept is active (prototype
   // control) — independent from `resultLayout` (which only picks the
   // resolved arrangement WITHIN the default concept, and is separately
   // reused by the VPN Plus Welcome step).
-  const [tuningConcept, setTuningConcept] = useState<TuningConcept>("default");
+  const [tuningConcept, setTuningConcept] = useState<TuningConcept>(() =>
+    defaultTuningConceptForPlan("free"),
+  );
   // Which "Upgrade to Plus" upsell content version is active (prototype
   // control) — independent from `resultLayout` (which only drives the
   // separate VPN Plus Welcome step).
-  const [upsellVariant, setUpsellVariant] = useState<UpsellVariant>("default");
+  const [upsellVariant, setUpsellVariant] = useState<UpsellVariant>("profiles-fan");
   // Tone of voice for connection-stage copy (prototype control)
   const [tone, setTone] = useState<ToneOfVoice>("straightforward");
   // "Selection" prototype control (prototype-only, tuning stage) — defaults
@@ -467,6 +499,18 @@ function AppInner() {
   // picker instead of stage 1, since the user is already connected.
   const [resumeAtJtbd, setResumeAtJtbd] = useState(false);
 
+  const handleOnboardingPlanChange = useCallback((p: SessionPlan) => {
+    setTuningConcept((c) => {
+      const coerced = effectiveTuningConcept(c, p);
+      if (c === defaultTuningConceptForPlan(onboardingPlan)) {
+        return defaultTuningConceptForPlan(p);
+      }
+      return coerced;
+    });
+    setOnboardingPlan(p);
+    if (p === "plus") setCountrySelectionEnabled(false);
+  }, [onboardingPlan, setCountrySelectionEnabled]);
+
   // Prototype controls: current stage of the flow, shown in the HUD above the window
   const [currentStage, setCurrentStage] = useState<OnboardingStage>("connection");
 
@@ -482,6 +526,29 @@ function AppInner() {
   useEffect(() => () => {
     if (connectTimerRef.current) clearTimeout(connectTimerRef.current);
     if (modalTimerRef.current) clearTimeout(modalTimerRef.current);
+    if (spotlightTimerRef.current) clearTimeout(spotlightTimerRef.current);
+  }, []);
+
+  const dismissProfilesSpotlight = useCallback(() => {
+    if (spotlightTimerRef.current) clearTimeout(spotlightTimerRef.current);
+    setSpotlightRect(null);
+  }, []);
+
+  /** Measures the Profiles list against the app window, so the cutout can be
+   * placed in the window's own coordinate space rather than the viewport's. */
+  const showProfilesSpotlight = useCallback(() => {
+    const section = profilesSectionRef.current;
+    const container = containerRef.current;
+    if (!section || !container) return;
+    const sectionRect = section.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+    if (sectionRect.width === 0 || sectionRect.height === 0) return;
+    setSpotlightRect({
+      top: sectionRect.top - containerRect.top,
+      left: sectionRect.left - containerRect.left,
+      width: sectionRect.width,
+      height: sectionRect.height,
+    });
   }, []);
 
   const handleResizeStart = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
@@ -511,6 +578,11 @@ function AppInner() {
   const handleConnect = useCallback((country: string) => {
     if (connectTimerRef.current) clearTimeout(connectTimerRef.current);
     setConnectedCountry(country);
+    // A plain country/"Fastest" connect from the map or sidebar is never a
+    // profile connection, even if the last one was — otherwise the card
+    // would keep showing a stale profile's icon and name after the user
+    // picked an unrelated country by hand.
+    setConnectedProfileJtbd(null);
     setVpnStatus("connecting");
     connectTimerRef.current = setTimeout(() => setVpnStatus("protected"), 3000);
   }, []);
@@ -552,6 +624,7 @@ function AppInner() {
     if (connectTimerRef.current) clearTimeout(connectTimerRef.current);
     setVpnStatus("unprotected");
     setConnectedCountry(null);
+    setConnectedProfileJtbd(null);
   }, []);
 
   // Called when the window chrome's "X" is clicked mid-onboarding — closes
@@ -598,16 +671,26 @@ function AppInner() {
     setSessionPlan(plan);
     if (vpnConnected) {
       setVpnStatus("protected");
-      setConnectedCountry("Netherlands");
+      // Was hardcoded to "Netherlands" regardless of what the onboarding
+      // screen actually connected to — so a per-card Connect (Profiles
+      // carousel v2) or any other Plus country pick landed the main app's
+      // connection card on the wrong country. `resolveVpnDestination`
+      // already does this resolution correctly elsewhere (real coordinates,
+      // "Fastest country" fallback for `null`/`undefined`); reuse it here
+      // instead of re-deriving or hardcoding a destination.
+      setConnectedCountry(resolveVpnDestination(options.selectedCountry).country);
+      setConnectedProfileJtbd(options.connectedProfileJtbd ?? null);
     } else {
       setVpnStatus("unprotected");
       setConnectedCountry(null);
+      setConnectedProfileJtbd(null);
       setSelectedCountry(null);
     }
     setShowEntrance(true);
     setAppState("transitioning");
     setCurrentStage("personalization");
     setOnboardingJtbds(selectedJtbds);
+    setOnboardingCountry(options.selectedCountry ?? null);
     setResumeAtJtbd(false);
 
     if (deferred) {
@@ -630,13 +713,32 @@ function AppInner() {
     // skipped when the user bailed straight to the app (Go to app directly,
     // or the connection-failure path's Tier 2/3 exits — neither ever ran
     // the personalization step this modal represents).
+    //
+    // Currently disabled at the user's request — the "Set it up your way"
+    // modal (`MakeYoursModal`) is hidden across every entry path. Left
+    // fully wired (component, state, `handleModalClose`'s welcome-banner
+    // handoff) rather than deleted, so it can be switched back on by
+    // restoring the `setShowModal(true)` call below.
     const totalDuration = TRANSITION_TIMING.leftPanel.start + TRANSITION_TIMING.leftPanel.duration + 400;
     modalTimerRef.current = setTimeout(() => {
-      if (vpnConnected && !deferred && !localStorage.getItem(SHOWN_KEY)) {
+      if (MAKE_YOURS_MODAL_ENABLED && vpnConnected && !deferred && !localStorage.getItem(SHOWN_KEY)) {
         setShowModal(true);
       }
     }, totalDuration);
-  }, [deferredOnboarding]);
+
+    // Spotlight the Profiles list once the panel has finished sliding in —
+    // only when there are onboarding-generated profiles sitting in it to point
+    // at (the Profiles tab is what `CountryBrowser` opens on in exactly that
+    // case). Measured at fire time, not now, since the panel is still animating.
+    if (spotlightTimerRef.current) clearTimeout(spotlightTimerRef.current);
+    setSpotlightRect(null);
+    if (selectedJtbds.length > 0) {
+      spotlightTimerRef.current = setTimeout(
+        showProfilesSpotlight,
+        TRANSITION_TIMING.leftPanel.start + TRANSITION_TIMING.leftPanel.duration + 150,
+      );
+    }
+  }, [deferredOnboarding, showProfilesSpotlight]);
 
   const handleChangeServer = useCallback(() => {
     setCountriesTabFocusKey((k) => k + 1);
@@ -669,6 +771,8 @@ function AppInner() {
             onSelectMapLayer={handleSelectLayer}
             vpnStatus={vpnStatus}
             connectedCountry={connectedCountry}
+            connectedProfileName={connectedProfileJtbd ? JTBD_PROFILES[connectedProfileJtbd].name : null}
+            connectedProfileIcon={connectedProfileJtbd ? JTBD_PROFILES[connectedProfileJtbd].icon : null}
             onConnect={handleConnect}
             onDisconnect={handleDisconnect}
             physicalCountry={physicalCountry}
@@ -711,8 +815,10 @@ function AppInner() {
             vpnStatus={vpnStatus}
             physicalCountry={physicalCountry}
             onboardingJtbds={onboardingJtbds}
+            onboardingCountry={onboardingCountry}
             sessionPlan={sessionPlan}
             countriesTabFocusKey={countriesTabFocusKey}
+            profilesSectionRef={profilesSectionRef}
           />
           <div
             className="absolute top-0 bottom-0 right-0 w-[8px] z-[10] cursor-col-resize flex items-stretch justify-center"
@@ -726,6 +832,15 @@ function AppInner() {
             />
           </div>
         </motion.div>
+
+        {/* Sits at window level rather than inside the panel: the cutout's dim
+            has to reach the map and the connection card, and the panel is
+            `overflow-hidden`. */}
+        <AnimatePresence>
+          {spotlightRect && (
+            <ProfilesSpotlight rect={spotlightRect} onDone={dismissProfilesSpotlight} />
+          )}
+        </AnimatePresence>
       </div>
 
       {/* ══════════ Stage 4: Final personalization ══════════
@@ -796,9 +911,7 @@ function AppInner() {
         <SignInScreen onSignIn={startOnboarding} onClose={handleCloseOnboarding} />
         <SignInPlanControl
           plan={onboardingPlan}
-          onPlanChange={setOnboardingPlan}
-          countrySelectionEnabled={countrySelectionEnabled}
-          onCountrySelectionChange={setCountrySelectionEnabled}
+          onPlanChange={handleOnboardingPlanChange}
         />
       </>
     );
@@ -823,6 +936,7 @@ function AppInner() {
         variant={variant}
         resultLayout={resultLayout}
         tuningConcept={tuningConcept}
+        plan={onboardingPlan}
         upsellVariant={upsellVariant}
         tone={tone}
         selectionMode={selectionMode}
@@ -858,7 +972,7 @@ function AppInner() {
               countrySelectionEnabled={countrySelectionEnabled}
               variant={variant}
               resultLayout={resultLayout}
-              tuningConcept={tuningConcept}
+              tuningConcept={effectiveTuningConcept(tuningConcept, onboardingPlan)}
               upsellVariant={upsellVariant}
               tone={tone}
               selectionMode={selectionMode}

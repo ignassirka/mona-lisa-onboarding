@@ -5,6 +5,7 @@ import BoundaryDivider from "../BoundaryDivider";
 import ProfilesSummaryRow from "../ProfilesSummaryRow";
 import CircleSlashIcon from "../CircleSlashIcon";
 import { UnlockedChip } from "../TransformingPaidCell";
+import { STACKED_ROW_CLASS, SettingLabelPill, checkPopVariants as popVariants } from "../stackedRow";
 import InfoTooltip from "../../versions/upsell/lib/InfoTooltip";
 import { narrateEnabling, narrateChecking, narratePreparingPlusPreview, moreSettingsTuned } from "../copy";
 import { toneOutcome } from "../../lib/jtbdTuningToneCopy";
@@ -14,13 +15,6 @@ import type { ToneOfVoice } from "../../lib/toneOfVoice";
 import type { RowStage } from "../useTunedMaterialization";
 import checkmarkUrl from "../../assets/checkmark-circle-filled.svg";
 import vpnPlusBadgeUrl from "../../assets/vpn-plus-badge.svg";
-
-// Reused verbatim from `EnabledFeatureRow`/`PaidFeatureRow`'s existing
-// check-pop spring config — same primitive, same feel.
-const popVariants: Variants = {
-  hidden: { opacity: 0, scale: 0 },
-  show: { opacity: 1, scale: 1, transition: { type: "spring", stiffness: 500, damping: 14 } },
-};
 
 // Locked rows "settle" rather than pop — no overshoot, reads as calm/neutral
 // ("needs Plus"), never an error.
@@ -67,38 +61,7 @@ interface StackedLayoutProps {
   unlockTransition?: { unlocked: boolean; showChip: boolean };
 }
 
-const ROW_CLASS = "flex w-full max-w-[800px] items-start gap-[16px] py-[12px]";
-
-function SettingLabelPill({
-  label,
-  value,
-  tooltip,
-  muted = false,
-}: {
-  label: string;
-  value?: string;
-  tooltip?: string;
-  muted?: boolean;
-}) {
-  const labelColor = muted ? "text-[rgba(255,255,255,0.5)]" : "text-[rgba(255,255,255,0.7)]";
-  const valueColor = muted ? "text-[rgba(255,255,255,0.5)]" : "text-white";
-  return (
-    <span className="flex shrink-0 items-center gap-[4px] whitespace-nowrap rounded-[8px] bg-[rgba(255,255,255,0.05)] px-[12px] pb-[7px] pt-[5px]">
-      <span className={`font-['Segoe_UI_Variable',sans-serif] text-[14px] leading-[20px] ${labelColor}`} style={{ fontFeatureSettings: '"rclt" 0' }}>
-        {label}
-      </span>
-      {value ? (
-        <>
-          <span className={`font-['Segoe_UI_Variable',sans-serif] text-[14px] leading-[20px] ${labelColor}`}>:</span>
-          <span className={`font-['Segoe_UI_Variable',sans-serif] text-[14px] font-semibold leading-[20px] ${valueColor}`} style={{ fontFeatureSettings: '"fina" 1, "init" 1' }}>
-            {value}
-          </span>
-        </>
-      ) : null}
-      <InfoTooltip content={tooltip} />
-    </span>
-  );
-}
+const ROW_CLASS = STACKED_ROW_CLASS;
 
 function FeatureLabel({
   name,

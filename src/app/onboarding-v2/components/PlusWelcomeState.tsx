@@ -6,10 +6,16 @@ import StackedLayout from "../tuned-result/layouts/StackedLayout";
 import CompactListLayout from "../tuned-result/layouts/CompactListLayout";
 import SplitByStatusLayout from "../tuned-result/layouts/SplitByStatusLayout";
 import CardGridLayout from "../tuned-result/layouts/CardGridLayout";
+import ProfilesShowcaseWelcome from "./plus-welcome/ProfilesShowcaseWelcome";
 import { TUNED_RESULT_TIMING as T } from "../tuned-result/timing";
 import { plusSectionHeader } from "../tuned-result/copy";
 import { JTBD_TUNING_RESULT, type JTBDKey } from "../lib/jtbdTuningResult";
 import { JTBD_PLUS_WELCOME, plusWelcomeSubtitleMultiple } from "../lib/jtbdUpsell";
+import {
+  plusWelcomeProfilesSubheading,
+  plusWelcomeProfilesSubheadingMultiple,
+} from "../lib/plusWelcomeCopy";
+import { profilesForSelection } from "../lib/jtbdProfiles";
 import {
   mergeFreeSettings,
   mergePaidFeatures,
@@ -115,7 +121,14 @@ export default function PlusWelcomeState({
     ? { jtbdKey: single.jtbdKey, jtbdLabel: single.jtbdLabel, enabled: freeCapped!.displayed, paid: [], tip: null }
     : single;
 
-  const welcomeSubheading = isMultipleActive ? plusWelcomeSubtitleMultiple(selectedJtbds!.length) : JTBD_PLUS_WELCOME[jtbdKey].subheading;
+  const welcomeSubheading =
+    layout === "profiles-showcase"
+      ? isMultipleActive
+        ? plusWelcomeProfilesSubheadingMultiple(selectedJtbds!.length)
+        : plusWelcomeProfilesSubheading(profilesForSelection([jtbdKey])[0]!.name)
+      : isMultipleActive
+        ? plusWelcomeSubtitleMultiple(selectedJtbds!.length)
+        : JTBD_PLUS_WELCOME[jtbdKey].subheading;
 
   const streamingSelected =
     jtbdKey === "streaming" ||
@@ -201,12 +214,24 @@ export default function PlusWelcomeState({
             </motion.p>
           </div>
 
-          {/* Reused stage-2 layout renderer, fed the unlocking state. */}
+          {/* Reused stage-2 layout renderer, fed the unlocking state — or the
+              profiles showcase when that layout is selected. */}
           <div className="flex w-full flex-col items-center gap-[24px]">
-            {layout === "stacked" && <StackedLayout {...layoutProps} />}
-            {layout === "compact-list" && <CompactListLayout {...layoutProps} />}
-            {layout === "split-by-status" && <SplitByStatusLayout {...layoutProps} />}
-            {layout === "card-grid" && <CardGridLayout {...layoutProps} />}
+            {layout === "profiles-showcase" ? (
+              <ProfilesShowcaseWelcome
+                jtbdKey={jtbdKey}
+                selectionMode={selectionMode}
+                selectedJtbds={selectedJtbds}
+                reduced={reduced}
+              />
+            ) : (
+              <>
+                {layout === "stacked" && <StackedLayout {...layoutProps} />}
+                {layout === "compact-list" && <CompactListLayout {...layoutProps} />}
+                {layout === "split-by-status" && <SplitByStatusLayout {...layoutProps} />}
+                {layout === "card-grid" && <CardGridLayout {...layoutProps} />}
+              </>
+            )}
           </div>
 
           <motion.button

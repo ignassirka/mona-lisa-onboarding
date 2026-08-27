@@ -518,8 +518,10 @@ export function ISPRegulationsPanel({
   vpnStatus = "unprotected",
   physicalCountry = "Belarus",
   onboardingJtbds,
+  onboardingCountry = null,
   sessionPlan = "plus",
   countriesTabFocusKey = 0,
+  profilesSectionRef,
 }: {
   externalSelectedCountry?: string | null;
   onCountryChange?: (name: string | null) => void;
@@ -534,9 +536,16 @@ export function ISPRegulationsPanel({
    * threaded straight through to `CountryBrowser`, which defaults to the
    * Profiles tab and generates profile items for them when present. */
   onboardingJtbds?: JtbdId[];
+  /** The country a Plus user picked during onboarding — forwarded so a
+   * generated profile's destination in the sidebar matches the one the tuning
+   * screen showed them. Null for "Fastest country". */
+  onboardingCountry?: string | null;
   sessionPlan?: SessionPlan;
   /** Increment to focus the Countries tab (from free-tier "Change server"). */
   countriesTabFocusKey?: number;
+  /** Forwarded to `CountryBrowser`'s Profiles content block so `App.tsx` can
+   * measure it for the post-onboarding spotlight. */
+  profilesSectionRef?: React.Ref<HTMLDivElement>;
 } = {}) {
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
 
@@ -580,9 +589,11 @@ export function ISPRegulationsPanel({
           onVpnConnect={onVpnConnect}
           onVpnDisconnect={onVpnDisconnect}
           onboardingJtbds={onboardingJtbds}
+          onboardingCountry={onboardingCountry}
           physicalCountry={physicalCountry}
           sessionPlan={sessionPlan}
           countriesTabFocusKey={countriesTabFocusKey}
+          profilesSectionRef={profilesSectionRef}
         />
       ) : (
         <HomeView

@@ -4,7 +4,7 @@ import Spinner from "../../components/Spinner";
 import { JTBD_ICONS } from "../../versions/lib/jtbdIcons";
 import { trackTuningEvent } from "../../lib/analytics";
 import { useTrackTuningView } from "./useTrackTuningView";
-import type { TuningConceptData } from "./useTuningConceptData";
+import type { ConceptFrameData } from "./types";
 import type { JTBDKey } from "../../lib/jtbdTuningResult";
 import type { SelectionMode } from "../../lib/jtbdData";
 
@@ -14,10 +14,33 @@ interface ConceptFrameProps {
   jtbdKey: JTBDKey;
   selectionMode: SelectionMode;
   selectedJtbds?: JTBDKey[];
-  data: TuningConceptData;
+  /** Narrowed to just the fields this frame reads, so both
+   * `useTuningConceptData` and `useProfilesConceptData` satisfy it. */
+  data: ConceptFrameData;
   reduced: boolean;
   onBack: () => void;
   onContinue: () => void;
+  /** Replaces the derived subtext (intro / counter / summary) while
+   * non-null. Exists for the Rehearsal concept, whose stage makes the
+   * "N of M settings" counter stale mid-interaction. `undefined` (the
+   * default, and what every other concept passes) keeps the original
+   * behaviour exactly. */
+  subtextSlot?: ReactNode;
+  /** Replaces the JTBD category icon (single, or the Multiple-mode row) that
+   * the intro spinner normally resolves into.
+   *
+   * Exists for the Profiles-carousel concept, whose title states a finished
+   * OUTCOME ("3 profiles built around what you do online") rather than
+   * naming what was tuned — restating the intents above it would label a
+   * result with its input. Unlike the JTBD icon (which every other concept
+   * shows the moment the intro finishes, even though rows are still
+   * resolving), this glyph is gated on `rowsComplete`: the spinner keeps
+   * spinning through the ENTIRE materialization, and only springs into this
+   * glyph once everything has actually finished — a checkmark appearing
+   * while cards are still loading would claim a completeness that isn't
+   * there yet. `undefined` (the default, and what every other concept
+   * passes) keeps the original icon behaviour exactly. */
+  resolvedGlyph?: ReactNode;
   /** The concept's own distinctive body (its take on the "applying" +
    * resolved materialization) — everything else (Back, header, Continue,
    * centered→top travel) is shared chrome owned by this component. */
@@ -50,6 +73,8 @@ export default function ConceptFrame({
   reduced,
   onBack,
   onContinue,
+  subtextSlot,
+  resolvedGlyph,
   children,
   bodyMaxWidthClassName = "max-w-[704px]",
 }: ConceptFrameProps) {
@@ -100,7 +125,11 @@ export default function ConceptFrame({
             className={`relative flex h-[48px] shrink-0 items-center justify-center ${isMultipleActive ? "min-w-[48px]" : "w-[48px]"}`}
           >
             <AnimatePresence initial={false}>
-              {!introDone ? (
+              {/* `resolvedGlyph` callers wait for `rowsComplete`, not just
+                  `introDone` — see the prop doc above. Every other caller
+                  passes no `resolvedGlyph`, so `!introDone` alone still
+                  decides this for them, unchanged. */}
+              {!introDone || (resolvedGlyph && !rowsComplete) ? (
                 <motion.div
                   key="spinner"
                   className="absolute"
@@ -110,6 +139,17 @@ export default function ConceptFrame({
                   transition={{ duration: reduced ? 0.2 : 0.6 }}
                 >
                   <Spinner size={40} />
+                </motion.div>
+              ) : resolvedGlyph ? (
+                <motion.div
+                  key="resolved-glyph"
+                  className="absolute flex items-center justify-center"
+                  initial={{ opacity: 0, scale: reduced ? 1 : 0.6 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={reduced ? { duration: 0.2 } : { opacity: { duration: 0.4 }, scale: { type: "spring", stiffness: 420, damping: 20 } }}
+                >
+                  {resolvedGlyph}
                 </motion.div>
               ) : isMultipleActive ? (
                 <motion.div
@@ -168,13 +208,19 @@ export default function ConceptFrame({
           <p className="text-center font-['Segoe_UI_Variable',sans-serif] text-[16px] leading-[20px] text-[rgba(255,255,255,0.7)]">
             <AnimatePresence mode="wait" initial={false}>
               <motion.span
-                key={!introDone ? "intro" : rowsComplete ? "summary" : "counter"}
+                key={subtextSlot != null ? "slot" : !introDone ? "intro" : rowsComplete ? "summary" : "counter"}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.25 }}
               >
-                {!introDone ? data.introText : rowsComplete ? data.summaryText : data.counterText(appliedSoFar, totalRows)}
+                {subtextSlot != null
+                  ? subtextSlot
+                  : !introDone
+                    ? data.introText
+                    : rowsComplete
+                      ? data.summaryText
+                      : data.counterText(appliedSoFar, totalRows)}
               </motion.span>
             </AnimatePresence>
           </p>

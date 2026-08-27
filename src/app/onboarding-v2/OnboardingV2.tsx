@@ -9,12 +9,25 @@ import TunedResult from "./tuned-result/TunedResult";
 import ProgressRingConcept from "./tuned-result/concepts/ProgressRingConcept";
 import ChecklistConcept from "./tuned-result/concepts/ChecklistConcept";
 import ReceiptConcept from "./tuned-result/concepts/ReceiptConcept";
+import ProfilesBaselineConcept from "./tuned-result/concepts/profiles-baseline/ProfilesBaselineConcept";
+import ProfilesRehearsalConcept from "./tuned-result/concepts/profiles-rehearsal/ProfilesRehearsalConcept";
+import ProfilesShelfConcept from "./tuned-result/concepts/profiles-shelf/ProfilesShelfConcept";
+import ProfilesDeckConcept from "./tuned-result/concepts/profiles-deck/ProfilesDeckConcept";
+import ProfilesDraftConcept from "./tuned-result/concepts/profiles-draft/ProfilesDraftConcept";
+import ProfileFirstConcept from "./tuned-result/concepts/profile-first/ProfileFirstConcept";
+import ProfilesCarouselConcept from "./tuned-result/concepts/profiles-carousel/ProfilesCarouselConcept";
+import ProfilesCarouselV2Concept from "./tuned-result/concepts/profiles-carousel-v2/ProfilesCarouselV2Concept";
+import ProfilesCarouselV2FreeConcept from "./tuned-result/concepts/profiles-carousel-v2-free/ProfilesCarouselV2FreeConcept";
 import VPNPlusUpsell from "./components/VPNPlusUpsell";
 import ComparisonTable from "./versions/upsell/ComparisonTable";
 import ValueStack from "./versions/upsell/ValueStack";
 import CardGrid from "./versions/upsell/CardGrid";
 import PlanSelector from "./versions/upsell/PlanSelector";
 import HeroSpotlight from "./versions/upsell/HeroSpotlight";
+import ProfilesHeroTabs from "./versions/upsell/ProfilesHeroTabs";
+import ProfilesBand from "./versions/upsell/ProfilesBand";
+import ProfilesPaired from "./versions/upsell/ProfilesPaired";
+import ProfilesFan from "./versions/upsell/ProfilesFan";
 import SimulatedWebCheckout from "./components/checkout/SimulatedWebCheckout";
 import LoaderScreen from "./components/LoaderScreen";
 import PlusWelcomeState from "./components/PlusWelcomeState";
@@ -106,6 +119,7 @@ export const STAGE_VERSIONS: Record<OnboardingStage, { value: string; label: str
   // below) drives ONLY this stage's `resultLayout` state today (stage 2 no
   // longer has a Layout selector to share it with).
   upgrade: [
+    { value: "profiles-showcase", label: "Profiles showcase" },
     { value: "stacked", label: "Minimal list" },
     { value: "compact-list", label: "Richer list" },
     { value: "split-by-status", label: "Split view" },
@@ -188,7 +202,7 @@ export function connectionGroupForVariant(variant: OnboardingVariant): Connectio
  * selector for stage 2 anymore; `ResultLayout` today only drives the
  * SEPARATE stage-3 VPN Plus Welcome result (`PlusWelcomeState`), which
  * keeps its own "Layout" dropdown. See `docs/features/onboarding-v2.md`. */
-export type ResultLayout = "stacked" | "split-by-status" | "card-grid" | "compact-list";
+export type ResultLayout = "stacked" | "split-by-status" | "card-grid" | "compact-list" | "profiles-showcase";
 
 /** The "Upgrade to Plus" upsell screen's own content-VERSION choice —
  * distinct from `ResultLayout` (which only affects the SEPARATE VPN Plus
@@ -198,15 +212,36 @@ export type ResultLayout = "stacked" | "split-by-status" | "card-grid" | "compac
  * populated from the exact same intent-driven ranked feature engine,
  * subtitle logic, pricing, and CTAs. See docs/features/onboarding-v2.md →
  * "Upsell alternative layouts". */
-export type UpsellVariant = "default" | "comparison-table" | "value-stack" | "card-grid" | "plan-selector" | "hero-spotlight";
+export type UpsellVariant =
+  | "default"
+  | "comparison-table"
+  | "value-stack"
+  | "card-grid"
+  | "plan-selector"
+  | "hero-spotlight"
+  | "profiles-hero-tabs"
+  | "profiles-band"
+  | "profiles-paired"
+  | "profiles-fan";
 
 export const UPSELL_VERSIONS: { value: UpsellVariant; label: string }[] = [
+  // Prototype default — see `App.tsx` `upsellVariant` initial state.
+  { value: "profiles-fan", label: "Profiles + features — Fanned deck" },
   { value: "default", label: "Default — Split hero" },
   { value: "comparison-table", label: "Feature comparison table" },
   { value: "value-stack", label: "Value-stack checklist" },
   { value: "card-grid", label: "Benefit card grid" },
   { value: "plan-selector", label: "Plan-selector toggle" },
   { value: "hero-spotlight", label: "Single hero-benefit spotlight" },
+  // The other three "profiles + features" layouts — the same ranked feature
+  // engine as every version above, combined with the profile cards from the
+  // tuning screen's "Profiles carousel v2". They differ in arrangement and in
+  // how each one handles the fact that a profile's chips and a feature row can
+  // state the same thing twice; see docs/features/onboarding-v2.md → "Combined
+  // profiles + features upsell".
+  { value: "profiles-hero-tabs", label: "Profiles + features — Hero card & tabs" },
+  { value: "profiles-band", label: "Profiles + features — Carousel band" },
+  { value: "profiles-paired", label: "Profiles + features — Paired rows" },
 ];
 
 /** The "Personalized JTBD tuning" stage's own content-CONCEPT choice —
@@ -214,20 +249,124 @@ export const UPSELL_VERSIONS: { value: UpsellVariant; label: string }[] = [
  * stage-3 Plus Welcome step). `"default"` is the original `TunedResult`
  * (left byte-for-byte untouched, always rendered with `layout="stacked"` —
  * no Layout selector for stage 2 anymore, "Minimal list" is the only
- * arrangement); the other 3 are alternative concepts researched from
- * real-world setup/config patterns, each revamping BOTH the
+ * arrangement); the others are alternative concepts, each revamping BOTH the
  * materialization ("applying") phase AND the resolved result as one
  * coherent pattern — all populated from the exact same tuning data +
- * merge/rank/cap engine, materialization schedule, and tone copy. See
- * docs/features/onboarding-v2.md → "Tuning alternative concepts". */
-export type TuningConcept = "default" | "progress-ring" | "checklist" | "receipt";
+ * merge/rank/cap engine, materialization schedule, and tone copy.
+ *
+ * Three explorations live on this one axis. The first four come from
+ * real-world setup/config patterns and treat the applied SETTINGS as the
+ * outcome. The five `profiles-*` entries are a separate exploration in which
+ * PROFILES are the outcome and the settings are demoted or reframed; they
+ * share a data layer (`tuned-result/profiles/`) and are plan-aware, unlike
+ * the first four. `"profile-first"` and the two `"profiles-carousel"`
+ * versions go one step further and are Plus-ONLY (see
+ * `PLUS_ONLY_TUNING_CONCEPTS`), which lets them drop every locked and
+ * aspirational treatment the others need — and lets a carousel's per-card
+ * Connect actually run, which no Free-capable concept can offer. The two
+ * carousel versions differ in how far they commit to the idea: v1 keeps two
+ * app-wide setting rows below the cards, v2 removes them so the profiles are
+ * the whole outcome. `"profiles-carousel-v2-free"` is the thirteenth and the
+ * only entry gated the OTHER way (`FREE_ONLY_TUNING_CONCEPTS`) — v2's cards,
+ * demoted below the two free settings that actually got applied, since that
+ * inversion is the whole answer to what a Free user gets out of a screen full
+ * of paid profiles. The label prefixes exist because thirteen options in one
+ * dropdown need the explorations to be visually separable.
+ *
+ * See docs/features/onboarding-v2.md → "Tuning alternative concepts" and
+ * docs/specs/profiles-tuning/. */
+export type TuningConcept =
+  | "default"
+  | "progress-ring"
+  | "checklist"
+  | "receipt"
+  | "profiles-baseline"
+  | "profiles-rehearsal"
+  | "profiles-shelf"
+  | "profiles-deck"
+  | "profiles-draft"
+  | "profile-first"
+  | "profiles-carousel"
+  | "profiles-carousel-v2"
+  | "profiles-carousel-v2-free";
 
 export const TUNING_CONCEPTS: { value: TuningConcept; label: string }[] = [
   { value: "default", label: "Default — Minimal list" },
   { value: "progress-ring", label: "Progress-ring completion" },
   { value: "checklist", label: "Setup checklist build-up" },
   { value: "receipt", label: "Setup summary / receipt" },
+  { value: "profiles-baseline", label: "Profiles — Baseline + shortcuts" },
+  { value: "profiles-rehearsal", label: "Profiles — Rehearsal stage" },
+  { value: "profiles-shelf", label: "Profiles — Shelf gallery" },
+  { value: "profiles-deck", label: "Profiles — Focused deck" },
+  { value: "profiles-draft", label: "Profiles — Editable drafts" },
+  { value: "profile-first", label: "Plus only — Profile-first" },
+  // v1's `value` deliberately stays `profiles-carousel` — renaming it would
+  // silently split every event already recorded against that id.
+  { value: "profiles-carousel", label: "Plus only — Profiles carousel v1" },
+  { value: "profiles-carousel-v2", label: "Profiles carousel v2" },
+  { value: "profiles-carousel-v2-free", label: "Profiles carousel v2" },
 ];
+
+/** Prototype simplification — the Concept dropdown only surfaces these two
+ * per plan on stage 2. Everything else stays in the codebase (render switch,
+ * analytics ids, docs) but is hidden from reviewers until re-enabled. */
+export const VISIBLE_TUNING_CONCEPTS_BY_PLAN: Record<SessionPlan, readonly TuningConcept[]> = {
+  free: ["default", "profiles-carousel-v2-free"],
+  plus: ["profiles-carousel-v2", "default"],
+};
+
+/** Prototype default for the Concept dropdown — Plus reviewers land on the
+ * carousel; Free reviewers land on Minimal list. */
+export function defaultTuningConceptForPlan(plan: SessionPlan): TuningConcept {
+  return plan === "plus" ? "profiles-carousel-v2" : "default";
+}
+
+/** Concepts with no Free state at all, so they're only offered on a Plus run.
+ *
+ * This is a real design position rather than unfinished work. `profile-first`
+ * presents every profile as live and every feature as on, with nothing locked
+ * anywhere. Both carousels go further still: their per-card Connect leaves
+ * onboarding connected to that profile, and half those destinations are
+ * unreachable on a Free run — v2 more so, since each of its cards also offers
+ * a free choice of any of the 148 Plus countries. Rendering any of them to a
+ * Free reviewer wouldn't be a degraded version of the concept, it would be a
+ * false one. Gating them at the dropdown keeps the concepts themselves free
+ * of plan branching entirely. */
+export const PLUS_ONLY_TUNING_CONCEPTS: readonly TuningConcept[] = [
+  "profile-first",
+  "profiles-carousel",
+  "profiles-carousel-v2",
+];
+
+/** The mirror image of the list above: concepts whose entire subject is the
+ * FREE state, so a Plus run has nothing for them to render.
+ *
+ * `profiles-carousel-v2-free` puts the two genuinely-applied free settings
+ * first and the profiles below a "available with VPN Plus" boundary, dimmed.
+ * On a Plus run every one of those profiles is live and nothing is locked, so
+ * the boundary would divide nothing and the dimming would be a lie in the
+ * other direction. The Plus answer to the same design question already exists
+ * as `profiles-carousel-v2`; gating each to the plan it was designed for is
+ * what lets both stay free of plan branching internally. */
+export const FREE_ONLY_TUNING_CONCEPTS: readonly TuningConcept[] = ["profiles-carousel-v2-free"];
+
+/** The concepts a given plan may pick, for the prototype's Concept dropdown.
+ * Filtered to `VISIBLE_TUNING_CONCEPTS_BY_PLAN` — see that list for which
+ * options are currently surfaced vs merely kept in code. */
+export function tuningConceptsForPlan(plan: SessionPlan): { value: TuningConcept; label: string }[] {
+  const allowed = VISIBLE_TUNING_CONCEPTS_BY_PLAN[plan];
+  return TUNING_CONCEPTS.filter((c) => allowed.includes(c.value));
+}
+
+/** Coerces a stale selection back to the plan's default. The Concept dropdown
+ * and the Plan control live on different screens, so a reviewer can pick a
+ * hidden concept, switch plan, or carry a selection from before the whitelist. */
+export function effectiveTuningConcept(concept: TuningConcept, plan: SessionPlan): TuningConcept {
+  const allowed = VISIBLE_TUNING_CONCEPTS_BY_PLAN[plan];
+  if (!allowed.includes(concept)) return defaultTuningConceptForPlan(plan);
+  return concept;
+}
 
 interface OnboardingV2Props {
   /** Fired once onboarding completes normally (Continue free / Start using
@@ -279,7 +418,8 @@ interface OnboardingV2Props {
   tuningConcept?: TuningConcept;
   /** Content version for the "Upgrade to Plus" upsell screen — independent
    * from `resultLayout` (which only drives the separate VPN Plus Welcome
-   * step). Defaults to `"default"`, the original `VPNPlusUpsell`. */
+   * step). Defaults to `"profiles-fan"` ("Profiles + features — Fanned deck");
+   * `"default"` is the original `VPNPlusUpsell`. */
   upsellVariant?: UpsellVariant;
   /** Tone of voice for the connection stage copy (content only). */
   tone?: ToneOfVoice;
@@ -332,7 +472,7 @@ export default function OnboardingV2({
   variant = "hybrid",
   resultLayout = "stacked",
   tuningConcept = "default",
-  upsellVariant = "default",
+  upsellVariant = "profiles-fan",
   tone = "straightforward",
   selectionMode = "single",
   onStageChange,
@@ -488,7 +628,14 @@ export default function OnboardingV2({
     setPhase("jtbd");
   }, []);
 
-  /** Main-app handoff — when stage 1 was skipped, never mark VPN connected. */
+  /** Main-app handoff — when stage 1 was skipped, never mark VPN connected.
+   *
+   * `selectedCountry` rides along whenever the user actually reached an
+   * intent selection, so the destination the tuning screen named is the
+   * destination their generated sidebar profiles show. Attached here rather
+   * than at each of the dozen call sites so a new exit path can't forget it;
+   * gated on `selectedJtbds` because the exits that pass none (connection
+   * failure, "Go to app directly") generate no profiles for it to describe. */
   const handleExit = useCallback((
     selectedJtbds: JtbdId[] = [],
     plan: import("../lib/sessionPlan").SessionPlan = "free",
@@ -497,8 +644,9 @@ export default function OnboardingV2({
     onExit?.(selectedJtbds, plan, {
       ...options,
       vpnConnected: skippedConnection ? false : options.vpnConnected,
+      selectedCountry: selectedJtbds.length > 0 ? (options.selectedCountry ?? selectedCountry) : undefined,
     });
-  }, [onExit, skippedConnection]);
+  }, [onExit, skippedConnection, selectedCountry]);
 
   // ── Map focus per phase ─────────────────────────────────────────────────────
   const stage = PHASE_STAGE[phase];
@@ -929,6 +1077,136 @@ export default function OnboardingV2({
                   onBack={() => setPhase("jtbd")}
                 />
               )}
+
+              {/* The 5 profiles-first concepts. Unlike the 4 above, these are
+                  plan-aware and render a real Plus state, so Continue has to
+                  use the same plan-aware routing `TunedResult` does —
+                  sending a Plus user to the upsell after showing them their
+                  live profiles would contradict what they just saw. */}
+              {tuningConcept === "profiles-baseline" && (
+                <ProfilesBaselineConcept
+                  key={tuningConcept}
+                  jtbdKey={effectiveJtbdKey}
+                  selectionMode={selectionMode}
+                  selectedJtbds={selectedJtbds}
+                  tone={tone}
+                  userPlan={plan}
+                  onContinue={() => (plan === "plus" ? handleExit(effectiveSelectedJtbds, "plus") : setPhase("upsell"))}
+                  onBack={() => setPhase("jtbd")}
+                />
+              )}
+              {tuningConcept === "profiles-rehearsal" && (
+                <ProfilesRehearsalConcept
+                  key={tuningConcept}
+                  jtbdKey={effectiveJtbdKey}
+                  selectionMode={selectionMode}
+                  selectedJtbds={selectedJtbds}
+                  tone={tone}
+                  userPlan={plan}
+                  onContinue={() => (plan === "plus" ? handleExit(effectiveSelectedJtbds, "plus") : setPhase("upsell"))}
+                  onBack={() => setPhase("jtbd")}
+                />
+              )}
+              {tuningConcept === "profiles-shelf" && (
+                <ProfilesShelfConcept
+                  key={tuningConcept}
+                  jtbdKey={effectiveJtbdKey}
+                  selectionMode={selectionMode}
+                  selectedJtbds={selectedJtbds}
+                  tone={tone}
+                  userPlan={plan}
+                  onContinue={() => (plan === "plus" ? handleExit(effectiveSelectedJtbds, "plus") : setPhase("upsell"))}
+                  onBack={() => setPhase("jtbd")}
+                />
+              )}
+              {tuningConcept === "profiles-deck" && (
+                <ProfilesDeckConcept
+                  key={tuningConcept}
+                  jtbdKey={effectiveJtbdKey}
+                  selectionMode={selectionMode}
+                  selectedJtbds={selectedJtbds}
+                  tone={tone}
+                  userPlan={plan}
+                  /* The "Now" column's destination — null on Free, which
+                     resolves everything to the fastest country anyway. */
+                  selectedCountry={selectedCountry}
+                  onContinue={() => (plan === "plus" ? handleExit(effectiveSelectedJtbds, "plus") : setPhase("upsell"))}
+                  onBack={() => setPhase("jtbd")}
+                />
+              )}
+              {tuningConcept === "profiles-draft" && (
+                <ProfilesDraftConcept
+                  key={tuningConcept}
+                  jtbdKey={effectiveJtbdKey}
+                  selectionMode={selectionMode}
+                  selectedJtbds={selectedJtbds}
+                  tone={tone}
+                  userPlan={plan}
+                  onContinue={() => (plan === "plus" ? handleExit(effectiveSelectedJtbds, "plus") : setPhase("upsell"))}
+                  onBack={() => setPhase("jtbd")}
+                />
+              )}
+
+              {/* Plus-only (`PLUS_ONLY_TUNING_CONCEPTS`) — a Free run can
+                  never select it, so Continue has one destination and takes
+                  no `userPlan` at all. */}
+              {tuningConcept === "profile-first" && (
+                <ProfileFirstConcept
+                  key={tuningConcept}
+                  jtbdKey={effectiveJtbdKey}
+                  selectionMode={selectionMode}
+                  selectedJtbds={selectedJtbds}
+                  tone={tone}
+                  selectedCountry={selectedCountry}
+                  onContinue={() => handleExit(effectiveSelectedJtbds, "plus")}
+                  onBack={() => setPhase("jtbd")}
+                />
+              )}
+
+              {/* Also Plus-only. */}
+              {tuningConcept === "profiles-carousel" && (
+                <ProfilesCarouselConcept
+                  key={tuningConcept}
+                  jtbdKey={effectiveJtbdKey}
+                  selectionMode={selectionMode}
+                  selectedJtbds={selectedJtbds}
+                  tone={tone}
+                  selectedCountry={selectedCountry}
+                  onContinue={() => handleExit(effectiveSelectedJtbds, "plus")}
+                  onBack={() => setPhase("jtbd")}
+                />
+              )}
+
+              {/* Also Plus-only. Each v2 card owns its own country dropdown;
+                  the pick is illustrative — exit is via Continue below. */}
+              {tuningConcept === "profiles-carousel-v2" && (
+                <ProfilesCarouselV2Concept
+                  key={tuningConcept}
+                  jtbdKey={effectiveJtbdKey}
+                  selectionMode={selectionMode}
+                  selectedJtbds={selectedJtbds}
+                  tone={tone}
+                  onContinue={() => handleExit(effectiveSelectedJtbds, "plus")}
+                  onBack={() => setPhase("jtbd")}
+                />
+              )}
+
+              {/* Free-only (`FREE_ONLY_TUNING_CONCEPTS`), so the mirror of the
+                  three above: a Plus run can never select it, which is why
+                  Continue has one destination (the upsell it exists to set
+                  up) and no `userPlan` is passed. The profiles here are a
+                  preview, so there's no per-card Connect to route. */}
+              {tuningConcept === "profiles-carousel-v2-free" && (
+                <ProfilesCarouselV2FreeConcept
+                  key={tuningConcept}
+                  jtbdKey={effectiveJtbdKey}
+                  selectionMode={selectionMode}
+                  selectedJtbds={selectedJtbds}
+                  tone={tone}
+                  onContinue={() => setPhase("upsell")}
+                  onBack={() => setPhase("jtbd")}
+                />
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -997,6 +1275,46 @@ export default function OnboardingV2({
               )}
               {upsellVariant === "hero-spotlight" && (
                 <HeroSpotlight
+                  jtbdKey={effectiveJtbdKey}
+                  selectionMode={selectionMode}
+                  selectedJtbds={selectedJtbds}
+                  onUpgrade={() => setPhase("web-checkout")}
+                  onContinueFree={() => handleExit(effectiveSelectedJtbds, "free")}
+                  onBack={() => setPhase("tuned")}
+                />
+              )}
+              {upsellVariant === "profiles-hero-tabs" && (
+                <ProfilesHeroTabs
+                  jtbdKey={effectiveJtbdKey}
+                  selectionMode={selectionMode}
+                  selectedJtbds={selectedJtbds}
+                  onUpgrade={() => setPhase("web-checkout")}
+                  onContinueFree={() => handleExit(effectiveSelectedJtbds, "free")}
+                  onBack={() => setPhase("tuned")}
+                />
+              )}
+              {upsellVariant === "profiles-band" && (
+                <ProfilesBand
+                  jtbdKey={effectiveJtbdKey}
+                  selectionMode={selectionMode}
+                  selectedJtbds={selectedJtbds}
+                  onUpgrade={() => setPhase("web-checkout")}
+                  onContinueFree={() => handleExit(effectiveSelectedJtbds, "free")}
+                  onBack={() => setPhase("tuned")}
+                />
+              )}
+              {upsellVariant === "profiles-paired" && (
+                <ProfilesPaired
+                  jtbdKey={effectiveJtbdKey}
+                  selectionMode={selectionMode}
+                  selectedJtbds={selectedJtbds}
+                  onUpgrade={() => setPhase("web-checkout")}
+                  onContinueFree={() => handleExit(effectiveSelectedJtbds, "free")}
+                  onBack={() => setPhase("tuned")}
+                />
+              )}
+              {upsellVariant === "profiles-fan" && (
+                <ProfilesFan
                   jtbdKey={effectiveJtbdKey}
                   selectionMode={selectionMode}
                   selectedJtbds={selectedJtbds}

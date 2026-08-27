@@ -27,6 +27,7 @@ import {
 } from "../copy";
 import type { SelectionMode } from "../../lib/jtbdData";
 import type { ToneOfVoice } from "../../lib/toneOfVoice";
+import type { ConceptFrameData } from "./types";
 
 /** One row's worth of ready-to-render content — assembled once by this hook
  * so every concept just maps over `rows` instead of re-deriving free vs.
@@ -53,18 +54,21 @@ export interface TuningRow {
   profiles?: ProfilePreview[];
 }
 
-export interface TuningConceptData {
-  isMultipleActive: boolean;
+/** Extends `ConceptFrameData`, which carries the fields `ConceptFrame`
+ * consumes — the header strings (`titleDuringText`, `titleCompleteText`,
+ * `introText`, `summaryText`, `counterText`) plus `introDone`,
+ * `rowsComplete`, `appliedSoFar`, `totalRows`, `isMultipleActive`,
+ * `continueDelayMs` and `selectionCount`. Pick the right header string for
+ * the current phase (`!introDone` → `introText`; `rowsComplete` →
+ * `titleCompleteText`/`summaryText`; else → `titleDuringText`/
+ * `counterText(appliedSoFar, totalRows)`), exactly mirroring
+ * `TunedResult.tsx`'s own header logic. */
+export interface TuningConceptData extends ConceptFrameData {
   rows: TuningRow[];
-  totalRows: number;
   boundaryIndex: number;
   rowStages: RowStage[];
   rowMounted: boolean[];
   boundaryVisible: boolean;
-  appliedSoFar: number;
-  rowsComplete: boolean;
-  continueDelayMs: number;
-  introDone: boolean;
   /** Honest, derived counts — never hardcoded. Single mode: true totals.
    * Multiple mode: counts against the DISPLAYED/capped rows, matching
    * `TunedResult.tsx`'s own convention (the summary sentence must match
@@ -72,17 +76,6 @@ export interface TuningConceptData {
   appliedCount: number;
   lockedCount: number;
   truePaidFeatureCount: number;
-  selectionCount: number;
-  /** Precomputed header strings (tone-voiced) — pick the right one for the
-   * current phase (`!introDone` → `introText`; `rowsComplete` →
-   * `titleCompleteText`/`summaryText`; else → `titleDuringText`/
-   * `counterText(appliedSoFar, totalRows)`), exactly mirroring
-   * `TunedResult.tsx`'s own header logic. */
-  titleDuringText: string;
-  titleCompleteText: string;
-  introText: string;
-  summaryText: string;
-  counterText: (applied: number, total: number) => string;
   jtbdLabel: string;
 }
 

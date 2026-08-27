@@ -538,6 +538,17 @@ type ConnectionCardLeft1Props = {
   vpnStatus?: "unprotected" | "connecting" | "protected";
   connectedCountry?: string | null;
   selectedCountry?: string | null;
+  /** The profile whose Connect button produced the current connection
+   * (Profiles carousel v1/v2's per-card Connect) — both present together,
+   * or both `null`/omitted for an ordinary country connection. When set,
+   * replaces the flag with this profile's own icon and the title with its
+   * name, for as long as this specific connection lasts; the subtitle keeps
+   * naming the actual destination (`[City] - #1`), since a profile still
+   * connects to a real place. Never shown on Free (profile connections are
+   * Plus-only, matching onboarding's own gate) or while unprotected (no
+   * connection to attribute to a profile yet). */
+  profileName?: string | null;
+  profileIcon?: string | null;
   onConnect?: (country: string) => void;
   onDisconnect?: () => void;
   physicalCountry?: string;
@@ -552,6 +563,8 @@ export default function ConnectionCardLeft1({
   vpnStatus = "unprotected",
   connectedCountry,
   selectedCountry,
+  profileName = null,
+  profileIcon = null,
   onConnect,
   onDisconnect,
   physicalCountry = "Belarus",
@@ -566,12 +579,15 @@ export default function ConnectionCardLeft1({
   const isConnected = vpnStatus === "protected";
   const isConnecting = vpnStatus === "connecting";
   const isFreeUnprotected = isFreeTier && vpnStatus === "unprotected";
+  const isProfileConnection = !isFreeTier && !!profileName && !!profileIcon && (isConnected || isConnecting);
 
   const title = isFreeTier && (isConnected || isConnecting)
     ? FREE_CONNECTION_CARD_COPY.connectedTitle
     : isFreeUnprotected
       ? FREE_CONNECTION_CARD_COPY.disconnectedTitle
-      : (displayCountry || "Fastest country");
+      : isProfileConnection
+        ? profileName!
+        : (displayCountry || "Fastest country");
   const subtitle = isFreeTier && (isConnected || isConnecting)
     ? FREE_CONNECTION_CARD_COPY.connectedSubtitle
     : isFreeUnprotected
@@ -594,9 +610,9 @@ export default function ConnectionCardLeft1({
     : "bg-[#6d4aff]";
 
   const flagUrl = displayCountry ? `https://flagcdn.com/${getIsoCode(displayCountry)}.svg` : null;
-  const showPaidFlag = !!flagUrl && (isConnecting || isConnected || displayCountry) && !isFreeTier;
+  const showPaidFlag = !isProfileConnection && !!flagUrl && (isConnecting || isConnected || displayCountry) && !isFreeTier;
   const showFreeIconPair = isFreeTier && (isConnecting || isConnected);
-  const showDisconnectedFastest = !showPaidFlag && !showFreeIconPair;
+  const showDisconnectedFastest = !isProfileConnection && !showPaidFlag && !showFreeIconPair;
 
   const titleStyle = { fontVariationSettings: "'opsz' 36" } as const;
   const buttonTextStyle = { fontVariationSettings: "'opsz' 10.5", fontFeatureSettings: "'fina', 'init'" } as const;
@@ -608,7 +624,14 @@ export default function ConnectionCardLeft1({
         <div className="flex flex-col gap-[16px] items-center">
           <div className="flex flex-col gap-[8px] items-center">
             <div className="flex gap-[16px] items-center">
-              {showPaidFlag ? (
+              {isProfileConnection ? (
+                <img
+                  src={profileIcon!}
+                  alt=""
+                  className="shrink-0"
+                  style={{ width: 36, height: 36 }}
+                />
+              ) : showPaidFlag ? (
                 <img
                   src={flagUrl!}
                   alt={`${displayCountry} flag`}

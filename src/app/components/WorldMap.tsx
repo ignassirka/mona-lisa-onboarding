@@ -251,6 +251,12 @@ interface WorldMapProps {
   onSelectMapLayer: (layer: MapLayerOption) => void;
   vpnStatus: VpnStatus;
   connectedCountry: string | null;
+  /** Set only when the current connection came from a specific profile's
+   * Connect button during onboarding — swaps the connection card's flag and
+   * country title for this profile's own icon and name. `null` for every
+   * ordinary country/"Fastest" connection. */
+  connectedProfileName?: string | null;
+  connectedProfileIcon?: string | null;
   onConnect: (country: string) => void;
   onDisconnect: () => void;
   physicalCountry: string;
@@ -295,6 +301,8 @@ export function WorldMap({
   onSelectMapLayer,
   vpnStatus,
   connectedCountry,
+  connectedProfileName = null,
+  connectedProfileIcon = null,
   onConnect,
   onDisconnect,
   physicalCountry,
@@ -783,6 +791,8 @@ export function WorldMap({
             vpnStatus={vpnStatus}
             connectedCountry={connectedCountry}
             selectedCountry={selectedCountry}
+            profileName={connectedProfileName}
+            profileIcon={connectedProfileIcon}
             onConnect={onConnect}
             onDisconnect={onDisconnect}
             physicalCountry={physicalCountry}
