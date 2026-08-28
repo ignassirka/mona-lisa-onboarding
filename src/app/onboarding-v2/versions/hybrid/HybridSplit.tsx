@@ -1,7 +1,6 @@
 import { motion, AnimatePresence } from "motion/react";
 import { PadlockOpen, PadlockClosed } from "../../components/Padlocks";
 import Spinner from "../../components/Spinner";
-import ActivityEntry from "../v4-in-plain-sight/ActivityEntry";
 import ConnectingNarration from "../../components/ConnectingNarration";
 import LocationChip from "./LocationChip";
 import CountrySelect from "../../components/CountrySelect";
@@ -134,44 +133,24 @@ export default function HybridSplit({
           </AnimatePresence>
         </div>
 
-        {/* Activity card(s) — same component as "Browsing experience", but
-            without Act 2 text scrambling (only labels + eye icon redact; the
-            location chip owns the asterisk scramble). Moved here (between the
-            text and the CTA) per the confirmed rail arrangement. When the
-            Plus country selector is showing, swaps to a single slot-machine
-            style cycling card — see `Hybrid.tsx`'s identical doc. Reserves
-            the taller (3-card) height whenever that's the active variant
-            (matching the Centered layout's own reservation) so the CTA below
-            doesn't drift as cards reveal progressively. */}
-        <div className={`mx-auto mt-[20px] flex w-full max-w-[440px] flex-col gap-[8px] ${showCountrySelect ? "" : "min-h-[164px]"}`}>
-          {showCountrySelect ? (
-            revealedCount > 0 && (
-              <CyclingActivityCard
-                entries={HYBRID_CARDS}
-                visibleLabel={cardCopy.visibleLabel}
-                redactingLabel={cardCopy.redactingLabel}
-                sealedLabel={cardCopy.sealedLabel}
-                redact={redactCount > 0}
-                sealed={sealed}
-                reduced={reduced}
-                paused={phase === "connecting"}
-              />
-            )
-          ) : (
-            HYBRID_CARDS.slice(0, revealedCount).map((entry, i) => (
-              <ActivityEntry
-                key={entry.id}
-                entry={entry}
-                visibleLabel={cardCopy.visibleLabel}
-                redactingLabel={cardCopy.redactingLabel}
-                sealedLabel={cardCopy.sealedLabel}
-                paused={phase !== "unprotected"}
-                redact={i < redactCount}
-                sealed={sealed}
-                reduced={reduced}
-                scrambleText={false}
-              />
-            ))
+        {/* Activity card — same component as "Browsing experience", but
+            without Act 2 text scrambling (only the label + eye icon redact;
+            the location chip owns the asterisk scramble). Moved here (between
+            the text and the CTA) per the confirmed rail arrangement. A single
+            slot-machine style cycling card, for both Free and Plus — see
+            `Hybrid.tsx`'s identical doc. */}
+        <div className="mx-auto mt-[20px] flex w-full max-w-[440px] flex-col gap-[8px]">
+          {revealedCount > 0 && (
+            <CyclingActivityCard
+              entries={HYBRID_CARDS}
+              visibleLabel={cardCopy.visibleLabel}
+              redactingLabel={cardCopy.redactingLabel}
+              sealedLabel={cardCopy.sealedLabel}
+              redact={redactCount > 0}
+              sealed={sealed}
+              reduced={reduced}
+              paused={phase === "connecting"}
+            />
           )}
         </div>
 

@@ -30,12 +30,14 @@ interface CyclingActivityCardProps {
   paused?: boolean;
 }
 
-/** Country-selection variant of the Act 1 activity list: instead of 3
- * stacked cards, a single card whose icon + text roll through the same
- * entry pool like a slot machine reel every 3s. Keeps exactly one card
- * through connecting/protected too (rather than reverting to 3) — the reel
- * pauses only for the "connecting" transition, then keeps spinning once
- * protected, with the eye/label staying on "Hidden" throughout. */
+/** The Hybrid layouts' Act 1 activity indicator, for both Free and Plus: a
+ * single card whose icon + text roll through the entry pool like a slot
+ * machine reel every 3s, rather than 3 separate stacked cards. Keeps exactly
+ * one card through connecting/protected too (rather than reverting to 3) —
+ * the reel pauses only for the "connecting" transition, then keeps spinning
+ * once protected, with the eye/label staying on "Hidden" throughout.
+ * Originally gated behind the Plus country selector being shown; now the
+ * only Act 1 activity treatment either plan sees. */
 export default function CyclingActivityCard({
   entries,
   visibleLabel,

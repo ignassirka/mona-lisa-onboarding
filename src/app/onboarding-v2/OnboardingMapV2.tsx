@@ -20,7 +20,7 @@ interface OnboardingMapV2Props {
   /** Shift the pin's on-screen position right by N px (used by the v2 side-panel layout). */
   focusOffsetX?: number;
   /** Shift the pin's on-screen position down by N px (negative = up; used by
-   * Hybrid to keep the pin centered between its subtext and location chip). */
+   * Hybrid to keep the targeting reticle 12px above the location chip). */
   focusOffsetY?: number;
 }
 

@@ -7,7 +7,8 @@ import { ENTRANCE_TIMING, sec } from "../lib/entranceTiming";
 
 const CORAL = "#F7607B";
 const C = 100; // viewBox centre
-const DISPLAY = 230; // rendered px size
+export const TARGETING_RETICLE_SIZE = 230; // rendered px size — keep in sync with Hybrid pin↔chip gap math
+const DISPLAY = TARGETING_RETICLE_SIZE;
 const SNAP_EASE = [0.34, 1.56, 0.64, 1] as const;
 
 /** Polar → cartesian. deg measured clockwise from the top (12 o'clock). */
