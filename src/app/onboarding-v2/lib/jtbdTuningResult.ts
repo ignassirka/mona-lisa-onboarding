@@ -43,7 +43,7 @@ export interface PaidFeature {
 
 export interface JTBDTuningResult {
   jtbdKey: JTBDKey;
-  /** Goes inside: Tuned for "___" */
+  /** Goes inside: Set up for "___" */
   jtbdLabel: string;
   /** Exactly 2 — Protocol and Kill Switch, in that order. These are the
    * only free settings this prototype can genuinely tune per-JTBD (confirmed

@@ -164,10 +164,10 @@ export default function HybridSplit({
                   disabled={!isLive}
                   className="ob2-cta-glow w-full rounded-[6px] bg-[#6d4aff] px-[24px] pb-[12px] pt-[10px] font-['Segoe_UI_Variable',sans-serif] text-[16px] font-semibold leading-[20px] text-white transition-all duration-150 hover:bg-[#7c5cff] active:scale-[0.98] disabled:cursor-default disabled:opacity-50"
                   style={{ fontVariationSettings: "'opsz' 12" }}
-                  initial={skipEntrance ? false : { opacity: 0, y: 16, scale: 0.96 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.2 } }}
-                  transition={skipEntrance ? { duration: 0.45, ease: "easeOut" } : { delay: sec(HYBRID_TIMING.ctaAppear), duration: 0.45, ease: "easeOut" }}
+                  initial={skipEntrance ? false : { opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, transition: { duration: 0.25, ease: "easeOut" } }}
+                  transition={skipEntrance ? { duration: 0.25, ease: "easeOut" } : { delay: sec(HYBRID_TIMING.ctaAppear), duration: 0.25, ease: "easeOut" }}
                 >
                   {copy.ctaProtect}
                 </motion.button>
@@ -200,9 +200,9 @@ export default function HybridSplit({
           return (
             <motion.div
               className="mx-auto mt-[24px] flex w-full max-w-[440px] flex-col gap-[16px] rounded-[16px] bg-[rgba(255,255,255,0.05)] p-[16px] backdrop-blur-[6px]"
-              initial={{ opacity: 0, y: 20, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ delay: reduced ? 0 : sec(HYBRID_TIMING.ctaAppear), duration: 0.5, ease: "easeOut" }}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: reduced ? 0 : sec(HYBRID_TIMING.ctaAppear), duration: 0.25, ease: "easeOut" }}
             >
               {phase === "unprotected" && <CountrySelect value={selectedCountry} onChange={(c) => onSelectCountry?.(c)} />}
               {renderCtaButtons(true)}

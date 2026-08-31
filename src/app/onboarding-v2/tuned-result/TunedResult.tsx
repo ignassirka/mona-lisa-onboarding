@@ -19,7 +19,8 @@ import {
   summarySubtextMultiple,
   summarySubtextMultiplePlus,
   plusSectionHeader,
-  FREE_MINIMAL_CLAIMS_COUNTER,
+  FREE_MINIMAL_COMPLETE_SUBTEXT,
+  FREE_MINIMAL_DURING_SUBTEXT,
 } from "./copy";
 import { buildFreeMinimalContent } from "./freeMinimalContent";
 import FreeMinimalList from "./FreeMinimalList";
@@ -64,7 +65,7 @@ interface TunedResultProps {
  * this screen opens with its own centered intro and IS the perceived-
  * progress surface for every layout:
  *
- * 1. **Centered intro** — the header block (loader `Spinner` + "Tuning for
+ * 1. **Centered intro** — the header block (loader `Spinner` + "Setting up for
  *    {jtbd}…" + a static "optimizing" subtext) fades in centered on screen
  *    and holds there for `centerHold`.
  * 2. **Intro crossfade** — the SAME block (never unmounted) stays vertically
@@ -80,7 +81,7 @@ interface TunedResultProps {
  *    RENDERING — which of the 4 `layouts/*` components — differs per
  *    `layout`).
  * 4. **Completion** — once the last item resolves, the title crossfades to
- *    "Tuned for {jtbd}" and the subtext to the derived summary, then the tip
+ *    "Set up for {jtbd}" and the subtext to the derived summary, then the tip
  *    (if present) and Continue fade in (Continue only interactive now).
  *
  * Switching `layout` remounts this component (`OnboardingV2` keys it by
@@ -217,26 +218,43 @@ export default function TunedResult({
   const selectionCount = selectedJtbds?.length ?? 1;
   const plusHeaderText = plusSectionHeader(result.jtbdLabel, isMultipleActive ? selectionCount : 1);
 
-  // Header subtext, Phase 3 (materializing). On the `freeMinimal` path the
-  // counter can only speak for the settings rows, so once those are done it
-  // hands over to a line about the claims still arriving rather than counting
-  // them as settings. `claimsPhase` also feeds the crossfade key — without it
-  // the handover would be an instant text swap mid-sentence.
-  const claimsPhase = !!freeMinimal && appliedSoFar > freeMinimal.settings.length;
-  const counterText = claimsPhase
-    ? FREE_MINIMAL_CLAIMS_COUNTER
-    : counterSubtext(appliedSoFar, freeMinimal ? freeMinimal.settings.length : totalRows);
+  // Header subtext, Phase 3 (materializing). `freeMinimal` never counts rows
+  // in this text — the list mixes real settings with value claims, so any
+  // "{X} of {Y}" phrasing either undercounts (ignoring the claims) or
+  // miscounts a claim as a setting. Instead it keeps one tone-constant line
+  // through intro, settings, and claims (`FREE_MINIMAL_DURING_SUBTEXT`). Every
+  // other path keeps the literal "{applied} of {total} settings" counter —
+  // its rows really are all settings, so the count stays accurate there.
+  const counterText = freeMinimal
+    ? FREE_MINIMAL_DURING_SUBTEXT
+    : counterSubtext(appliedSoFar, totalRows);
 
-  // Header subtext, Phase 4 (complete). `freeMinimal` reports only the
-  // settings it actually applied, and has no locked clause to add — the value
-  // claims aren't settings and were never counted as any.
+  // Header subtext, Phase 4 (complete). `freeMinimal` uses its own count-free
+  // completion line (`FREE_MINIMAL_COMPLETE_SUBTEXT`) for the same reason as
+  // the counter above — the value claims were never "settings applied", so a
+  // literal count would misrepresent what's actually on screen.
   const summaryText = freeMinimal
-    ? summarySubtext(tone, freeMinimal.settings.length, 0)
+    ? FREE_MINIMAL_COMPLETE_SUBTEXT
     : isMultipleActive
       ? paidUnlocked
         ? summarySubtextMultiplePlus(tone, truePlusAppliedTotal)
         : summarySubtextMultiple(tone, appliedCount, truePaidFeatureCount)
       : summarySubtext(tone, appliedCount, lockedOrPreviewCount);
+
+  // Shared between the two places it can render (see the two usages below) —
+  // same element either way, only ITS PARENT differs by `freeMinimal`.
+  const continueButton = (
+    <motion.button
+      initial={{ opacity: 0, y: reduced ? 0 : 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: sec(T.continueIn), delay: sec(continueDelayMs) }}
+      onClick={onContinue}
+      className="flex w-[240px] shrink-0 items-center justify-center whitespace-nowrap rounded-[4px] bg-[#6d4aff] px-[24px] pb-[12px] pt-[10px] font-['Segoe_UI_Variable',sans-serif] text-[16px] font-semibold leading-[20px] text-white transition-all duration-150 hover:bg-[#7c5cff] active:scale-[0.97]"
+      style={{ fontVariationSettings: "'opsz' 12" }}
+    >
+      {TUNED_RESULT_COPY.continue}
+    </motion.button>
+  );
 
   return (
     // Transparent overlay — same protected teal-top gradient background as
@@ -267,9 +285,22 @@ export default function TunedResult({
             layouts can still scroll. During the intro beat the body block
             below is pulled out of flow (`absolute` + `invisible`) so the
             header alone centers; once `introDone` it rejoins the column and
-            the whole group (header + list + Continue) centers together. */}
+            the whole group (header + list + Continue) centers together.
+
+            `freeMinimal` is the one exception: Free users' rows materialize
+            one at a time with nothing else below them to balance the growing
+            height, so a CENTERED group visibly climbs the screen on every
+            new row (the center point recomputes, dragging everything already
+            on screen up with it). Anchoring to the top instead — fixed
+            `pt-[140px]`, `justify-start` — means only the list's own bottom
+            edge moves as rows append; the header and every row already
+            resolved stay exactly where they landed. */}
         <div className="absolute inset-0 z-10 overflow-y-auto px-[40px]">
-          <div className="flex min-h-full flex-col items-center justify-center gap-[30px] py-[40px]">
+          <div
+            className={`flex min-h-full flex-col items-center gap-[30px] pb-[40px] ${
+              freeMinimal ? "justify-start pt-[140px]" : "justify-center py-[40px]"
+            }`}
+          >
           {/* The header block — ONE persistent element for the whole screen
               (Phase 1 through Phase 4), never unmounted, shared identically
               by all 4 layouts. */}
@@ -375,13 +406,31 @@ export default function TunedResult({
             <p className="text-center font-['Segoe_UI_Variable',sans-serif] text-[16px] leading-[20px] text-[rgba(255,255,255,0.7)]">
               <AnimatePresence mode="wait" initial={false}>
                 <motion.span
-                  key={!introDone ? "intro" : rowsComplete ? "summary" : claimsPhase ? "claims" : "counter"}
+                  key={
+                    freeMinimal
+                      ? rowsComplete
+                        ? "summary"
+                        : "during"
+                      : !introDone
+                        ? "intro"
+                        : rowsComplete
+                          ? "summary"
+                          : "counter"
+                  }
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: sec(T.subtextCrossfade) }}
                 >
-                  {!introDone ? introSubtext(tone) : rowsComplete ? summaryText : counterText}
+                  {freeMinimal
+                    ? rowsComplete
+                      ? summaryText
+                      : FREE_MINIMAL_DURING_SUBTEXT
+                    : !introDone
+                      ? introSubtext(tone)
+                      : rowsComplete
+                        ? summaryText
+                        : counterText}
                 </motion.span>
               </AnimatePresence>
             </p>
@@ -392,8 +441,18 @@ export default function TunedResult({
               beat — otherwise this block's reserved height (mainly the
               always-mounted Continue button) would skew vertical centering.
               Once `introDone` flips it rejoins the normal flow and the whole
-              group centers together. */}
-          <div className={`flex w-full flex-col items-center gap-[24px] ${!introDone ? "invisible absolute inset-x-0" : "relative"}`}>
+              group centers together.
+
+              `freeMinimal` never pulls this out: the group is top-anchored
+              (see above), so there's no centering to protect, and staying
+              in-flow the whole time means the Continue button's reserved
+              height is already accounted for before the first row appears,
+              rather than the block's height changing shape at `introDone`. */}
+          <div
+            className={`flex w-full flex-col items-center gap-[24px] ${
+              !freeMinimal && !introDone ? "invisible absolute inset-x-0" : "relative"
+            }`}
+          >
             {freeMinimal && (
               <FreeMinimalList
                 settings={freeMinimal.settings}
@@ -458,17 +517,21 @@ export default function TunedResult({
               />
             )}
 
-            <motion.button
-              initial={{ opacity: 0, y: reduced ? 0 : 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: sec(T.continueIn), delay: sec(continueDelayMs) }}
-              onClick={onContinue}
-              className="flex w-[240px] shrink-0 items-center justify-center whitespace-nowrap rounded-[4px] bg-[#6d4aff] px-[24px] pb-[12px] pt-[10px] font-['Segoe_UI_Variable',sans-serif] text-[16px] font-semibold leading-[20px] text-white transition-all duration-150 hover:bg-[#7c5cff] active:scale-[0.97]"
-              style={{ fontVariationSettings: "'opsz' 12" }}
-            >
-              {TUNED_RESULT_COPY.continue}
-            </motion.button>
+            {/* Every non-free path keeps Continue right here, grouped with the
+                list as one centered unit (unchanged). */}
+            {!freeMinimal && continueButton}
           </div>
+
+          {/* `freeMinimal` only: Continue moves OUT of the list group and
+              becomes its own sibling with `mt-auto` — in the outer
+              `min-h-full` column, an auto top margin on the last flex item
+              consumes all remaining vertical space above it, pinning the
+              button to the very bottom of the screen instead of sitting
+              directly under however many rows happened to render. It still
+              only fades in once every row above it has resolved
+              (`continueDelayMs`, unchanged) — this only changes WHERE it
+              lands once visible, not WHEN. */}
+          {freeMinimal && <div className="mt-auto flex w-full shrink-0 justify-center pb-[10px]">{continueButton}</div>}
           </div>
         </div>
       </Tooltip.Provider>

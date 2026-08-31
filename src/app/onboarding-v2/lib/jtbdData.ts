@@ -43,7 +43,7 @@ export const JTBD_WINK_COPY: Record<JtbdId, string> = {
 };
 
 /** The grid picker's (`JtbdGridPanel`) primary CTA label once a JTBD is
- * selected — full per-JTBD strings (not "Tune for " + a word looked up
+ * selected — full per-JTBD strings (not "Set up for " + a word looked up
  * elsewhere), so translators can adapt word order / the "access" mapping for
  * "Bypass restrictions" naturally per locale, rather than concatenating a
  * shared prefix at runtime. `JTBD_CONTINUE_LABEL_DEFAULT` is the
@@ -51,15 +51,15 @@ export const JTBD_WINK_COPY: Record<JtbdId, string> = {
 export const JTBD_CONTINUE_LABEL_DEFAULT = "Continue";
 
 export const JTBD_CONTINUE_LABEL: Record<JtbdId, string> = {
-  downloading: "Tune for downloading",
-  travel: "Tune for travel",
-  privacy: "Tune for privacy",
-  gaming: "Tune for gaming",
-  streaming: "Tune for streaming",
-  bypass: "Tune for access",
+  downloading: "Set up for downloading",
+  travel: "Set up for travel",
+  privacy: "Set up for privacy",
+  gaming: "Set up for gaming",
+  streaming: "Set up for streaming",
+  bypass: "Set up for access",
 };
 
-/** Top-right exit on the JTBD grid picker — skips tuning/upsell and lands
+/** Top-right exit on the JTBD grid picker — skips setup/upsell and lands
  * in the main app on the free tier. Constant across all tones. */
 export const JTBD_GO_TO_APP_LABEL = "Go to app directly";
 

@@ -66,11 +66,11 @@ const EASE = [0.25, 0.46, 0.45, 0.94] as const;
  * message out (`AnimatePresence` exit) back to the empty reserved space.
  *
  * The Continue button's label is likewise dynamic — "Continue" before a pick
- * (unchanged), "Tune for {jtbd}" once one is selected (`JTBD_CONTINUE_LABEL`,
+ * (unchanged), "Set up for {jtbd}" once one is selected (`JTBD_CONTINUE_LABEL`,
  * full per-JTBD i18n strings, never built via prefix concatenation). Only
  * the label text changes; the button's click behavior, disabled state,
  * position, and styling are all untouched. A fixed `min-width` (sized to fit
- * the longest label, "Tune for downloading") keeps the button from resizing
+ * the longest label, "Set up for downloading") keeps the button from resizing
  * jarringly as the label crossfades between picks.
  *
  * Tone of voice: the stage now supports the same 4-tone system as the
@@ -106,7 +106,7 @@ export default function JtbdGridPanel({
       ? JTBD_CONTINUE_LABEL_DEFAULT
       : selectedMultiple.length === 1
         ? JTBD_CONTINUE_LABEL[selectedMultiple[0]]
-        : `Tune for ${selectedMultiple.length} interests`
+        : `Set up for ${selectedMultiple.length} interests`
     : selected
       ? JTBD_CONTINUE_LABEL[selected]
       : JTBD_CONTINUE_LABEL_DEFAULT;
@@ -194,7 +194,7 @@ export default function JtbdGridPanel({
       <button
         onClick={onContinue}
         disabled={!hasAnySelection}
-        className="flex min-w-[236px] items-center justify-center whitespace-nowrap rounded-[4px] bg-[#6d4aff] px-[24px] pb-[12px] pt-[10px] font-['Segoe_UI_Variable',sans-serif] text-[16px] font-semibold leading-[20px] text-white transition-all duration-150 hover:bg-[#7c5cff] active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
+        className="flex min-w-[256px] items-center justify-center whitespace-nowrap rounded-[4px] bg-[#6d4aff] px-[24px] pb-[12px] pt-[10px] font-['Segoe_UI_Variable',sans-serif] text-[16px] font-semibold leading-[20px] text-white transition-all duration-150 hover:bg-[#7c5cff] active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
         style={{ fontVariationSettings: "'opsz' 12" }}
       >
         {reduced ? (

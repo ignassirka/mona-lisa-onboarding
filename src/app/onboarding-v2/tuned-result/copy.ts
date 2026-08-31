@@ -31,7 +31,7 @@ export const PROFILES_INTRO_TEXT = "One-click profiles for your interest";
  * as `PROFILES_INTRO_TEXT` and `plusSectionHeader` (confirmed at checkpoint). */
 export const PROFILES_READY_TEXT = "Profiles ready for your interest";
 
-/** The JTBD word used in "Tuning for {jtbd}…" / "Tuned for {jtbd}" — the
+/** The JTBD word used in "Setting up for {jtbd}…" / "Set up for {jtbd}" — the
  * existing `jtbdLabel` (from `JTBD_TUNING_RESULT`) lowercased. For "bypass",
  * `jtbdLabel` is already the project's agreed gerund short form
  * ("Bypassing restrictions") rather than the picker's noun form ("Bypass
@@ -80,13 +80,19 @@ export function counterSubtext(applied: number, total: number): string {
   return `Applying ${applied} of ${total} settings`;
 }
 
-/** Free path of the "Minimal list" concept only — what the header counter
- * says once both settings have been applied and the value-claim rows are
- * still arriving. The counter above can't cover them: nothing is being
- * applied for a claim, so counting them as settings would be the one
- * inaccurate sentence on an otherwise literal screen. Tone-constant, same
- * precedent as `counterSubtext` itself. */
-export const FREE_MINIMAL_CLAIMS_COUNTER = "Confirming what's already included\u2026";
+/** Free path of the "Minimal list" concept only — header subtext for Phases
+ * 1–3 (intro, settings materializing, claims arriving). Deliberately generic
+ * rather than `counterSubtext`'s "Applying {X} of {Y} settings" — the row
+ * list mixes real settings with value claims, and a literal count either
+ * undercounts (ignoring the claims) or miscounts a claim as a setting.
+ * Tone-constant. */
+export const FREE_MINIMAL_DURING_SUBTEXT =
+  "Applying the settings to optimize the experience for you.";
+
+/** Free path of the "Minimal list" concept only — header subtext for Phase 4
+ * (complete). Same count-free rationale as `FREE_MINIMAL_DURING_SUBTEXT`. */
+export const FREE_MINIMAL_COMPLETE_SUBTEXT =
+  "Settings applied to optimize the experience for you.";
 
 // ── Multiple mode (Selection: Multiple) — additive; Single mode's functions
 // above are all untouched. ──────────────────────────────────────────────
