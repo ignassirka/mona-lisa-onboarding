@@ -253,22 +253,29 @@ export const CONNECTION_COPY: Record<ToneOfVoice, ConnectionCopy> = {
     },
     hybrid: {
       exposedHeadline: <>Your online identity is currently {coral("unprotected")}</>,
+      // Not ISP-aware like every other tone/stage's copy — this line makes its
+      // point from the IP address alone, so the named/unknown ISP branches
+      // collapse to the same text rather than being genuinely dead code with
+      // two copies to keep in sync.
       exposedSub: ispCopy({
-        known: (isp) => (
-          <>Right now your provider (&ldquo;{isp}&rdquo;) and others along the way can see what you do. Take that decision back.</>
-        ),
-        unknown: <>Right now, others along the way can see what you do. Take that decision back.</>,
+        known: () => <>Your IP address can reveal more about your online activity than you might think.</>,
+        unknown: <>Your IP address can reveal more about your online activity than you might think.</>,
       }),
       connectingHeadline: <>Connecting to the VPN&hellip;</>,
       protectedHeadline: <>Your online identity is now fully {teal("protected")}!</>,
       protectedSub: ispCopy({
-        known: (isp) => (
+        known: () => (
           <>
-            You now look like someone else, somewhere else. Your provider (&ldquo;{isp}&rdquo;) and others in between can
-            see no more than an encrypted connection.
+            Websites and services now see an encrypted VPN connection instead of yours, making it much harder to profile you or link your
+            activity back to you.
           </>
         ),
-        unknown: <>You now look like someone else, somewhere else. Others in between can see no more than an encrypted connection.</>,
+        unknown: (
+          <>
+            Websites and services now see an encrypted VPN connection instead of yours, making it much harder to profile you or link your
+            activity back to you.
+          </>
+        ),
       }),
       ctaProtect: "Protect my online identity",
     },

@@ -522,6 +522,8 @@ export function ISPRegulationsPanel({
   sessionPlan = "plus",
   countriesTabFocusKey = 0,
   profilesSectionRef,
+  connectedProfileJtbd = null,
+  onProfileConnect,
 }: {
   externalSelectedCountry?: string | null;
   onCountryChange?: (name: string | null) => void;
@@ -546,6 +548,11 @@ export function ISPRegulationsPanel({
   /** Forwarded to `CountryBrowser`'s Profiles content block so `App.tsx` can
    * measure it for the post-onboarding spotlight. */
   profilesSectionRef?: React.Ref<HTMLDivElement>;
+  /** `App.tsx`'s live profile-connection identity — forwarded so a sidebar
+   * profile row can tell whether IT is the currently-connected one. */
+  connectedProfileJtbd?: JtbdId | null;
+  /** Fired when a sidebar profile row's "Connect"/"Disconnect" is clicked. */
+  onProfileConnect?: (jtbd: JtbdId) => void;
 } = {}) {
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
 
@@ -594,6 +601,8 @@ export function ISPRegulationsPanel({
           sessionPlan={sessionPlan}
           countriesTabFocusKey={countriesTabFocusKey}
           profilesSectionRef={profilesSectionRef}
+          connectedProfileJtbd={connectedProfileJtbd}
+          onProfileConnect={onProfileConnect}
         />
       ) : (
         <HomeView

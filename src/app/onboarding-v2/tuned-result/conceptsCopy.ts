@@ -155,6 +155,8 @@ export const TUNING_CONCEPTS_COPY = {
     /** Names the hover disclosure for assistive tech, which otherwise gets a
      * bare list appearing out of nowhere. */
     settingsLabel: "What this profile does for you",
+    /** Label above each card's country dropdown in the footer. */
+    countryLabel: "Pick a country",
   },
 
   /** The Free-only sibling of `profilesCarouselV2`. Holds only what the Plus

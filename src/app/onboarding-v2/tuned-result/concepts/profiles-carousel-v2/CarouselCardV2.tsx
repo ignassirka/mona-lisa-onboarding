@@ -24,11 +24,11 @@ const C2 = TUNING_CONCEPTS_COPY.profilesCarouselV2;
  * every motion on this screen reads as the same object moving. */
 const EASE_OUT = [0.16, 1, 0.3, 1] as const;
 
-/** The card's fixed footer height, in px: the country dropdown (38) + the
- * bottom padding (14). Declared because the scrim that guarantees the
- * footer's legibility has to be positioned against it from the OUTSIDE, and
- * a magic number in two places would drift. */
-const FOOTER_H = 52;
+/** The card's fixed footer height, in px: the country label (18) + gap (4) +
+ * dropdown (38) + the bottom padding (14). Declared because the scrim that
+ * guarantees the footer's legibility has to be positioned against it from the
+ * OUTSIDE, and a magic number in two places would drift. */
+const FOOTER_H = 74;
 
 /** How far the opaque footer reaches ABOVE the footer's own content, so the
  * dropdown isn't sitting on the artwork's hard edge. */
@@ -39,8 +39,9 @@ const FOOTER_OVERSHOOT = 8;
  * `ConceptFrame` spends 328px of the 768px window on chrome (Back, the
  * 128px header block, its 30px gap, the 24px gap to Continue, Continue
  * itself, and 40px of bottom padding), and `CarouselTrack` adds 2px, which
- * caps a card at 438. The 430 spent here leaves the disclosure region 250px:
- * 52 of footer, 120 of identity block, 8 of footer overshoot. The tallest
+ * caps a card at 438. The 430 spent here leaves the disclosure region 228px:
+ * 82 of footer (label + dropdown + padding + overshoot), 120 of identity
+ * block, 8 of footer overshoot above content. The tallest state that can
  * state that can occupy it is Streaming's (subtitle 18, logo row 28, rule 1,
  * three 2-line benefit rows at `gap-[6px]` = 114, plus 16 of margins = 177),
  * leaving 73px in hand. `PROFILE_BENEFITS` is fixed at exactly 3 lines per
@@ -102,7 +103,9 @@ export default function CarouselCardV2({ profile, reduced }: CarouselCardV2Props
 
   return (
     <div
-      className="group relative w-[280px] overflow-hidden rounded-[16px] border border-[rgba(255,255,255,0.1)] bg-[#0b0912]"
+      className={`group relative w-[280px] overflow-hidden rounded-[16px] border bg-[#0b0912] transition-colors duration-300 ${
+        open ? "border-[rgba(255,255,255,0.38)]" : "border-[rgba(255,255,255,0.1)]"
+      }`}
       style={{ height: CARD_H }}
       onFocus={() => setFocused(true)}
       // Only close when focus leaves the CARD, not when it moves into the
@@ -230,7 +233,10 @@ export default function CarouselCardV2({ profile, reduced }: CarouselCardV2Props
           </div>
         </div>
 
-        <div className="shrink-0 px-[14px] pb-[14px]">
+        <div className="flex shrink-0 flex-col gap-[4px] px-[14px] pb-[14px]">
+          <span className="font-['Segoe_UI_Variable',sans-serif] text-[13px] leading-[18px] text-[rgba(255,255,255,0.55)]">
+            {C2.countryLabel}
+          </span>
           {/* Opens UPWARD (`bottom-full`) and is short enough to land inside
               the card, which is what lets the card keep `overflow-hidden`
               for its own rounded corners. */}

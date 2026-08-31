@@ -587,6 +587,30 @@ function AppInner() {
     connectTimerRef.current = setTimeout(() => setVpnStatus("protected"), 3000);
   }, []);
 
+  // Clicking "Connect" on a sidebar profile row (`CountryBrowser`'s
+  // Profiles tab, Plus-only — Free rows stay `disabled`). Resolves the same
+  // destination the row's own subtitle already promises: `onboardingCountry`
+  // overrides a FIXED-country profile exactly like `sidebarSubtitle` does
+  // (so the row's text and what it actually connects to never disagree),
+  // and a rule-based profile ("fastest nearby"/"fastest outside your
+  // country") falls through to `resolveVpnDestination(null)` — this
+  // prototype's one simulated "fastest" server, the same one Free's
+  // fastest-country connect and onboarding's own "Fastest" pick already
+  // resolve to. Sets `connectedProfileJtbd` (unlike `handleConnect`, which
+  // deliberately clears it) so the connection card identifies this
+  // connection by the profile, per the existing `connectedProfileJtbd`
+  // contract `handleEnterApp`'s carousel-Connect exit already established.
+  const handleProfileConnect = useCallback((jtbd: JtbdId) => {
+    const profile = JTBD_PROFILES[jtbd];
+    const destinationCountry = profile.country && onboardingCountry ? onboardingCountry : profile.country;
+    const { country } = resolveVpnDestination(destinationCountry);
+    if (connectTimerRef.current) clearTimeout(connectTimerRef.current);
+    setConnectedCountry(country);
+    setConnectedProfileJtbd(jtbd);
+    setVpnStatus("connecting");
+    connectTimerRef.current = setTimeout(() => setVpnStatus("protected"), 3000);
+  }, [onboardingCountry]);
+
   // Fires exactly once — the first time the user connects (by any means)
   // while onboarding is still deferred — satisfying the "whether they
   // connected later in-app" analytics capture for the connection-failure
@@ -819,6 +843,8 @@ function AppInner() {
             sessionPlan={sessionPlan}
             countriesTabFocusKey={countriesTabFocusKey}
             profilesSectionRef={profilesSectionRef}
+            connectedProfileJtbd={connectedProfileJtbd}
+            onProfileConnect={handleProfileConnect}
           />
           <div
             className="absolute top-0 bottom-0 right-0 w-[8px] z-[10] cursor-col-resize flex items-stretch justify-center"
@@ -956,13 +982,26 @@ function AppInner() {
         </div>
       )}
 
-      <AnimatePresence onExitComplete={() => setAppState("app")}>
-        {(appState === "onboarding" || appState === "transitioning") && (
+      {/* The onboarding layer has to actually LEAVE `AnimatePresence` for the
+          handoff to finish. Keeping it mounted through "transitioning" and only
+          fading it via `animate` deadlocked the state machine: `onExitComplete`
+          is the sole path to "app", but it can never fire while the child is
+          still present, so the layer stayed mounted forever — invisible at
+          `opacity: 0`, yet still hit-testable across `inset-0`, which silently
+          swallowed every hover and click in the main app underneath. Gating on
+          "onboarding" alone lets `exit` run the same crossfade (the child stays
+          rendered for its duration) and then promote the state, and
+          `pointerEvents: "none"` in the exit target hands input back to the app
+          the moment the fade starts. It lives in `exit` rather than `style`
+          because `AnimatePresence` renders an exiting child from its snapshot
+          and won't pick up new parent state. */}
+      <AnimatePresence onExitComplete={() => setAppState((s) => (s === "transitioning" ? "app" : s))}>
+        {appState === "onboarding" && (
           <motion.div
             key="onboarding"
             className="absolute inset-0 z-10"
-            animate={{ opacity: appState === "transitioning" ? 0 : 1 }}
-            exit={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, pointerEvents: "none" }}
             transition={{ duration: TRANSITION_TIMING.mapCrossfade.duration / 1000, ease: "easeInOut" }}
           >
             <OnboardingV2

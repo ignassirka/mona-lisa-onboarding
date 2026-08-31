@@ -364,10 +364,20 @@ const JTBD_TO_PROFILE_ID: Record<JtbdId, string> = {
   travel: "work-school",
 };
 
+/** The exact inverse of `JTBD_TO_PROFILE_ID` — bijective, since each of the
+ * 6 static `profilesList` entries maps to exactly one JTBD. Lets ANY
+ * displayed profile (an onboarding-generated one, or a static default-list
+ * row shown when onboarding was skipped) resolve back to the `JtbdId`
+ * `JTBD_PROFILES` needs for its destination — without adding a `jtbd` field
+ * to `ProfileEntry`, since `id` already carries the same information. */
+const PROFILE_ID_TO_JTBD: Record<string, JtbdId> = Object.fromEntries(
+  (Object.entries(JTBD_TO_PROFILE_ID) as [JtbdId, string][]).map(([jtbd, id]) => [id, jtbd]),
+);
+
 // ─── Onboarding-profiles banner (i18n-ready copy; centralized here per the
 // project's established precedent — no i18n framework exists yet). ─────────
 const PROFILES_ONBOARDING_BANNER_COPY = {
-  message: "Connect through one of these profiles — each one is already tuned for what you told us matters.",
+  message: "Connect through one of your personalized profiles - each one is already tuned for what you do online.",
   dismissLabel: "Dismiss",
 } as const;
 
@@ -385,35 +395,108 @@ const PROFILES_ONBOARDING_BANNER_DISMISSED_KEY = "profilesOnboardingBannerDismis
 
 // ─── Three-dots icon ──────────────────────────────────────────────────────────
 
+/** Always mounted so the Secondary hit target stays a stable 20×20 box.
+ * Opacity is driven entirely by CSS (see `PROFILE_ROW_CSS`) — invisible at
+ * rest, 70% under Primary hover, 100% under Secondary hover. */
 function ThreeDotsIcon() {
   return (
-    <svg width="4" height="16" viewBox="0 0 4 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="2" cy="2"  r="1.5" fill="white" fillOpacity="0.7" />
-      <circle cx="2" cy="8"  r="1.5" fill="white" fillOpacity="0.7" />
-      <circle cx="2" cy="14" r="1.5" fill="white" fillOpacity="0.7" />
+    <svg
+      width="4"
+      height="16"
+      viewBox="0 0 4 16"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className="profile-row__dots shrink-0"
+      aria-hidden
+    >
+      <circle cx="2" cy="2"  r="1.5" fill="white" />
+      <circle cx="2" cy="8"  r="1.5" fill="white" />
+      <circle cx="2" cy="14" r="1.5" fill="white" />
     </svg>
   );
 }
 
+/** Rendered once for the whole Profiles list (see `<ProfileRowStyles />`
+ * below `displayedProfiles.map`), not per row. Hover here is pure CSS
+ * (`:hover` / `:has()`) rather than React state — a row's hover feedback
+ * this way can never be broken by a stale closure, a Fast Refresh hook-shape
+ * mismatch, or a re-render race; the browser owns it entirely. `:has()` has
+ * been supported in every evergreen browser (Chrome 105+, Safari 15.4+,
+ * Firefox 121+) since well before this prototype's target audience. */
+const PROFILE_ROW_CSS = `
+  .profile-row { border-radius: 8px; background: transparent; transition: background-color 150ms; }
+  .profile-row:has(.profile-row__secondary:hover) { background: rgba(255,255,255,0.1); }
+  .profile-row__primary { border-radius: 8px; background: transparent; transition: background-color 150ms; }
+  .profile-row__primary:hover { background: rgba(255,255,255,0.1); }
+  .profile-row__hover-only { opacity: 0; transition: opacity 150ms; }
+  .profile-row__primary:hover .profile-row__hover-only { opacity: 1; }
+  .profile-row__dots circle { opacity: 0; transition: opacity 150ms; }
+  /* The dots sit in the Secondary region, a SIBLING of Primary — so Primary
+     hover has to reach them through the row, not descend into itself. */
+  .profile-row:has(.profile-row__primary:hover) .profile-row__dots circle { opacity: 0.7; }
+  .profile-row__secondary:hover .profile-row__dots circle { opacity: 1; }
+`;
+
 // ─── Profile row ──────────────────────────────────────────────────────────────
 
-function ProfileRow({ profile, disabled = false }: { profile: ProfileEntry; disabled?: boolean }) {
-  const [hovered, setHovered] = useState(false);
+/** One row in the sidebar's Profiles list. Ported from Figma node
+ * 22866-161142, which defines two INDEPENDENTLY hoverable regions rather
+ * than one whole-row hover:
+ * - **Primary** (icon + title/subtitle) — hovering it highlights only that
+ *   region (`rgba(255,255,255,0.1)`) and reveals a dimmed (70% white)
+ *   three-dot affordance in the Secondary slot, plus either a "Connect"
+ *   label (a profile this plan can actually run) or the VPN Plus badge +
+ *   an explanatory tooltip (a locked, free-plan profile) — so hovering the
+ *   row always tells you what clicking it would do.
+ * - **Secondary** (the three-dot menu button) — hovering it highlights the
+ *   WHOLE row instead, and brightens the three-dot icon to full white,
+ *   since the menu affordance is what's directly under the pointer there.
+ *
+ * Locked profiles (`disabled`) stay fully hoverable rather than
+ * `pointer-events-none` — the point of the badge/tooltip is to explain WHY
+ * a profile is locked, which a row that refuses the pointer entirely can
+ * never do. Only the title/subtitle/tag colors and the icon's opacity dim
+ * to the design's "hint" treatment; nothing here uses a blanket row
+ * opacity.
+ *
+ * Clicking Primary while runnable (`!disabled`) calls `onConnect`/
+ * `onDisconnect` — whichever applies given `isConnected`/`isConnecting` —
+ * exactly like `CountryRow` already does for the Countries tab. Locked
+ * rows have no `onClick` at all (only the hover tooltip explains why),
+ * matching `CountryRow`'s own `disabled` handling. */
+function ProfileRow({
+  profile,
+  disabled = false,
+  isConnected = false,
+  isConnecting = false,
+  onConnect,
+  onDisconnect,
+}: {
+  profile: ProfileEntry;
+  disabled?: boolean;
+  isConnected?: boolean;
+  isConnecting?: boolean;
+  onConnect?: () => void;
+  onDisconnect?: () => void;
+}) {
+  // text/hint vs text/norm, text/hint vs text/weak — locked profiles read
+  // dimmed regardless of which region (if any) is hovered.
+  const titleColor = disabled ? "rgba(255,255,255,0.5)" : "white";
+  const subtitleColor = disabled ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.7)";
+  const showConnectHint = !isConnected && !isConnecting;
+
+  const handlePrimaryClick = () => {
+    if (disabled) return;
+    if (isConnected || isConnecting) onDisconnect?.();
+    else onConnect?.();
+  };
 
   return (
-    <div
-      onMouseEnter={() => { if (!disabled) setHovered(true); }}
-      onMouseLeave={() => setHovered(false)}
-      className={`flex items-center w-full rounded-[8px] transition-colors duration-150 ${disabled ? "cursor-default pointer-events-none" : "cursor-pointer"}`}
-      style={{
-        background: !disabled && hovered ? "rgba(255,255,255,0.07)" : "transparent",
-        opacity: disabled ? 0.45 : 1,
-      }}
-      aria-disabled={disabled || undefined}
-    >
-      {/* Primary: icon + titles */}
+    <div className="profile-row flex items-stretch w-full" aria-disabled={disabled || undefined}>
+      {/* Primary: icon + titles — its own hover region/highlight */}
       <div
-        className="flex flex-1 min-w-0 items-center"
+        onClick={handlePrimaryClick}
+        className={`profile-row__primary flex flex-1 min-w-0 items-center ${disabled ? "cursor-default" : "cursor-pointer"}`}
         style={{ gap: 8, padding: 12 }}
       >
         {/* Profile icon 30x30 */}
@@ -423,7 +506,7 @@ function ProfileRow({ profile, disabled = false }: { profile: ProfileEntry; disa
           width={30}
           height={30}
           className="shrink-0"
-          style={{ width: 30, height: 30 }}
+          style={{ width: 30, height: 30, opacity: disabled ? 0.5 : 1 }}
         />
 
         {/* Title stack */}
@@ -431,18 +514,19 @@ function ProfileRow({ profile, disabled = false }: { profile: ProfileEntry; disa
           {/* Top title */}
           <div className="flex items-center w-full" style={{ gap: 8 }}>
             <span
-              className="text-white whitespace-nowrap overflow-hidden text-ellipsis"
-              style={{ ...fontRegular, fontSize: 16, lineHeight: "20px" }}
+              className="whitespace-nowrap overflow-hidden text-ellipsis"
+              style={{ ...fontRegular, fontSize: 16, lineHeight: "20px", color: titleColor }}
             >
               {profile.title}
             </span>
+            {isConnected && <ActiveDot />}
           </div>
 
           {/* 2nd line: subtitle + optional P2P tag */}
           <div className="flex items-center" style={{ gap: 4 }}>
             <span
               className="whitespace-nowrap overflow-hidden text-ellipsis"
-              style={{ ...fontRegular, fontSize: 14, lineHeight: "20px", color: "rgba(255,255,255,0.7)" }}
+              style={{ ...fontRegular, fontSize: 14, lineHeight: "20px", color: subtitleColor }}
             >
               {profile.subtitle}
             </span>
@@ -452,10 +536,10 @@ function ProfileRow({ profile, disabled = false }: { profile: ProfileEntry; disa
                 className="flex items-center shrink-0 rounded-[4px]"
                 style={{ background: "rgba(255,255,255,0.05)", gap: 2, padding: "2px 6px" }}
               >
-                <img src={icArrowRightLeft} alt="P2P" width={14} height={14} />
+                <img src={icArrowRightLeft} alt="P2P" width={14} height={14} style={{ opacity: disabled ? 0.5 : 1 }} />
                 <span
-                  className="text-white shrink-0"
-                  style={{ ...fontSemibold, fontSize: 12, lineHeight: "16px" }}
+                  className="shrink-0"
+                  style={{ ...fontSemibold, fontSize: 12, lineHeight: "16px", color: disabled ? "rgba(255,255,255,0.5)" : "white" }}
                 >
                   P2P
                 </span>
@@ -463,23 +547,51 @@ function ProfileRow({ profile, disabled = false }: { profile: ProfileEntry; disa
             )}
           </div>
         </div>
+
+        {/* Hover affordance, Primary region only — "Connect" for a runnable
+            profile, or the VPN Plus badge + tooltip for a locked one. Always
+            mounted (opacity-driven by CSS) rather than conditionally
+            rendered, so appearing on hover can't shift the row's layout. */}
+        {!disabled && (
+          <span
+            className="profile-row__hover-only shrink-0 whitespace-nowrap"
+            style={{ ...fontSemibold, fontSize: 16, lineHeight: "20px", color: "white" }}
+          >
+            {showConnectHint ? "Connect" : "Disconnect"}
+          </span>
+        )}
+
+        {disabled && (
+          <div className="profile-row__hover-only relative shrink-0 flex items-center justify-center">
+            <div
+              className="absolute left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-[4px] border"
+              style={{
+                bottom: "calc(100% + 8px)",
+                background: "#292733",
+                borderColor: "rgba(255,255,255,0.2)",
+                boxShadow: "0px 4px 4px rgba(0,0,0,0.26)",
+                padding: "4px 8px",
+              }}
+            >
+              <span style={{ ...fontRegular, fontSize: 12, lineHeight: "16px", color: "white" }}>
+                Server available with VPN Plus
+              </span>
+            </div>
+            <img src={vpnPlusBadgeUrl} alt="" width={22} height={13} className="shrink-0" />
+          </div>
+        )}
       </div>
 
-      {/* Secondary: three-dots (hover only, hidden when disabled) */}
-      {!disabled && (
-      <div
-        className="shrink-0 flex items-center justify-center rounded-[8px] transition-opacity duration-150"
-        style={{
-          width: 44,
-          height: "100%",
-          minHeight: 44,
-          padding: 12,
-          opacity: hovered ? 1 : 0,
-        }}
-      >
-        <ThreeDotsIcon />
+      {/* Secondary: three-dots menu button — Figma wraps this in a self-stretch
+          column so the 44×44 target spans the full row height. */}
+      <div className="flex flex-row items-center self-stretch shrink-0">
+        <div
+          className="profile-row__secondary flex h-full w-[44px] shrink-0 items-center justify-center rounded-[8px] cursor-pointer"
+          style={{ padding: 12 }}
+        >
+          <ThreeDotsIcon />
+        </div>
       </div>
-      )}
     </div>
   );
 }
@@ -519,6 +631,18 @@ type CountryBrowserProps = {
   /** Attached to the Profiles tab's content block (header → "New profile"),
    * so `App.tsx` can measure it for the post-onboarding spotlight. */
   profilesSectionRef?: React.Ref<HTMLDivElement>;
+  /** `App.tsx`'s live profile-connection identity — lets a profile row know
+   * whether IT is the one currently connected, so it can show the active
+   * dot and swap its hover label to "Disconnect". Unrelated to
+   * `vpnConnectedCountry`, which a plain country/"Fastest" connect also
+   * sets — a row only reads as connected when BOTH match this jtbd AND
+   * `vpnStatus` isn't `"unprotected"`. */
+  connectedProfileJtbd?: JtbdId | null;
+  /** Fired when a profile row's Primary region is clicked while runnable
+   * (Plus, or a Free-runnable destination) and not already connected/
+   * connecting to it. Absent → rows render their hover affordance but
+   * clicking does nothing, matching every pre-existing default. */
+  onProfileConnect?: (jtbd: JtbdId) => void;
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -534,6 +658,8 @@ export function CountryBrowser({
   sessionPlan = "plus",
   countriesTabFocusKey = 0,
   profilesSectionRef,
+  connectedProfileJtbd = null,
+  onProfileConnect,
 }: CountryBrowserProps = {}) {
   const hasOnboardingIntents = !!onboardingJtbds && onboardingJtbds.length > 0;
   const isFreePlan = sessionPlan === "free";
@@ -934,7 +1060,7 @@ export function CountryBrowser({
                 <img src={checkmarkCircleFilled} alt="" width={16} height={16} className="shrink-0 mt-[2px]" />
                 <span
                   className="flex-1"
-                  style={{ ...fontRegular, fontSize: 13, lineHeight: "18px", color: "rgba(255,255,255,0.7)" }}
+                  style={{ ...fontRegular, fontSize: 13, lineHeight: "18px", color: "#ffffff" }}
                 >
                   {PROFILES_ONBOARDING_BANNER_COPY.message}
                 </span>
@@ -954,10 +1080,26 @@ export function CountryBrowser({
               </motion.div>
             )}
 
-            {/* Profile rows */}
-            {displayedProfiles.map((profile) => (
-              <ProfileRow key={profile.id} profile={profile} disabled={profilesLocked} />
-            ))}
+            {/* Profile rows — hover CSS shared by every row, defined once here
+                rather than duplicated per `<ProfileRow>` instance. */}
+            <style>{PROFILE_ROW_CSS}</style>
+            {displayedProfiles.map((profile) => {
+              const jtbd = PROFILE_ID_TO_JTBD[profile.id];
+              const isThisProfile = !!jtbd && connectedProfileJtbd === jtbd;
+              const isConnected = isThisProfile && vpnStatus === "protected";
+              const isConnecting = isThisProfile && vpnStatus === "connecting";
+              return (
+                <ProfileRow
+                  key={profile.id}
+                  profile={profile}
+                  disabled={profilesLocked}
+                  isConnected={isConnected}
+                  isConnecting={isConnecting}
+                  onConnect={jtbd ? () => onProfileConnect?.(jtbd) : undefined}
+                  onDisconnect={onVpnDisconnect}
+                />
+              );
+            })}
 
             {/* New profile button — sits directly after the last row */}
             <div className="shrink-0" style={{ padding: "4px 0px 8px" }}>
