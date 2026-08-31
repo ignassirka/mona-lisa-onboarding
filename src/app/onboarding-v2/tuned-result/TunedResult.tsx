@@ -67,15 +67,14 @@ interface TunedResultProps {
  * 1. **Centered intro** — the header block (loader `Spinner` + "Tuning for
  *    {jtbd}…" + a static "optimizing" subtext) fades in centered on screen
  *    and holds there for `centerHold`.
- * 2. **Move to top** — the SAME block (never unmounted) travels to its top
- *    position via Framer's `layout` FLIP; the spinner crossfades into the
- *    JTBD's category icon (reused from the picker via `JTBD_ICONS`, same
- *    slot, same size per icon) — or, in Multiple mode with 2+ selections,
- *    into a horizontal row of those same picker icons in selection order,
- *    with a subtle left-to-right stagger — and the subtext crossfades to
- *    the live "Applying X of
+ * 2. **Intro crossfade** — the SAME block (never unmounted) stays vertically
+ *    centered; the spinner crossfades into the JTBD's category icon (reused
+ *    from the picker via `JTBD_ICONS`, same slot, same size per icon) — or,
+ *    in Multiple mode with 2+ selections, into a horizontal row of those
+ *    same picker icons in selection order, with a subtle left-to-right
+ *    stagger — and the subtext crossfades to the live "Applying X of
  *    N settings" counter.
- * 3. **Items materialize** — only once the block has landed do the 5 items
+ * 3. **Items materialize** — only once the intro beat finishes do the items
  *    begin their two-phase materialization, one at a time
  *    (`useTunedMaterialization` drives the shared timing/state; only the
  *    RENDERING — which of the 4 `layouts/*` components — differs per
@@ -262,28 +261,22 @@ export default function TunedResult({
           `PaidFeatureRow`'s (i) info icons, reused unchanged by the Compact
           List / Split by Status / Card Grid layouts. */}
       <Tooltip.Provider delayDuration={200}>
-        {/* Centered while the intro holds (normal motion only — reduced
-            motion skips the travel animation entirely and renders at the
-            top from the start), top-anchored otherwise. This div never
-            itself moves; toggling its `justify-content` is what gives the
-            header block below something to react to. */}
-        <div
-          className={`absolute inset-0 z-10 flex flex-col items-center gap-[30px] overflow-y-auto px-[40px] pb-[40px] ${
-            !reduced && !introDone ? "justify-center" : "justify-start pt-[64px]"
-          }`}
-        >
+        {/* Vertically centered for the whole screen — an outer scroll
+            container plus an inner `min-h-full justify-center` column so
+            equal top/bottom margins hold when content fits, and taller
+            layouts can still scroll. During the intro beat the body block
+            below is pulled out of flow (`absolute` + `invisible`) so the
+            header alone centers; once `introDone` it rejoins the column and
+            the whole group (header + list + Continue) centers together. */}
+        <div className="absolute inset-0 z-10 overflow-y-auto px-[40px]">
+          <div className="flex min-h-full flex-col items-center justify-center gap-[30px] py-[40px]">
           {/* The header block — ONE persistent element for the whole screen
               (Phase 1 through Phase 4), never unmounted, shared identically
-              by all 4 layouts. `layout` (the Framer prop) makes it animate
-              the FLIP resulting from the justify-content toggle above as a
-              smooth center→top move rather than a snap; disabled in reduced
-              motion, where the block simply renders at the top the whole
-              time (no position animation at all). */}
+              by all 4 layouts. */}
           <motion.div
-            layout={!reduced}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ opacity: { duration: sec(T.introFadeIn) }, layout: { duration: sec(T.moveToTop), ease: "easeInOut" } }}
+            transition={{ opacity: { duration: sec(T.introFadeIn) } }}
             className="flex flex-col items-center gap-[12px]"
           >
             {/* Icon slot — fixed height; Single mode (and Multiple with 1
@@ -395,13 +388,12 @@ export default function TunedResult({
           </motion.div>
 
           {/* Wrapped so it can be pulled out of the flex flow (`absolute` +
-              `invisible`) while the header is centered — otherwise this
-              block's own reserved height (mainly the always-mounted
-              Continue button) would skew `justify-center` off the header
-              alone. Once the header switches to `justify-start`
-              (top-anchored), this no longer matters, so it can safely
-              rejoin the normal flow the moment `introDone` flips. */}
-          <div className={`flex w-full flex-col items-center gap-[24px] ${!reduced && !introDone ? "invisible absolute inset-x-0" : "relative"}`}>
+              `invisible`) while the header is centered alone during the intro
+              beat — otherwise this block's reserved height (mainly the
+              always-mounted Continue button) would skew vertical centering.
+              Once `introDone` flips it rejoins the normal flow and the whole
+              group centers together. */}
+          <div className={`flex w-full flex-col items-center gap-[24px] ${!introDone ? "invisible absolute inset-x-0" : "relative"}`}>
             {freeMinimal && (
               <FreeMinimalList
                 settings={freeMinimal.settings}
@@ -476,6 +468,7 @@ export default function TunedResult({
             >
               {TUNED_RESULT_COPY.continue}
             </motion.button>
+          </div>
           </div>
         </div>
       </Tooltip.Provider>

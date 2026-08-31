@@ -17,7 +17,7 @@ import type { ToneOfVoice } from "../lib/toneOfVoice";
  *    tone-voiced sentence are all the shared ones); Auto Connect is a real
  *    Proton VPN setting that the shared data never modelled, so its
  *    per-intent copy lives here.
- * 2. Below the two settings sit 2–3 **value claims** — things that are
+ * 2. Below the two settings sit 2 **value claims** — things that are
  *    already true of the plan for that intent, not settings anything just
  *    changed. They deliberately carry no settings chip, because there is no
  *    setting behind them to name.
@@ -172,10 +172,10 @@ const VALUE_CLAIMS: Record<JtbdId, FreeMinimalClaim[]> = {
   ],
 };
 
-/** How many claims are ever shown, however many intents are selected. Three
- * claims plus the two settings is a five-row list, which still clears the
+/** How many claims are ever shown, however many intents are selected. Two
+ * claims plus the two settings is a four-row list, which still clears the
  * screen's row budget at every selection size. */
-export const FREE_MINIMAL_CLAIM_CAP = 3;
+export const FREE_MINIMAL_CLAIM_CAP = 2;
 
 /** Builds the Free minimal list for a selection of 1–6 intents.
  *

@@ -224,7 +224,7 @@ export const CONNECTION_COPY: Record<ToneOfVoice, ConnectionCopy> = {
         ),
         unknown: <>Others along the way can see which sites you visit, when, how often, and for how long.</>,
       }),
-      connectingHeadline: <>Protecting your online activity....</>,
+      connectingHeadline: <>Connecting to the VPN&hellip;</>,
       protectedHeadline: <>Your online identity is now fully {teal("protected")}!</>,
       protectedSub: ispCopy({
         known: (isp) => (
@@ -259,7 +259,7 @@ export const CONNECTION_COPY: Record<ToneOfVoice, ConnectionCopy> = {
         ),
         unknown: <>Right now, others along the way can see what you do. Take that decision back.</>,
       }),
-      connectingHeadline: <>Protecting your online activity....</>,
+      connectingHeadline: <>Connecting to the VPN&hellip;</>,
       protectedHeadline: <>Your online identity is now fully {teal("protected")}!</>,
       protectedSub: ispCopy({
         known: (isp) => (
