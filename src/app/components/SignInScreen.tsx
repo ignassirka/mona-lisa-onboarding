@@ -146,6 +146,9 @@ export default function SignInScreen({ onSignIn, onClose }: SignInScreenProps) {
           <SignInEncryptionGrid width={1100} height={750} reduced={reduced} className="size-full" />
         </motion.div>
 
+        {/* No `progress` prop here — signing in isn't part of "how long is
+            onboarding", it's the gate before it starts. The indicator only
+            appears once `OnboardingV2` itself mounts. */}
         <WindowChrome onClose={onClose} />
 
         {/* "Split screen" column (Figma: 450px wide, centered, 32px gap

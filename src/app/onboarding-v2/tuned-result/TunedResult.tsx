@@ -123,7 +123,7 @@ export default function TunedResult({
   // `freeMinimalContent.ts` and docs/features/onboarding-v2.md.
   const freeMinimal =
     layout === "stacked" && userPlan === "free"
-      ? buildFreeMinimalContent(isMultipleActive ? selectedJtbds! : [jtbdKey], tone)
+      ? buildFreeMinimalContent(isMultipleActive ? selectedJtbds! : [jtbdKey])
       : null;
 
   // The FULL merged/deduped unions — never truncated. These feed the
@@ -160,6 +160,29 @@ export default function TunedResult({
     : isMultipleActive
       ? freeCapped!.displayed.length + 1 + paidCapped!.displayed.length
       : result.enabled.length + result.paid.length;
+
+  // `freeMinimal`'s top margin (see the `justify-start` doc above) was tuned
+  // by eye at 140px against the row count 3 selected intents produces (2
+  // settings + 4 claims = 6 rows) — comfortable, with room to spare below
+  // the list before Continue. Each intent beyond 3 adds one more claim row
+  // (uncapped — see `freeMinimalContent.ts`), and at 4–6 selections (7–9
+  // rows) that fixed 140px pushed the list, and Continue with it, off the
+  // bottom of the 768px-tall window. Rather than a second, shorter fixed
+  // value, the margin scales down by one row's worth for every row past
+  // that 6-row baseline, so the list's BOTTOM edge stays roughly where it
+  // was at 6 rows instead of climbing further down the screen — clamped at
+  // `FREE_MINIMAL_MIN_TOP_PAD` so it never crowds the window chrome/Back
+  // button at the top even at 6 selected intents (9 rows).
+  const FREE_MINIMAL_BASE_TOP_PAD = 140;
+  const FREE_MINIMAL_BASE_ROWS = 6;
+  const FREE_MINIMAL_ROW_HEIGHT = 52;
+  const FREE_MINIMAL_MIN_TOP_PAD = 48;
+  const freeMinimalTopPad = freeMinimal
+    ? Math.max(
+        FREE_MINIMAL_MIN_TOP_PAD,
+        FREE_MINIMAL_BASE_TOP_PAD - Math.max(0, totalRows - FREE_MINIMAL_BASE_ROWS) * FREE_MINIMAL_ROW_HEIGHT,
+      )
+    : undefined;
   // Plus plan: every row materializes as applied — there is no free/paid
   // tier boundary to pause for or reveal a divider at, so `boundaryIndex` is
   // pushed outside the valid range (`useTunedMaterialization`'s `hasBoundary`
@@ -291,15 +314,16 @@ export default function TunedResult({
             one at a time with nothing else below them to balance the growing
             height, so a CENTERED group visibly climbs the screen on every
             new row (the center point recomputes, dragging everything already
-            on screen up with it). Anchoring to the top instead — fixed
-            `pt-[140px]`, `justify-start` — means only the list's own bottom
-            edge moves as rows append; the header and every row already
-            resolved stay exactly where they landed. */}
+            on screen up with it). Anchoring to the top instead — `justify-start`,
+            with a top padding computed by `freeMinimalTopPad` below — means
+            only the list's own bottom edge moves as rows append; the header
+            and every row already resolved stay exactly where they landed. */}
         <div className="absolute inset-0 z-10 overflow-y-auto px-[40px]">
           <div
             className={`flex min-h-full flex-col items-center gap-[30px] pb-[40px] ${
-              freeMinimal ? "justify-start pt-[140px]" : "justify-center py-[40px]"
+              freeMinimal ? "justify-start" : "justify-center py-[40px]"
             }`}
+            style={freeMinimal ? { paddingTop: freeMinimalTopPad } : undefined}
           >
           {/* The header block — ONE persistent element for the whole screen
               (Phase 1 through Phase 4), never unmounted, shared identically

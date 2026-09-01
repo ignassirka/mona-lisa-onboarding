@@ -1,4 +1,5 @@
-import type { Variants } from "motion/react";
+import { useEffect, useState } from "react";
+import { motion, type Variants } from "motion/react";
 import InfoTooltip from "../versions/upsell/lib/InfoTooltip";
 
 /** The row primitives the Stacked ("Minimal list") arrangement is made of,
@@ -49,5 +50,55 @@ export function SettingLabelPill({
       ) : null}
       <InfoTooltip content={tooltip} />
     </span>
+  );
+}
+
+/** The Free minimal list's Auto Connect row renders THIS instead of
+ * `SettingLabelPill` — a bare, standalone on/off switch, no label text, no
+ * pill container, no tooltip — since Auto Connect is the one setting on
+ * this screen a user would plausibly want to flip back off right here
+ * (every other row is either informational or a claim, with no obvious
+ * "undo" action worth exposing this directly), and the row's own outcome
+ * sentence to its left already says what the setting is.
+ *
+ * Starts OFF and flips itself ON shortly after mounting — this component is
+ * only ever mounted once its row's `MaterializingSlot` resolves (see
+ * `FreeMinimalList`), so "just mounted" already means "just resolved";
+ * riding that same moment for the off→on flip means the switch settling
+ * into place reads as part of the row resolving, not a separate effect
+ * bolted onto it. Once flipped on, it's a fully interactive toggle — the
+ * user can turn it back off (and on again) freely; nothing else on this row
+ * (the checkmark, the outcome sentence) reacts to that, since those
+ * describe the row having been TUNED, not the switch's live position. */
+export function SettingTogglePill({
+  label,
+  autoOnDelayMs = 350,
+}: {
+  label: string;
+  autoOnDelayMs?: number;
+}) {
+  const [on, setOn] = useState(false);
+
+  useEffect(() => {
+    const id = window.setTimeout(() => setOn(true), autoOnDelayMs);
+    return () => window.clearTimeout(id);
+  }, [autoOnDelayMs]);
+
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={`${label}: ${on ? "On" : "Off"}`}
+      onClick={() => setOn((v) => !v)}
+      className="relative h-[20px] w-[36px] shrink-0 cursor-pointer rounded-full outline-none transition-colors duration-300 focus-visible:ring-1 focus-visible:ring-white/40"
+      style={{ backgroundColor: on ? "#6d4aff" : "rgba(255,255,255,0.15)" }}
+    >
+      <motion.span
+        className="absolute top-[2px] size-[16px] rounded-full bg-white"
+        animate={{ left: on ? 18 : 2 }}
+        transition={{ type: "spring", stiffness: 500, damping: 30 }}
+      />
+    </button>
   );
 }

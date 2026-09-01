@@ -1,7 +1,7 @@
 import { motion } from "motion/react";
 import MaterializingSlot from "./MaterializingSlot";
 import PhaseOnePlaceholder from "./PhaseOnePlaceholder";
-import { STACKED_ROW_CLASS, SettingLabelPill, checkPopVariants } from "./stackedRow";
+import { STACKED_ROW_CLASS, SettingLabelPill, SettingTogglePill, checkPopVariants } from "./stackedRow";
 import type { FreeMinimalContent } from "./freeMinimalContent";
 import type { RowStage } from "./useTunedMaterialization";
 import checkmarkUrl from "../assets/checkmark-circle-filled.svg";
@@ -22,9 +22,21 @@ interface FreeMinimalListProps extends FreeMinimalContent {
  *
  * A claim row is a settings row minus its chip. Same check, same type, same
  * rhythm — the missing chip is the entire signal that nothing was configured
- * to make the sentence true, which is exactly what a claim is. */
+ * to make the sentence true, which is exactly what a claim is.
+ *
+ * One exception to "chip": the Auto Connect row renders `SettingTogglePill`
+ * instead of `SettingLabelPill` — a real, later-toggleable on/off switch
+ * rather than a static `{label}: {value}` chip, since Auto Connect is the
+ * one setting here a user would plausibly want to flip back off right on
+ * this screen. See `SettingTogglePill`'s own doc for why plain `mount →
+ * flip on` is enough (no extra wiring from this component). */
 export default function FreeMinimalList({ settings, claims, rowStages, rowMounted, reduced }: FreeMinimalListProps) {
-  const renderRow = (index: number, narration: string, text: string, chip?: { label: string; value: string; tooltip: string }) => {
+  const renderRow = (
+    index: number,
+    narration: string,
+    text: string,
+    chip?: { label: string; value: string; tooltip: string; toggle?: boolean },
+  ) => {
     const stage = rowStages[index];
     if (!rowMounted[index] || !stage) return null;
     return (
@@ -42,7 +54,12 @@ export default function FreeMinimalList({ settings, claims, rowStages, rowMounte
                 {text}
               </span>
             </div>
-            {chip && <SettingLabelPill label={chip.label} value={chip.value} tooltip={chip.tooltip} />}
+            {chip &&
+              (chip.toggle ? (
+                <SettingTogglePill label={chip.label} />
+              ) : (
+                <SettingLabelPill label={chip.label} value={chip.value} tooltip={chip.tooltip} />
+              ))}
           </div>
         }
       />
@@ -56,6 +73,7 @@ export default function FreeMinimalList({ settings, claims, rowStages, rowMounte
           label: setting.settingsName,
           value: setting.value,
           tooltip: setting.tooltip,
+          toggle: setting.settingsName === "Auto Connect",
         }),
       )}
       {/* One extra beat between the settings and the claims. Small enough

@@ -95,6 +95,69 @@ const PHASE_STAGE: Record<Phase, Exclude<OnboardingStage, "personalization">> = 
 /** Display order for the stage numbering shown in prototype controls (App.tsx). */
 export const STAGE_ORDER: OnboardingStage[] = ["connection", "tuning", "upgrade", "personalization"];
 
+/** Steps counted by the top-of-window onboarding-length indicator
+ * (`WindowChrome`'s `progress` prop) — its own granularity, deliberately
+ * NOT identical to `OnboardingStage`: the "tuning" stage's two phases read
+ * as two distinct user-visible moments, not one — `"jtbd"` (picking what
+ * you use the VPN for) and `"tuned"` (the result: settings applied for
+ * Free, profiles generated for Plus) — so the indicator splits them into
+ * separate steps rather than collapsing them into one "tuning" segment.
+ * "personalization" and Sign In aren't steps at all (see their own notes
+ * below), and "upgrade" collapses its 4 phases (`upsell`/`web-checkout`/
+ * `checkout`/`plus-welcome`) into one step — that stage is genuinely one
+ * user-visible moment ("deciding whether to upgrade"), unlike tuning's two. */
+export type OnboardingProgressStep = "connection" | "jtbd" | "tuned" | "upgrade";
+
+const PHASE_PROGRESS_STEP: Record<Phase, OnboardingProgressStep> = {
+  unprotected: "connection",
+  connecting: "connection",
+  failed: "connection",
+  protected: "connection",
+  jtbd: "jtbd",
+  tuned: "tuned",
+  upsell: "upgrade",
+  "web-checkout": "upgrade",
+  checkout: "upgrade",
+  "plus-welcome": "upgrade",
+};
+
+/** Plan-aware step list. "personalization" is excluded — it has no phases
+ * of its own here (`MakeYoursModal` is disabled and lives post-`onExit`, in
+ * `App.tsx`, outside this component entirely — there's nothing for the
+ * indicator to represent while still inside `OnboardingV2`). Sign In (before
+ * this component even mounts) isn't a step either — signing in isn't part
+ * of "how long is onboarding", it's the gate before it starts, so
+ * `WindowChrome` there renders with no `progress` prop at all. Plus skips
+ * "upgrade" outright (same rule `ONBOARDING_STAGES` and the Plan-awareness
+ * doc already establish), so Plus is "Connecting to VPN" → "Selecting what
+ * you use it for" → "Profiles generated" (3 steps) while Free adds a 4th,
+ * "Upgrade to Plus". */
+export function onboardingProgressSteps(plan: SessionPlan): OnboardingProgressStep[] {
+  return plan === "plus" ? ["connection", "jtbd", "tuned"] : ["connection", "jtbd", "tuned", "upgrade"];
+}
+
+/** Total step count for the indicator — plan-aware via
+ * `onboardingProgressSteps`. */
+export function onboardingProgressTotal(plan: SessionPlan): number {
+  return onboardingProgressSteps(plan).length;
+}
+
+/** This component's own current step (0-indexed) for a given phase + plan.
+ * Coarse by design within each step's own phases (there are none left with
+ * more than one phase per step except "upgrade"'s 4): back-navigation
+ * between `jtbd`/`tuned` now DOES move the indicator (they're separate
+ * steps), which is correct — going back from the tuned result to the
+ * picker genuinely un-completes that step. Skipping the connection stage
+ * entirely (`skippedConnection`) just means step 0 ("connection") is never
+ * rendered as the active step before the indicator jumps straight to step 1
+ * ("jtbd") — it's still shown as reached, matching the coarse, non-punitive
+ * intent of a length indicator rather than a strict completion tracker. */
+export function onboardingProgressCurrent(plan: SessionPlan, phase: Phase): number {
+  const steps = onboardingProgressSteps(plan);
+  const index = steps.indexOf(PHASE_PROGRESS_STEP[phase]);
+  return index === -1 ? 0 : index;
+}
+
 /** Per-stage list of interchangeable content versions, for the prototype "Version" dropdown.
  * Only "connection" has real variants today (v1/v2/v4, see OnboardingVariant); the other
  * stages get a single "Default" placeholder until they gain variants of their own. */
@@ -787,7 +850,10 @@ export default function OnboardingV2({
           focusOffsetY={variant === "hybrid" ? hybridPinOffsetY : 0}
         />
 
-        <WindowChrome onClose={onClose} />
+        <WindowChrome
+          onClose={onClose}
+          progress={{ current: onboardingProgressCurrent(plan, phase), total: onboardingProgressTotal(plan) }}
+        />
 
         {/* Stage 1 skip — top-right, unprotected only (all connection variants). */}
         {phase === "unprotected" && (
