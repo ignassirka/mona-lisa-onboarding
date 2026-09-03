@@ -17,8 +17,9 @@ import icArrowRightLeft from "../../imports/profile-icons/ic-arrow-right-arrow-l
 import recentsEmptyIcon from "../../imports/recents-empty-icon.svg";
 import checkmarkCircleFilled from "../onboarding-v2/assets/checkmark-circle-filled.svg";
 import vpnPlusBadgeUrl from "../onboarding-v2/assets/vpn-plus-badge.svg";
-import { type JtbdId } from "../onboarding-v2/lib/jtbdData";
-import { JTBD_PROFILES, sidebarSubtitle } from "../onboarding-v2/lib/jtbdProfiles";
+import { type JtbdId, type ProfileId } from "../onboarding-v2/lib/jtbdData";
+import { JTBD_PROFILES, profilesForSelection, sidebarSubtitle } from "../onboarding-v2/lib/jtbdProfiles";
+import { PROFILE_CARD_ICON_COLOR } from "../onboarding-v2/versions/lib/jtbdIcons";
 import { useReducedMotion } from "../onboarding-v2/versions/lib/useReducedMotion";
 import type { SessionPlan } from "../lib/sessionPlan";
 
@@ -334,28 +335,48 @@ export function CountryRow(props: CountryRowProps) {
 // ─── Profiles data ────────────────────────────────────────────────────────────
 
 type ProfileEntry = {
+  /** Row identity/React key. For an onboarding-generated row this is the
+   * real `profile.id` (`ProfileId`); for a static default row it's the
+   * row's own static id (below) — either way, `profileId` is the one field
+   * every row can be connected/matched through, so nothing here needs to
+   * reverse-parse `id` to find out which kind of row it is. */
   id: string;
   title: string;
   subtitle: string;
   icon: string;
   p2p?: boolean;
+  /** The identity `onProfileConnect` fires with when this row's Primary
+   * region is clicked, and what `connectedProfileId` is compared against to
+   * decide whether the row shows as active/"Disconnect". */
+  profileId: ProfileId;
 };
 
+// The static default list's `profileId` for `privacy` deliberately picks
+// "privacy-advanced" — the closer match to what this single generic
+// "Maximum security" row has always meant (Secure Core, the strictest
+// setup), of the two profiles `privacy` now generates. This list is shown
+// pre-onboarding/when onboarding was skipped, so it was never going to grow
+// a second privacy row the way the onboarding-generated list does below.
 const profilesList: ProfileEntry[] = [
-  { id: "streaming-us", title: "Streaming US",          subtitle: "United States",                  icon: profileIconStreaming },
-  { id: "gaming",       title: "Gaming",                subtitle: "Fastest country",                icon: profileIconGaming },
-  { id: "p2p",          title: "P2P",                   subtitle: "Fastest country",                icon: profileIconP2p,    p2p: true },
-  { id: "anticensors",  title: "Anti-censorship",       subtitle: "Fastest (excluding my country)", icon: profileIconAnticensorship },
-  { id: "max-security", title: "Maximum security",      subtitle: "Fastest - Secure Core",          icon: profileIconSecurity },
-  { id: "work-school",  title: "Work and school",       subtitle: "Fastest country",                icon: profileIconBusiness },
+  { id: "streaming-us", profileId: "streaming",        title: "Streaming US",          subtitle: "United States",                  icon: profileIconStreaming },
+  { id: "gaming",       profileId: "gaming",            title: "Gaming",                subtitle: "Fastest country",                icon: profileIconGaming },
+  { id: "p2p",          profileId: "downloading",       title: "P2P",                   subtitle: "Fastest country",                icon: profileIconP2p,    p2p: true },
+  { id: "anticensors",  profileId: "bypass",            title: "Anti-censorship",       subtitle: "Fastest (excluding my country)", icon: profileIconAnticensorship },
+  { id: "max-security", profileId: "privacy-advanced",  title: "Maximum security",      subtitle: "Fastest Secure Core",            icon: profileIconSecurity },
+  { id: "work-school",  profileId: "travel",            title: "Work and school",       subtitle: "Fastest country",                icon: profileIconBusiness },
 ];
 
-// Maps each onboarding JTBD to the existing profile entry (above) that best
-// matches its intent — no new profile entries/artwork invented, just
-// reordering/filtering the SAME 6 that already exist. Mirrors the mapping
-// the tuning-result data already implies (e.g. travel's paid "Home country
-// profile" already uses this exact "business" glyph).
-const JTBD_TO_PROFILE_ID: Record<JtbdId, string> = {
+// Maps each onboarding JTBD to the existing static profile entry (above)
+// whose "look" (icon/glyph, P2P tag) best matches its intent, so an
+// onboarding-generated row can borrow that look — no new profile
+// entries/artwork invented, just reordering/filtering/re-skinning the SAME 6
+// that already exist. Mirrors the mapping the tuning-result data already
+// implies (e.g. travel's paid "Home country profile" already uses this
+// exact "business" glyph). Both privacy profiles map to the same
+// "max-security" look, since `JTBD_PROFILES` already gives them their own
+// icon/name/subtitle regardless — this map only supplies the FALLBACK look
+// (see `displayedProfiles`).
+const JTBD_TO_STATIC_ROW_ID: Record<JtbdId, string> = {
   streaming: "streaming-us",
   gaming: "gaming",
   downloading: "p2p",
@@ -363,16 +384,6 @@ const JTBD_TO_PROFILE_ID: Record<JtbdId, string> = {
   privacy: "max-security",
   travel: "work-school",
 };
-
-/** The exact inverse of `JTBD_TO_PROFILE_ID` — bijective, since each of the
- * 6 static `profilesList` entries maps to exactly one JTBD. Lets ANY
- * displayed profile (an onboarding-generated one, or a static default-list
- * row shown when onboarding was skipped) resolve back to the `JtbdId`
- * `JTBD_PROFILES` needs for its destination — without adding a `jtbd` field
- * to `ProfileEntry`, since `id` already carries the same information. */
-const PROFILE_ID_TO_JTBD: Record<string, JtbdId> = Object.fromEntries(
-  (Object.entries(JTBD_TO_PROFILE_ID) as [JtbdId, string][]).map(([jtbd, id]) => [id, jtbd]),
-);
 
 // ─── Onboarding-profiles banner (i18n-ready copy; centralized here per the
 // project's established precedent — no i18n framework exists yet). ─────────
@@ -499,15 +510,32 @@ function ProfileRow({
         className={`profile-row__primary flex flex-1 min-w-0 items-center ${disabled ? "cursor-default" : "cursor-pointer"}`}
         style={{ gap: 8, padding: 12 }}
       >
-        {/* Profile icon 30x30 */}
-        <img
-          src={profile.icon}
-          alt={profile.title}
-          width={30}
-          height={30}
-          className="shrink-0"
-          style={{ width: 30, height: 30, opacity: disabled ? 0.5 : 1 }}
-        />
+        {/* Profile icon 30x30 — colour-coded to match the same profile's
+            tint on the upsell/tuning cards (`PROFILE_CARD_ICON_COLOR`). The
+            overlay is clipped to the badge glyph's own bounding box (the
+            source SVGs' `clip0` region, x:0–24/y:2–18 of a 30×30 viewBox)
+            rather than the full icon, so it never tints the bottom-right
+            destination chip or (for Streaming) the composited country flag —
+            neither of which share the badge's meaning. */}
+        <div className="relative shrink-0" style={{ width: 30, height: 30, opacity: disabled ? 0.5 : 1 }}>
+          <img src={profile.icon} alt={profile.title} width={30} height={30} className="absolute inset-0 size-full" />
+          <div
+            className="absolute inset-0"
+            style={{
+              backgroundColor: PROFILE_CARD_ICON_COLOR[profile.profileId],
+              WebkitMaskImage: `url(${profile.icon})`,
+              maskImage: `url(${profile.icon})`,
+              WebkitMaskSize: "contain",
+              maskSize: "contain",
+              WebkitMaskRepeat: "no-repeat",
+              maskRepeat: "no-repeat",
+              WebkitMaskPosition: "center",
+              maskPosition: "center",
+              clipPath: "inset(6.67% 20% 40% 0%)",
+              mixBlendMode: "color",
+            }}
+          />
+        </div>
 
         {/* Title stack */}
         <div className="flex flex-col flex-1 min-w-0" style={{ gap: 2 }}>
@@ -614,7 +642,7 @@ type CountryBrowserProps = {
   /** The JTBDs selected in onboarding (`App.tsx`'s `onboardingJtbds`), first-
    * selected first. When present and non-empty: the Profiles tab is
    * selected by default (instead of Countries) and the Profiles list is
-   * generated from these intents (via `JTBD_TO_PROFILE_ID`) rather than
+   * generated from these intents (via `JTBD_TO_STATIC_ROW_ID`) rather than
    * showing all 6 defaults. Omitted/empty (e.g. onboarding was skipped, or
    * `skipOnboarding` bypassed onboarding entirely) falls back to this
    * component's entire pre-existing behavior, byte-for-byte. */
@@ -635,14 +663,16 @@ type CountryBrowserProps = {
    * whether IT is the one currently connected, so it can show the active
    * dot and swap its hover label to "Disconnect". Unrelated to
    * `vpnConnectedCountry`, which a plain country/"Fastest" connect also
-   * sets — a row only reads as connected when BOTH match this jtbd AND
-   * `vpnStatus` isn't `"unprotected"`. */
-  connectedProfileJtbd?: JtbdId | null;
+   * sets — a row only reads as connected when BOTH match this row's
+   * `profileId` AND `vpnStatus` isn't `"unprotected"`. `ProfileId`, not
+   * `JtbdId` — see `TunedProfile`/`ProfileId`'s own comments
+   * (`jtbdProfiles.ts`/`jtbdData.ts`) for why privacy specifically needs it. */
+  connectedProfileId?: ProfileId | null;
   /** Fired when a profile row's Primary region is clicked while runnable
    * (Plus, or a Free-runnable destination) and not already connected/
    * connecting to it. Absent → rows render their hover affordance but
    * clicking does nothing, matching every pre-existing default. */
-  onProfileConnect?: (jtbd: JtbdId) => void;
+  onProfileConnect?: (profileId: ProfileId) => void;
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -658,7 +688,7 @@ export function CountryBrowser({
   sessionPlan = "plus",
   countriesTabFocusKey = 0,
   profilesSectionRef,
-  connectedProfileJtbd = null,
+  connectedProfileId = null,
   onProfileConnect,
 }: CountryBrowserProps = {}) {
   const hasOnboardingIntents = !!onboardingJtbds && onboardingJtbds.length > 0;
@@ -694,35 +724,41 @@ export function CountryBrowser({
     }
   }, [countriesTabFocusKey]);
 
-  // Profile items generated from the onboarding selection, in selection
-  // order — reorders/filters the SAME 6 hardcoded profiles above (id and the
-  // P2P tag untouched), never invents new ones.
+  // Profile ROWS generated from the onboarding selection, in selection
+  // order — one per profile `profilesForSelection` returns, which is one per
+  // selected intent except `privacy`, which contributes two ("Daily
+  // privacy", "Advanced privacy" — see `ProfileId`/`PROFILES_FOR_JTBD` in
+  // `jtbdData.ts`). Re-skins the SAME 6 hardcoded static rows above (icon
+  // fallback and the P2P tag untouched) rather than inventing new ones —
+  // both privacy rows borrow the same "max-security" look, since
+  // `JTBD_PROFILES` already gives each its own icon/name/subtitle
+  // regardless of which static row's chrome it's wearing.
   //
   // Title, destination and glyph all come from `JTBD_PROFILES`, the same
   // source the tuning stage reads, so what a user was shown while tuning is
-  // what they find here. That matters for two intents specifically: `privacy`
-  // and `downloading`, whose default subtitles ("Fastest - Secure Core",
-  // "Fastest country") contradicted the destinations tuning names
-  // (Switzerland, Netherlands). The title is still `JTBD_PROFILE_LABEL` —
-  // `TunedProfile.name` reads from it — so the existing renaming behaviour is
-  // preserved rather than replaced, and the icons resolve to the same six
-  // `profile-icon-*.svg` assets `profilesList` already imports.
+  // what they find here. That matters for `downloading` specifically, whose
+  // default subtitle ("Fastest country") contradicted the destination
+  // tuning names (Netherlands). The title is still `JTBD_PROFILE_LABEL` for
+  // every profile that's 1:1 with its intent — `TunedProfile.name` reads
+  // from it — so the existing renaming behaviour is preserved rather than
+  // replaced; `privacy`'s own two names are `JTBD_PROFILES`' own literals.
   //
   // Falls back to the full default list, byte-for-byte, when there's no
   // onboarding selection to draw from (skipped onboarding, `skipOnboarding`,
   // the connection-failure exits).
   const displayedProfiles = useMemo(() => {
     if (!hasOnboardingIntents) return profilesList;
-    const byId = new Map(profilesList.map((p) => [p.id, p]));
-    const seen = new Set<string>();
+    const byStaticId = new Map(profilesList.map((p) => [p.id, p]));
+    const seen = new Set<ProfileId>();
     const mapped: ProfileEntry[] = [];
-    for (const jtbd of onboardingJtbds!) {
-      const base = byId.get(JTBD_TO_PROFILE_ID[jtbd]);
-      const profile = JTBD_PROFILES[jtbd];
-      if (base && profile && !seen.has(base.id)) {
-        seen.add(base.id);
+    for (const profile of profilesForSelection(onboardingJtbds!)) {
+      const base = byStaticId.get(JTBD_TO_STATIC_ROW_ID[profile.jtbd]);
+      if (base && !seen.has(profile.id)) {
+        seen.add(profile.id);
         mapped.push({
           ...base,
+          id: profile.id,
+          profileId: profile.id,
           title: profile.name,
           subtitle: sidebarSubtitle(profile, onboardingCountry),
           icon: profile.icon,
@@ -1084,8 +1120,7 @@ export function CountryBrowser({
                 rather than duplicated per `<ProfileRow>` instance. */}
             <style>{PROFILE_ROW_CSS}</style>
             {displayedProfiles.map((profile) => {
-              const jtbd = PROFILE_ID_TO_JTBD[profile.id];
-              const isThisProfile = !!jtbd && connectedProfileJtbd === jtbd;
+              const isThisProfile = connectedProfileId === profile.profileId;
               const isConnected = isThisProfile && vpnStatus === "protected";
               const isConnecting = isThisProfile && vpnStatus === "connecting";
               return (
@@ -1095,7 +1130,7 @@ export function CountryBrowser({
                   disabled={profilesLocked}
                   isConnected={isConnected}
                   isConnecting={isConnecting}
-                  onConnect={jtbd ? () => onProfileConnect?.(jtbd) : undefined}
+                  onConnect={() => onProfileConnect?.(profile.profileId)}
                   onDisconnect={onVpnDisconnect}
                 />
               );

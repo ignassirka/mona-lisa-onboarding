@@ -12,7 +12,7 @@ import { useReducedMotion } from "../../../versions/lib/useReducedMotion";
 import { TUNING_CONCEPTS_COPY } from "../../conceptsCopy";
 import { narrateEnabling } from "../../copy";
 import checkmarkUrl from "../../../assets/checkmark-circle-filled.svg";
-import type { JtbdId } from "../../../lib/jtbdData";
+import type { ProfileId } from "../../../lib/jtbdData";
 import type { TuningConceptProps } from "../types";
 
 export const PROFILE_FIRST_CONCEPT = "profile-first";
@@ -105,11 +105,11 @@ export default function ProfileFirstConcept({
   const data = useProfileFirstData(jtbdKey, selectionMode, selectedJtbds, tone, reduced);
   const { profiles, plusFeatureRows, profilesRowIndex, profilesRowLabel, rowStages, rowMounted } = data;
 
-  const [picked, setPicked] = useState<JtbdId | null>(null);
+  const [picked, setPicked] = useState<ProfileId | null>(null);
   // Falls back rather than syncing state to props: a selection change
   // remounts this concept anyway, so there's nothing to reconcile.
-  const activeJtbd = picked && profiles.some((p) => p.jtbd === picked) ? picked : profiles[0]!.jtbd;
-  const activeProfile = profiles.find((p) => p.jtbd === activeJtbd)!;
+  const activeProfileId = picked && profiles.some((p) => p.id === picked) ? picked : profiles[0]!.id;
+  const activeProfile = profiles.find((p) => p.id === activeProfileId)!;
 
   const profilesStage = rowStages[profilesRowIndex];
 
@@ -144,17 +144,17 @@ export default function ProfileFirstConcept({
 
                 <ProfileTabs
                   profiles={profiles}
-                  activeJtbd={activeJtbd}
+                  activeProfileId={activeProfileId}
                   onSelect={setPicked}
                   panelId={PANEL_ID}
                   reduced={reduced}
                   label={C.tabsLabel}
                 />
 
-                <div id={PANEL_ID} role="tabpanel" aria-labelledby={`${PANEL_ID}-tab-${activeJtbd}`}>
+                <div id={PANEL_ID} role="tabpanel" aria-labelledby={`${PANEL_ID}-tab-${activeProfileId}`}>
                   <AnimatePresence mode="wait" initial={false}>
                     <motion.div
-                      key={activeJtbd}
+                      key={activeProfileId}
                       initial={{ opacity: 0, y: reduced ? 0 : 6 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0 }}

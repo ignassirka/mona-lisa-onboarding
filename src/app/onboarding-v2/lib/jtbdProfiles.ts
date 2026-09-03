@@ -1,5 +1,5 @@
-import type { JtbdId } from "./jtbdData";
-import { JTBD_PROFILE_LABEL } from "./jtbdData";
+import type { JtbdId, ProfileId } from "./jtbdData";
+import { JTBD_PROFILE_LABEL, PROFILES_FOR_JTBD } from "./jtbdData";
 import { JTBD_TUNING_RESULT } from "./jtbdTuningResult";
 import { SETTING_VALUE_PRIORITY } from "./jtbdMerge";
 import { VPN_SERVER } from "./server";
@@ -12,6 +12,7 @@ import iconP2p from "../../../imports/profile-icons/profile-icon-p2p.svg";
 import iconAnticensorship from "../../../imports/profile-icons/profile-icon-anticensorship.svg";
 import iconSecurity from "../../../imports/profile-icons/profile-icon-security.svg";
 import iconBusiness from "../../../imports/profile-icons/profile-icon-business.svg";
+import iconPrivacyBadge from "../assets/jtbd-privacy.svg";
 
 /** One setting a profile carries. Always DERIVED from `JTBD_TUNING_RESULT`,
  * never authored here, so a profile can't claim a setting value the tuning
@@ -31,8 +32,24 @@ export interface ProfileSetting {
  * answer "what happens if I click this". See
  * docs/specs/profiles-tuning/_foundation.md §2. */
 export interface TunedProfile {
+  /** This profile's own identity — see `ProfileId`'s doc comment
+   * (`jtbdData.ts`) for why it's distinct from `jtbd` below. The `Record`
+   * key in `JTBD_PROFILES`, restated here so a `TunedProfile` pulled out of
+   * an array (e.g. by `.find()`) is still self-identifying. */
+  id: ProfileId;
+  /** The intent that generated this profile — still `JtbdId`, and still the
+   * right key for anything that's a property of the INTENT rather than of
+   * this specific card: which paid/free features `JTBD_TUNING_RESULT`
+   * applies, which card artwork to show (`PROFILE_CARD_PHOTO`, keyed by
+   * `profile.id`), which sidebar icon to show (`TunedProfile.icon` — Travel
+   * → Business, Advanced privacy → Security, with country flag; Daily privacy
+   * → privacy badge), and which JTBD a
+   * click on this card's "Connect" ultimately resolves settings for. */
   jtbd: JtbdId;
-  /** Card and sidebar name — reuses `JTBD_PROFILE_LABEL`, no new naming. */
+  /** Card and sidebar name. Reuses `JTBD_PROFILE_LABEL` for every profile
+   * that's still 1:1 with its `jtbd`; `privacy`'s two profiles can't, since
+   * that lookup only holds one string per intent, so their names are their
+   * own literals. */
   name: string;
   /** Concrete destination, or `null` when the profile targets a RULE
    * ("fastest nearby", "fastest outside your country") rather than a fixed
@@ -115,8 +132,9 @@ export function strictestOf(primary: ProfileSetting[], other: ProfileSetting[]):
   });
 }
 
-export const JTBD_PROFILES: Record<JtbdId, TunedProfile> = {
+export const JTBD_PROFILES: Record<ProfileId, TunedProfile> = {
   streaming: {
+    id: "streaming",
     jtbd: "streaming",
     name: JTBD_PROFILE_LABEL.streaming,
     country: "United States",
@@ -130,19 +148,27 @@ export const JTBD_PROFILES: Record<JtbdId, TunedProfile> = {
   },
 
   gaming: {
+    id: "gaming",
     jtbd: "gaming",
     name: JTBD_PROFILE_LABEL.gaming,
     country: null,
-    countryLabel: "Fastest country",
+    // Renamed from "Fastest country" — Gaming's spotlighted P2P server
+    // pairs with a country picked for that, not just for raw speed, and
+    // `COUNTRY_RULE.fastestP2p` (`jtbdProfileMatrix.ts`) already carries
+    // this exact label for its own dropdown; restating it here keeps the
+    // card's own destination line and the tuning-carousel dropdown's
+    // default option agreeing on the same phrase.
+    countryLabel: "Fastest P2P country",
     freeRunnable: true,
     effectSentence:
-      "Use this and Proton VPN connects you to the fastest nearby country and applies the settings built to keep your game responsive.",
-    deltaSentence: "Everything above, plus the fastest nearby connection tuned to stay responsive.",
+      "Use this and Proton VPN connects you to the fastest P2P country and applies the settings built to keep your game responsive.",
+    deltaSentence: "Everything above, plus the fastest P2P connection tuned to stay responsive.",
     accent: ACCENT,
     icon: iconGaming,
   },
 
   downloading: {
+    id: "downloading",
     jtbd: "downloading",
     name: JTBD_PROFILE_LABEL.downloading,
     country: "Netherlands",
@@ -156,6 +182,7 @@ export const JTBD_PROFILES: Record<JtbdId, TunedProfile> = {
   },
 
   travel: {
+    id: "travel",
     jtbd: "travel",
     name: JTBD_PROFILE_LABEL.travel,
     country: null,
@@ -168,27 +195,57 @@ export const JTBD_PROFILES: Record<JtbdId, TunedProfile> = {
     icon: iconBusiness,
   },
 
-  privacy: {
+  /** `privacy` expands into these two rather than one — see `ProfileId`'s
+   * doc comment (`jtbdData.ts`) and `PROFILES_FOR_JTBD`. Both share
+   * `jtbd: "privacy"` (same tuning-result features, same illustration) and
+   * differ in which settings each one's card spotlights — see
+   * `PROFILE_MATRIX`/`PROFILE_BENEFITS` (`jtbdProfileMatrix.ts`) for the two
+   * distinct configurations backing that — AND, since Advanced routes
+   * through Secure Core, in destination: Daily is a fixed Switzerland
+   * connection, Advanced is a rule (`countryLabel` below) describing a
+   * behaviour rather than a place, same shape as Gaming's/Bypass's own
+   * rule-based destinations. */
+  "privacy-daily": {
+    id: "privacy-daily",
     jtbd: "privacy",
-    name: JTBD_PROFILE_LABEL.privacy,
+    name: "Daily privacy",
     country: "Switzerland",
     countryLabel: "Switzerland",
     freeRunnable: false,
     effectSentence:
-      "Use this and Proton VPN connects you through Switzerland and applies the strictest protection settings.",
-    deltaSentence: "Everything above, plus a Switzerland connection on the strictest settings.",
+      "Use this and Proton VPN connects you through Switzerland and blocks ads, trackers and malware while keeping your local devices reachable.",
+    deltaSentence: "Everything above, plus a Switzerland connection that blocks ads, trackers and malware.",
+    accent: ACCENT,
+    icon: iconPrivacyBadge,
+  },
+
+  "privacy-advanced": {
+    id: "privacy-advanced",
+    jtbd: "privacy",
+    name: "Advanced privacy",
+    country: null,
+    // Rule-based, not a fixed place — matches `COUNTRY_RULE.fastestSecureCore`
+    // (`jtbdProfileMatrix.ts`) and the sidebar's static "Maximum security"
+    // row (`CountryBrowser.tsx`), so a Secure Core destination reads the
+    // same everywhere it's described.
+    countryLabel: "Fastest Secure Core",
+    freeRunnable: false,
+    effectSentence:
+      "Use this and Proton VPN connects you through the fastest Secure Core country and applies the strictest protection settings.",
+    deltaSentence: "Everything above, plus a Secure Core connection on the strictest settings.",
     accent: ACCENT,
     icon: iconSecurity,
   },
 
   bypass: {
+    id: "bypass",
     jtbd: "bypass",
     name: JTBD_PROFILE_LABEL.bypass,
     country: null,
     countryLabel: "Fastest outside your country",
     freeRunnable: false,
     effectSentence:
-      "Use this and Proton VPN connects you to the fastest country outside your own and applies the settings that let your connection through networks that block VPNs.",
+      "Use this and Proton VPN connects you to the fastest country outside your own and disguises your traffic to get past networks that block VPNs.",
     deltaSentence: "Everything above, plus a connection outside your country that gets through networks that block VPNs.",
     accent: ACCENT,
     icon: iconAnticensorship,
@@ -212,10 +269,14 @@ export function isFreeRunnable(profile: TunedProfile): boolean {
   return FREE_TIER_COUNTRIES.includes(profile.country);
 }
 
-/** One `TunedProfile` per selected intent, in selection order — the same
- * ordering contract `buildProfilePreviews` follows. */
+/** One `TunedProfile` per selected intent — except `privacy`, which expands
+ * into its two (`PROFILES_FOR_JTBD`) — in selection order, intent-by-intent.
+ * `buildProfilePreviews` (`jtbdMerge.ts`) follows the same selection-order
+ * contract but does NOT expand privacy, since its pills are a lightweight,
+ * one-per-INTENT preview rather than a real profile list — the two purposely
+ * disagree on count for that one intent. */
 export function profilesForSelection(selectedJtbds: JtbdId[]): TunedProfile[] {
-  return selectedJtbds.map((jtbd) => JTBD_PROFILES[jtbd]);
+  return selectedJtbds.flatMap((jtbd) => PROFILES_FOR_JTBD[jtbd].map((id) => JTBD_PROFILES[id]));
 }
 
 /** The destination line for a generated sidebar profile. A Plus user's own

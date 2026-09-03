@@ -25,7 +25,7 @@ import IspRegulations from "../../imports/IspRegulations";
 import Identity from "../../imports/Identity";
 import P2P from "../../imports/P2P";
 import { CountryBrowser, CountryRow } from "./CountryBrowser";
-import type { JtbdId } from "../onboarding-v2/lib/jtbdData";
+import type { JtbdId, ProfileId } from "../onboarding-v2/lib/jtbdData";
 import type { SessionPlan } from "../lib/sessionPlan";
 import searchSvgPaths from "../../imports/svg-m0k6r02h9x";
 
@@ -522,7 +522,7 @@ export function ISPRegulationsPanel({
   sessionPlan = "plus",
   countriesTabFocusKey = 0,
   profilesSectionRef,
-  connectedProfileJtbd = null,
+  connectedProfileId = null,
   onProfileConnect,
 }: {
   externalSelectedCountry?: string | null;
@@ -550,9 +550,9 @@ export function ISPRegulationsPanel({
   profilesSectionRef?: React.Ref<HTMLDivElement>;
   /** `App.tsx`'s live profile-connection identity — forwarded so a sidebar
    * profile row can tell whether IT is the currently-connected one. */
-  connectedProfileJtbd?: JtbdId | null;
+  connectedProfileId?: ProfileId | null;
   /** Fired when a sidebar profile row's "Connect"/"Disconnect" is clicked. */
-  onProfileConnect?: (jtbd: JtbdId) => void;
+  onProfileConnect?: (profileId: ProfileId) => void;
 } = {}) {
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
 
@@ -601,7 +601,7 @@ export function ISPRegulationsPanel({
           sessionPlan={sessionPlan}
           countriesTabFocusKey={countriesTabFocusKey}
           profilesSectionRef={profilesSectionRef}
-          connectedProfileJtbd={connectedProfileJtbd}
+          connectedProfileId={connectedProfileId}
           onProfileConnect={onProfileConnect}
         />
       ) : (

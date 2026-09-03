@@ -14,7 +14,13 @@ export interface UpsellProfilePair {
 }
 
 export interface UpsellProfilesData {
-  /** One profile per selected intent, in selection order. */
+  /** One profile per selected intent, in selection order — except `privacy`,
+   * which contributes two (`ProfileId`/`PROFILES_FOR_JTBD`, `jtbdData.ts`).
+   * Both privacy profiles share the same `byJtbd` bucket below (keyed by
+   * `JtbdId`, not by profile), so a Plus feature attributed to `privacy`
+   * pairs with BOTH of its cards rather than arbitrarily picking one —
+   * correct, since either card is equally "the reason" a feature from that
+   * pick made the ranked list. */
   profiles: TunedProfile[];
   /** The same profiles, each carrying the features it contributed. */
   pairs: UpsellProfilePair[];

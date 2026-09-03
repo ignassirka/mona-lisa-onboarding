@@ -16,6 +16,8 @@ interface UpsellCtaBlockProps {
    * own card, so the button doesn't repeat it. Pricing itself is always
    * `UPSELL_PRICING` — never invented per layout. */
   showPricingSubline?: boolean;
+  /** Secondary CTA label — defaults to "Continue free". */
+  continueLabel?: string;
   className?: string;
   variants?: Variants;
 }
@@ -34,6 +36,7 @@ export default function UpsellCtaBlock({
   onUpgrade,
   onContinueFree,
   showPricingSubline = true,
+  continueLabel = "Continue free",
   className = "",
   variants,
 }: UpsellCtaBlockProps) {
@@ -68,7 +71,7 @@ export default function UpsellCtaBlock({
         className="flex h-[38px] w-full items-center justify-center whitespace-nowrap rounded-[6px] border border-[rgba(255,255,255,0.2)] bg-transparent font-['Segoe_UI_Variable',sans-serif] text-[15px] font-semibold leading-[20px] text-[rgba(255,255,255,0.85)] transition-colors duration-150 hover:bg-[rgba(255,255,255,0.06)] hover:text-white active:scale-[0.98]"
         style={{ fontVariationSettings: "'opsz' 12" }}
       >
-        Continue free
+        {continueLabel}
       </button>
     </motion.div>
   );

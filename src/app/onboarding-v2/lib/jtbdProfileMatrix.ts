@@ -1,17 +1,19 @@
-import type { JtbdId } from "./jtbdData";
+import type { JtbdId, ProfileId } from "./jtbdData";
 import { JTBD_TUNING_RESULT } from "./jtbdTuningResult";
 import { OFF_TOOLTIP } from "./jtbdProfileConfig";
-// Per-intent card artwork for the "Profiles carousel v2" concept. Portrait
-// crops (600x980) of the branded illustration set, deliberately NOT the
+// Per-profile card artwork for the "Profiles carousel v2" concept and every
+// consumer that shares its full-bleed portrait cards (upsell, welcome, …).
+// Portrait branded illustrations (941×1672), deliberately NOT the
 // `profile-photo-*.jpg` photography v1 and Profile-first use: v2's card is
 // the artwork edge to edge at nearly twice the height, which needs a
 // composed, vertical, brand-coloured image rather than a landscape photo.
-import photoPrivacy from "../assets/profile-card-privacy.jpg";
-import photoStreaming from "../assets/profile-card-streaming.jpg";
-import photoDownloading from "../assets/profile-card-downloading.jpg";
-import photoGaming from "../assets/profile-card-gaming.jpg";
-import photoTravel from "../assets/profile-card-travel.jpg";
-import photoBypass from "../assets/profile-card-bypass.jpg";
+import photoStreaming from "../assets/profile-card-streaming.png";
+import photoDownloading from "../assets/profile-card-downloading.png";
+import photoGaming from "../assets/profile-card-gaming.png";
+import photoTravel from "../assets/profile-card-travel.png";
+import photoBypass from "../assets/profile-card-bypass.png";
+import photoPrivacyDaily from "../assets/profile-card-privacy-daily.png";
+import photoPrivacyAdvanced from "../assets/profile-card-privacy-advanced.png";
 
 /** **Authored prototype data, owned by Profiles carousel v2 alone.**
  *
@@ -31,10 +33,13 @@ import photoBypass from "../assets/profile-card-bypass.jpg";
  *   the two disagree (this matrix: Smart, Smart, Stealth — the tuning step:
  *   WireGuard UDP, WireGuard UDP, Smart). See `PROTOCOL_TOOLTIP` below for
  *   how the explanation stays correct despite that.
- * - **Destinations** differ from `JTBD_PROFILES`' own `country` for three
- *   intents: Privacy (fastest country here, Switzerland there), Downloading
- *   (fastest P2P country / Netherlands) and Travel (United Kingdom /
- *   fastest country). Only Streaming's United States agrees outright.
+ * - **Destinations** differ from `JTBD_PROFILES`' own `country` for Daily
+ *   privacy (fastest country here, Switzerland there) and for two other
+ *   intents: Downloading (fastest P2P country / Netherlands) and Travel
+ *   (United Kingdom / fastest country). Gaming's own `countryLabel` was
+ *   updated to match this table's `COUNTRY_RULE.fastestP2p`, and Advanced
+ *   privacy's to match `COUNTRY_RULE.fastestSecureCore`, rather than left to
+ *   diverge. Only Streaming's United States agrees outright.
  *
  * `customDns` and `connectAndGo` are recorded so this file is the complete
  * matrix, but nothing renders them: Custom DNS is Off for all six, so a row
@@ -63,19 +68,48 @@ export const COUNTRY_RULE = {
   fastest: "rule:fastest",
   fastestP2p: "rule:fastest-p2p",
   fastestOutside: "rule:fastest-outside",
+  fastestSecureCore: "rule:fastest-secure-core",
 } as const;
 
 /** The rule entries every v2 card's dropdown offers, above the country list.
- * Same three on every card — only the DEFAULT differs per profile, so a user
- * who wants "fastest P2P" on the Streaming card can still pick it. */
+ * Same four on every card — only the DEFAULT differs per profile, so a user
+ * who wants "fastest P2P" on the Streaming card (or "Fastest Secure Core" on
+ * any other) can still pick it. */
 export const COUNTRY_RULE_OPTIONS: readonly { id: string; label: string }[] = [
   { id: COUNTRY_RULE.fastest, label: "Fastest country" },
   { id: COUNTRY_RULE.fastestP2p, label: "Fastest P2P country" },
   { id: COUNTRY_RULE.fastestOutside, label: "Fastest (excluding my country)" },
+  { id: COUNTRY_RULE.fastestSecureCore, label: "Fastest Secure Core" },
 ];
 
-export const PROFILE_MATRIX: Record<JtbdId, ProfileMatrixEntry> = {
-  privacy: {
+export const PROFILE_MATRIX: Record<ProfileId, ProfileMatrixEntry> = {
+  /** The lighter of the two privacy profiles: a standard (not Secure Core)
+   * connection, so it costs nothing extra in speed, with NetShield on for
+   * everyday ad/tracker/malware blocking and Allow LAN on so local devices
+   * (printers, a NAS, casting) stay reachable while it's active — the
+   * profile for "protect my everyday browsing without giving anything up". */
+  "privacy-daily": {
+    connectionType: "Standard",
+    protocol: "Smart",
+    netShield: "On",
+    portForwarding: "Off",
+    customDns: "Off",
+    allowLan: "On",
+    natType: "Strict",
+    country: COUNTRY_RULE.fastest,
+    connectAndGo: null,
+  },
+  /** The stricter of the two: Secure Core's second-hop routing, NetShield,
+   * and Allow LAN OFF — this profile's whole pitch is refusing local
+   * network access too, not just outside traffic — so it's the one that
+   * spotlights "Block LAN" as a feature rather than an inherited default;
+   * see `BLOCK_LAN_SPOTLIGHT` below. Byte-for-byte the original single
+   * `privacy` entry's values, since Advanced is what that profile always
+   * was before Daily existed alongside it — except its country, which now
+   * follows its own Secure Core connection type rather than plain
+   * "fastest" (`COUNTRY_RULE.fastestSecureCore`, matching
+   * `JTBD_PROFILES["privacy-advanced"]`'s `countryLabel`). */
+  "privacy-advanced": {
     connectionType: "Secure Core",
     protocol: "Smart",
     netShield: "On",
@@ -83,7 +117,7 @@ export const PROFILE_MATRIX: Record<JtbdId, ProfileMatrixEntry> = {
     customDns: "Off",
     allowLan: "Off",
     natType: "Strict",
-    country: COUNTRY_RULE.fastest,
+    country: COUNTRY_RULE.fastestSecureCore,
     connectAndGo: null,
   },
   streaming: {
@@ -116,7 +150,9 @@ export const PROFILE_MATRIX: Record<JtbdId, ProfileMatrixEntry> = {
     customDns: "Off",
     allowLan: "On",
     natType: "Moderate",
-    country: COUNTRY_RULE.fastest,
+    // Fastest P2P country, not plain "fastest" — see `JTBD_PROFILES.gaming`'s
+    // `countryLabel` comment (`jtbdProfiles.ts`) for why the two must agree.
+    country: COUNTRY_RULE.fastestP2p,
     connectAndGo: "your game",
   },
   travel: {
@@ -149,9 +185,9 @@ export const PROFILE_MATRIX: Record<JtbdId, ProfileMatrixEntry> = {
 
 /** The country dropdown's starting value per profile — the matrix's
  * Server/Country column, derived rather than restated. */
-export const PROFILE_COUNTRY_DEFAULT: Record<JtbdId, string> = Object.fromEntries(
-  Object.entries(PROFILE_MATRIX).map(([jtbd, m]) => [jtbd, m.country]),
-) as Record<JtbdId, string>;
+export const PROFILE_COUNTRY_DEFAULT: Record<ProfileId, string> = Object.fromEntries(
+  Object.entries(PROFILE_MATRIX).map(([id, m]) => [id, m.country]),
+) as Record<ProfileId, string>;
 
 /** A dropdown value as the app's exit needs it: a country NAME, or `null`
  * when the pick is a rule. The distinction matters at the exit — pinning
@@ -223,8 +259,8 @@ const MATRIX_TOOLTIP = {
  * form a settings list needs it, tooltips and all, and the Free card's own
  * disclosure is the next thing due the same rework — rebuilding the
  * value-and-tooltip derivation from scratch then would be the waste. */
-export function profileMatrixRows(jtbd: JtbdId): ProfileMatrixRow[] {
-  const m = PROFILE_MATRIX[jtbd];
+export function profileMatrixRows(id: ProfileId): ProfileMatrixRow[] {
+  const m = PROFILE_MATRIX[id];
 
   const connectionTooltip =
     m.connectionType === "Secure Core"
@@ -259,64 +295,89 @@ export function profileMatrixRows(jtbd: JtbdId): ProfileMatrixRow[] {
   ];
 }
 
-/** What each profile's configuration is FOR, as exactly 3 benefit lines —
- * the Plus v2 card's hover disclosure, in place of the `profileMatrixRows`
- * value list.
+/** What each profile's configuration is FOR, as up to 3 benefit lines — the
+ * Plus v2 card's hover disclosure, in place of the `profileMatrixRows`
+ * value list. Seven entries now (five unchanged intents plus the two
+ * `privacy` splits), not six.
  *
  * The settings list said what changed; these say why it matters. A reviewer
- * hovering a card is deciding between six profiles, and "NAT type: Moderate"
+ * hovering a card is deciding between profiles, and "NAT type: Moderate"
  * only distinguishes them for someone who already knows what NAT is.
  *
  * **Every line is backed by a real `PROFILE_MATRIX` field**, noted after it.
  * That's the rule keeping this authored copy honest: no claim may rest on a
  * setting the matrix doesn't actually carry for that profile, and a matrix
  * edit means revisiting the lines that cite the field. NetShield is On for
- * all six, so where it made the cut its line is phrased per-intent rather
- * than repeated verbatim; on profiles with three stronger, more
+ * every profile, so where it made the cut its line is phrased per-intent
+ * rather than repeated verbatim; on profiles with three stronger, more
  * distinguishing settings it's the one dropped, since a value every profile
- * shares is the least useful thing a benefit line can say.
+ * shares is the least useful thing a benefit line can say. `privacy-daily`
+ * is the one exception to "exactly 3": it spotlights only 2 settings
+ * (NetShield, Allow LAN), and a 3rd invented line would break the "backed by
+ * a real field" rule rather than serve it — see its own note below.
  *
  * **Length is structural, not editorial.** The card's text column is 228px
  * next to the check glyph, so ~34 characters per line: keep every entry
  * under ~50 so it can't exceed two lines. Three two-line entries, the divider
  * and Streaming's logo row are what the 202px disclosure region affords —
  * see `CARD_H` in `CarouselCardV2.tsx`. */
-export const PROFILE_BENEFITS: Record<JtbdId, readonly string[]> = {
-  privacy: [
+export const PROFILE_BENEFITS: Record<ProfileId, readonly string[]> = {
+  /** Only 2 lines, not the usual 3 — Daily spotlights exactly 2 settings
+   * (NetShield, Allow LAN), and inventing a third to hit the usual count
+   * would be authoring a claim with no matrix field behind it, which is the
+   * one thing this list may never do. The disclosure region simply shows
+   * less, same as it would for any profile whose configuration doesn't
+   * stretch to a third distinguishing line. */
+  "privacy-daily": [
+    "Ads, trackers and malware blocked as you browse", // netShield: On
+    "Devices on your network stay reachable", // allowLan: On
+  ],
+  "privacy-advanced": [
     "Routed through a second server in a safe country", // connectionType: Secure Core
     "Ads, trackers and malware blocked as you browse", // netShield: On
-    "Nothing can reach your device from outside", // natType: Strict
+    "Your local network stays out of reach", // allowLan: Off
   ],
   streaming: [
-    "Fastest route to what's in the US library", // country: United States + protocol: Smart
+    "Fast, buffer-free streaming in 4K", // protocol: Smart
     "Ad and tracker blocking on every stream", // netShield: On
     "Casting to your TV keeps working", // allowLan: On
   ],
   downloading: [
-    "Servers built to handle large transfers", // connectionType: P2P
+    "P2P servers optimized to handle large transfers", // connectionType: P2P
     "Port forwarding for faster peer connections", // portForwarding: On
-    "Your local network stays out of reach", // allowLan: Off
+    "Block invasive ads, trackers and malware", // netShield: On
   ],
   gaming: [
-    "Moderate NAT so lobbies and voice chat connect", // natType: Moderate
-    "High-capacity servers on the fastest route", // connectionType: P2P + country: fastest
-    "Consoles on your network stay reachable", // allowLan: On
+    "Moderate NAT for hosting parties and voice chat", // natType: Moderate
+    "P2P servers optimized for gaming", // connectionType: P2P
+    "Devices on your network stay reachable", // allowLan: On
   ],
   travel: [
-    "Looks like ordinary traffic on strict networks", // protocol: Stealth
-    "Keeps your home country's sites and banking open", // country: United Kingdom
+    "Keep browsing safely on restricted Wi-Fi networks", // protocol: Stealth
+    "Moderate NAT keeps video calls clear and stable", // natType: Moderate
     "Other devices on shared Wi-Fi can't reach you", // allowLan: Off
   ],
   bypass: [
-    "Disguises VPN traffic so blocks don't catch it", // protocol: Stealth
-    "Connects outside your country automatically", // country: fastest-outside
-    "Printers and devices at home stay reachable", // allowLan: On
+    "Disguises traffic to bypass VPN restrictions", // protocol: Stealth
+    "Unblocks apps and sites you can't normally reach", // country: fastest-outside
+    "Freedom to reach any site or service, anywhere", // protocol: Stealth + country: fastest-outside
   ],
 };
 
 /** How many chips a card shows at most. Three is the layout's ceiling at
  * 280px wide (two rows of chips would push the title into the artwork). */
 const CHIP_CAP = 3;
+
+/** Profiles where an OFF `allowLan` is itself the point rather than merely
+ * the inherited untuned default — Advanced privacy's whole pitch is
+ * refusing local network access too, so it earns its own "Block LAN" chip.
+ * Every other profile with `allowLan: "Off"` (Downloading, Travel) is Off
+ * because that's what an untuned client already does, not because blocking
+ * it is a claim worth making — see `profileChips`'s own "DERIVED, never
+ * authored" rule, which this is the one deliberate, explicit exception to,
+ * scoped to a single named id rather than a blanket rule that would also
+ * start surfacing "Block LAN" on those two profiles' cards. */
+const BLOCK_LAN_SPOTLIGHT: ReadonlySet<ProfileId> = new Set(["privacy-advanced"]);
 
 /** The 2-3 chips on a card's default (un-hovered) face.
  *
@@ -327,29 +388,31 @@ const CHIP_CAP = 3;
  * the hover list underneath it — the failure mode a hand-authored chip list
  * walked straight into.
  *
- * NetShield ranks last precisely because the matrix has it On for all six:
- * a value every profile shares is the least useful thing a chip can say, so
- * it's the first to be dropped when a profile has four differences (Gaming). */
-export function profileChips(jtbd: JtbdId): string[] {
-  const m = PROFILE_MATRIX[jtbd];
+ * NetShield ranks last precisely because the matrix has it On for every
+ * profile: a value every profile shares is the least useful thing a chip
+ * can say, so it's the first to be dropped when a profile has four
+ * differences (Gaming). */
+export function profileChips(id: ProfileId): string[] {
+  const m = PROFILE_MATRIX[id];
 
   const candidates: (string | null)[] = [
     m.connectionType === "Secure Core" ? "Secure Core" : m.connectionType === "P2P" ? "P2P server" : null,
     m.protocol === "Stealth" ? "Stealth protocol" : null,
     m.portForwarding === "On" ? "Port forwarding" : null,
     m.natType === "Moderate" ? "Moderate NAT" : null,
-    m.allowLan === "On" ? "Allow LAN" : null,
+    m.allowLan === "On" ? "Allow LAN" : m.allowLan === "Off" && BLOCK_LAN_SPOTLIGHT.has(id) ? "Block LAN" : null,
     m.netShield === "On" ? "NetShield" : null,
   ];
 
   return candidates.filter((c): c is string => c !== null).slice(0, CHIP_CAP);
 }
 
-export const PROFILE_CARD_PHOTO: Record<JtbdId, string> = {
-  privacy: photoPrivacy,
+export const PROFILE_CARD_PHOTO: Record<ProfileId, string> = {
   streaming: photoStreaming,
   downloading: photoDownloading,
   gaming: photoGaming,
   travel: photoTravel,
   bypass: photoBypass,
+  "privacy-daily": photoPrivacyDaily,
+  "privacy-advanced": photoPrivacyAdvanced,
 };

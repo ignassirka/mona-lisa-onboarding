@@ -72,7 +72,7 @@ export default function ProfilesCarouselV2Concept({
             {profiles.map((profile, i) =>
               cardMounted[i] ? (
                 <MaterializingSlot
-                  key={profile.jtbd}
+                  key={profile.id}
                   stage={cardStages[i]}
                   reduced={reduced}
                   className="shrink-0 snap-start"

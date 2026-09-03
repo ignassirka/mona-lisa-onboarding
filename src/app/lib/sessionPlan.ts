@@ -1,4 +1,4 @@
-import type { JtbdId } from "../onboarding-v2/lib/jtbdData";
+import type { ProfileId } from "../onboarding-v2/lib/jtbdData";
 
 /** Distinguishes free vs. paid (VPN Plus) landing after onboarding completes. */
 export type SessionPlan = "free" | "plus";
@@ -32,6 +32,9 @@ export type OnboardingExitOptions = {
    * profile, until the user connects to something else by any other means
    * (a manual country pick, "Fastest", or disconnecting). Absent on every
    * other exit path, which have no single profile to attribute the
-   * connection to. */
-  connectedProfileJtbd?: JtbdId | null;
+   * connection to. `ProfileId`, not `JtbdId` — "Privacy and security" alone
+   * produces two profiles (`jtbdProfiles.ts`'s `ProfileId`/`JTBD_PROFILES`),
+   * so only a profile's own id can say WHICH of the two the user connected
+   * to; the intent it came from can't. */
+  connectedProfileId?: ProfileId | null;
 };

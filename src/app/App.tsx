@@ -21,7 +21,7 @@ import OnboardingV2, {
 import { STAGE_SUPPORTS_TONE, TONE_OPTIONS, type ToneOfVoice } from "./onboarding-v2/lib/toneOfVoice";
 import { FAILURE_SIM_PRESETS } from "./onboarding-v2/lib/connectionSimulator";
 import { trackConnectionFailureEvent } from "./onboarding-v2/lib/analytics";
-import type { JtbdId, SelectionMode } from "./onboarding-v2/lib/jtbdData";
+import type { JtbdId, ProfileId, SelectionMode } from "./onboarding-v2/lib/jtbdData";
 import { resolveVpnDestination } from "./onboarding-v2/lib/server";
 import { JTBD_PROFILES } from "./onboarding-v2/lib/jtbdProfiles";
 import MakeYoursModal from "./components/MakeYoursModal";
@@ -387,8 +387,9 @@ function AppInner() {
    * drives the connection card's profile variant (icon + name in place of
    * the flag) for exactly that connection. Cleared by any other way of
    * connecting/disconnecting, so it never survives past the connection it
-   * describes. */
-  const [connectedProfileJtbd, setConnectedProfileJtbd] = useState<JtbdId | null>(null);
+   * describes. `ProfileId`, not `JtbdId` — see `OnboardingExitOptions`'s
+   * `connectedProfileId` (`sessionPlan.ts`) for why. */
+  const [connectedProfileId, setConnectedProfileId] = useState<ProfileId | null>(null);
   const [physicalCountry, setPhysicalCountry] = useState("United Kingdom");
   const connectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const modalTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -480,7 +481,7 @@ function AppInner() {
   // Which "Upgrade to Plus" upsell content version is active (prototype
   // control) — independent from `resultLayout` (which only drives the
   // separate VPN Plus Welcome step).
-  const [upsellVariant, setUpsellVariant] = useState<UpsellVariant>("profiles-fan");
+  const [upsellVariant, setUpsellVariant] = useState<UpsellVariant>("profiles-hero-tabs");
   // Tone of voice for connection-stage copy (prototype control)
   const [tone, setTone] = useState<ToneOfVoice>("straightforward");
   // "Selection" prototype control (prototype-only, tuning stage) — defaults
@@ -582,7 +583,7 @@ function AppInner() {
     // profile connection, even if the last one was — otherwise the card
     // would keep showing a stale profile's icon and name after the user
     // picked an unrelated country by hand.
-    setConnectedProfileJtbd(null);
+    setConnectedProfileId(null);
     setVpnStatus("connecting");
     connectTimerRef.current = setTimeout(() => setVpnStatus("protected"), 3000);
   }, []);
@@ -596,17 +597,17 @@ function AppInner() {
   // country") falls through to `resolveVpnDestination(null)` — this
   // prototype's one simulated "fastest" server, the same one Free's
   // fastest-country connect and onboarding's own "Fastest" pick already
-  // resolve to. Sets `connectedProfileJtbd` (unlike `handleConnect`, which
+  // resolve to. Sets `connectedProfileId` (unlike `handleConnect`, which
   // deliberately clears it) so the connection card identifies this
-  // connection by the profile, per the existing `connectedProfileJtbd`
+  // connection by the profile, per the existing `connectedProfileId`
   // contract `handleEnterApp`'s carousel-Connect exit already established.
-  const handleProfileConnect = useCallback((jtbd: JtbdId) => {
-    const profile = JTBD_PROFILES[jtbd];
+  const handleProfileConnect = useCallback((profileId: ProfileId) => {
+    const profile = JTBD_PROFILES[profileId];
     const destinationCountry = profile.country && onboardingCountry ? onboardingCountry : profile.country;
     const { country } = resolveVpnDestination(destinationCountry);
     if (connectTimerRef.current) clearTimeout(connectTimerRef.current);
     setConnectedCountry(country);
-    setConnectedProfileJtbd(jtbd);
+    setConnectedProfileId(profileId);
     setVpnStatus("connecting");
     connectTimerRef.current = setTimeout(() => setVpnStatus("protected"), 3000);
   }, [onboardingCountry]);
@@ -648,7 +649,7 @@ function AppInner() {
     if (connectTimerRef.current) clearTimeout(connectTimerRef.current);
     setVpnStatus("unprotected");
     setConnectedCountry(null);
-    setConnectedProfileJtbd(null);
+    setConnectedProfileId(null);
   }, []);
 
   // Called when the window chrome's "X" is clicked mid-onboarding — closes
@@ -703,11 +704,11 @@ function AppInner() {
       // "Fastest country" fallback for `null`/`undefined`); reuse it here
       // instead of re-deriving or hardcoding a destination.
       setConnectedCountry(resolveVpnDestination(options.selectedCountry).country);
-      setConnectedProfileJtbd(options.connectedProfileJtbd ?? null);
+      setConnectedProfileId(options.connectedProfileId ?? null);
     } else {
       setVpnStatus("unprotected");
       setConnectedCountry(null);
-      setConnectedProfileJtbd(null);
+      setConnectedProfileId(null);
       setSelectedCountry(null);
     }
     setShowEntrance(true);
@@ -795,8 +796,8 @@ function AppInner() {
             onSelectMapLayer={handleSelectLayer}
             vpnStatus={vpnStatus}
             connectedCountry={connectedCountry}
-            connectedProfileName={connectedProfileJtbd ? JTBD_PROFILES[connectedProfileJtbd].name : null}
-            connectedProfileIcon={connectedProfileJtbd ? JTBD_PROFILES[connectedProfileJtbd].icon : null}
+            connectedProfileName={connectedProfileId ? JTBD_PROFILES[connectedProfileId].name : null}
+            connectedProfileIcon={connectedProfileId ? JTBD_PROFILES[connectedProfileId].icon : null}
             onConnect={handleConnect}
             onDisconnect={handleDisconnect}
             physicalCountry={physicalCountry}
@@ -843,7 +844,7 @@ function AppInner() {
             sessionPlan={sessionPlan}
             countriesTabFocusKey={countriesTabFocusKey}
             profilesSectionRef={profilesSectionRef}
-            connectedProfileJtbd={connectedProfileJtbd}
+            connectedProfileId={connectedProfileId}
             onProfileConnect={handleProfileConnect}
           />
           <div

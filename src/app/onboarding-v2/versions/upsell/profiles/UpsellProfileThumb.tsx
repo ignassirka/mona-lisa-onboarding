@@ -30,7 +30,7 @@ export default function UpsellProfileThumb({ profile }: { profile: TunedProfile 
       className="relative shrink-0 overflow-hidden rounded-[10px] bg-[#0b0912]"
       style={{ width: UPSELL_THUMB_W, height: UPSELL_THUMB_H, boxShadow: RIM }}
     >
-      <img src={PROFILE_CARD_PHOTO[profile.jtbd]} alt="" className="absolute inset-0 size-full object-cover" />
+      <img src={PROFILE_CARD_PHOTO[profile.id]} alt="" className="absolute inset-0 size-full object-cover" />
       <div className="absolute inset-0 bg-gradient-to-t from-[rgba(8,6,14,0.9)] via-[rgba(8,6,14,0.15)] to-[rgba(8,6,14,0.45)]" />
 
       <div className="absolute inset-x-0 bottom-0 px-[8px] pb-[7px]">

@@ -6,6 +6,46 @@ export type JtbdId =
   | "streaming"
   | "bypass";
 
+/** The identity of a GENERATED profile card — distinct from `JtbdId`, the
+ * identity of a SELECTABLE intent. Every intent still produces at least one
+ * profile, and five of the six still produce exactly one whose id is
+ * literally their own `JtbdId` — but "Privacy and security" produces TWO
+ * ("Daily privacy", "Advanced privacy"), which is the one case a profile's
+ * identity can't be its originating intent's id, since two profiles would
+ * collide on it (as a `Record` key, a React list key, and a "which one is
+ * currently connected" identity — see `PROFILES_FOR_JTBD`,
+ * `jtbdProfiles.ts`'s `JTBD_PROFILES`/`profilesForSelection`, and
+ * `App.tsx`'s `connectedProfileId`). Every profile-card-level table
+ * (`PROFILE_MATRIX`, `PROFILE_BENEFITS`, hover subtitles, …) is keyed by
+ * this type now, not `JtbdId`. `PROFILE_CARD_PHOTO` is keyed here too
+ * (Daily and Advanced privacy each have their own artwork). `JTBD_ICONS`
+ * stays keyed by `JtbdId` for the grid picker and tuned-result header;
+ * profile cards use `PROFILE_CARD_ICON` instead (Travel → Business,
+ * Advanced privacy → Security). */
+export type ProfileId =
+  | "downloading"
+  | "travel"
+  | "gaming"
+  | "streaming"
+  | "bypass"
+  | "privacy-daily"
+  | "privacy-advanced";
+
+/** Which profile id(s) a selected intent expands into, in the order its
+ * cards should appear. The one-to-many entry (`privacy`) is the only reason
+ * this map exists rather than every caller assuming `[jtbd as ProfileId]` —
+ * see `profilesForSelection`, the sole place selection order and this
+ * expansion combine into the profile list every concept/upsell/sidebar
+ * consumer renders. */
+export const PROFILES_FOR_JTBD: Record<JtbdId, readonly ProfileId[]> = {
+  downloading: ["downloading"],
+  travel: ["travel"],
+  privacy: ["privacy-daily", "privacy-advanced"],
+  gaming: ["gaming"],
+  streaming: ["streaming"],
+  bypass: ["bypass"],
+};
+
 /** The "Selection" prototype control (`App.tsx`) — `"single"` (default) is
  * the stage's entire pre-existing behavior, untouched; `"multiple"` lets the
  * picker select 1–6 JTBDs and merges their free tunes + previews a profile
@@ -56,25 +96,30 @@ export const JTBD_CONTINUE_LABEL: Record<JtbdId, string> = {
   privacy: "Set up for privacy",
   gaming: "Set up for gaming",
   streaming: "Set up for streaming",
-  bypass: "Set up for access",
+  // Kept in sync with `JTBD_PROFILE_LABEL.bypass` below — see its comment.
+  bypass: "Set up for bypassing",
 };
 
 /** Top-right exit on the JTBD grid picker — skips setup/upsell and lands
  * in the main app on the free tier. Constant across all tones. */
 export const JTBD_GO_TO_APP_LABEL = "Go to app directly";
 
-/** Short, capitalized preview label per JTBD — used ONLY by Multiple-mode's
+/** Short, capitalized preview label per JTBD — used by Multiple-mode's
  * profile-preview bridge (`lib/jtbdMerge.ts`) as the one-tap "profile name"
- * shown per selected intent. Matches the project's existing short-form
- * mapping (`bypass` → "Access", same word `JTBD_CONTINUE_LABEL.bypass`
- * already uses) rather than inventing new naming. */
+ * shown per selected intent, by the sidebar's generic/pre-onboarding default
+ * profile row (`CountryBrowser.tsx`), and by five of `JTBD_PROFILES`' six
+ * profile-card names (`jtbdProfiles.ts`) — every one except `privacy`, which
+ * produces TWO differently-named cards ("Daily privacy"/"Advanced privacy")
+ * and so can't be this single lookup for either. `bypass` → "Bypassing"
+ * (renamed from "Access"), kept in sync with `JTBD_CONTINUE_LABEL.bypass`
+ * above so the CTA and every preview/card label agree on the same word. */
 export const JTBD_PROFILE_LABEL: Record<JtbdId, string> = {
   downloading: "Downloading",
   travel: "Travel",
   privacy: "Privacy",
   gaming: "Gaming",
   streaming: "Streaming",
-  bypass: "Access",
+  bypass: "Bypassing",
 };
 
 type CountryCopy = Record<JtbdId, string>;

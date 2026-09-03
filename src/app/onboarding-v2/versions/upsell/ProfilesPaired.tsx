@@ -39,7 +39,7 @@ const itemVariants: Variants = {
  * they wouldn't be readable inside the card — and out here they're doing more
  * work anyway, since they're the only place this row states settings. */
 function PairedRow({ pair, variants }: { pair: UpsellProfilePair; variants: Variants }) {
-  const chips = profileChips(pair.profile.jtbd);
+  const chips = profileChips(pair.profile.id);
 
   return (
     <motion.div
@@ -164,7 +164,7 @@ export default function ProfilesPaired({ jtbdKey, selectionMode = "single", sele
 
           <div className="flex flex-col gap-[8px]">
             {rows.map((pair) => (
-              <PairedRow key={pair.profile.jtbd} pair={pair} variants={itemVariants} />
+              <PairedRow key={pair.profile.id} pair={pair} variants={itemVariants} />
             ))}
           </div>
 
@@ -183,7 +183,7 @@ export default function ProfilesPaired({ jtbdKey, selectionMode = "single", sele
             <motion.div variants={itemVariants} className="flex items-center gap-[10px]">
               <div className="flex gap-[6px]">
                 {strip.map((pair) => (
-                  <UpsellProfileThumb key={pair.profile.jtbd} profile={pair.profile} />
+                  <UpsellProfileThumb key={pair.profile.id} profile={pair.profile} />
                 ))}
               </div>
               <span className="min-w-0 font-['Segoe_UI_Variable',sans-serif] text-[13px] leading-[18px] text-[rgba(255,255,255,0.7)]">

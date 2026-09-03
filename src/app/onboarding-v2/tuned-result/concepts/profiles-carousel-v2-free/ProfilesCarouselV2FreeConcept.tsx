@@ -140,7 +140,7 @@ export default function ProfilesCarouselV2FreeConcept({
               <CarouselTrack reduced={reduced} label={C.carouselLabel}>
                 {profiles.map((profile, i) => (
                   <FreeProfileCard
-                    key={profile.jtbd}
+                    key={profile.id}
                     profile={profile}
                     reduced={reduced}
                     // Left to right, so the group's one freshness sweep reads

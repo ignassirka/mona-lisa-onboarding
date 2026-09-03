@@ -1,4 +1,3 @@
-import { mergeFreeSettings } from "../lib/jtbdMerge";
 import type { JtbdId } from "../lib/jtbdData";
 
 /** Content for the Free path of the "Minimal list" tuning concept
@@ -10,11 +9,10 @@ import type { JtbdId } from "../lib/jtbdData";
  * data:
  *
  * 1. The Free minimal list shows **Protocol and Auto Connect**, not Protocol
- *    and Kill Switch. Protocol still comes from `JTBD_TUNING_RESULT` (via
- *    `mergeFreeSettings`, so its per-intent value, conflict resolution and
- *    tone-voiced sentence are all the shared ones); Auto Connect is a real
- *    Proton VPN setting that the shared data never modelled, so its copy
- *    lives here.
+ *    and Kill Switch. Protocol is always **Smart** on this path — the same
+ *    default every free user gets — with a single static outcome sentence;
+ *    Auto Connect is a real Proton VPN setting that the shared data never
+ *    modelled, so its copy lives here.
  * 2. Below the two settings sit the **value claims** — things that are
  *    already true of the plan, not settings anything just changed. They
  *    deliberately carry no settings chip, because there is no setting
@@ -44,21 +42,13 @@ export interface FreeMinimalContent {
   claims: FreeMinimalClaim[];
 }
 
-/** Protocol's outcome sentence, keyed by its VALUE rather than by intent
- * `[UPDATED]` — it used to be the shared, tone-voiced, per-intent sentence
- * (`toneOutcome`); now it's static and generic, chosen purely by which
- * value `mergeFreeSettings` resolved to, since what each value actually
- * DOES doesn't change based on which intent picked it (same reasoning
- * `AUTO_CONNECT_OUTCOME` below already applies). `"WireGuard UDP"` isn't
- * one of the two values called out at checkpoint (Smart/Stealth), but it's
- * a real, reachable value here (gaming and streaming both resolve to it via
- * `JTBD_TUNING_RESULT`), so it gets the same treatment rather than being
- * left to silently render `undefined`. */
-const PROTOCOL_OUTCOME: Record<string, string> = {
-  Smart: "Automatically picks the best way to connect for your network",
-  Stealth: "Hides your VPN connection, so networks that block VPNs let it through",
-  "WireGuard UDP": "Uses the fastest way to connect, built for speed and low latency",
-};
+/** Protocol on the Free minimal list — always Smart, regardless of which
+ * intents were selected. Free tuning doesn't expose Stealth/WireGuard UDP
+ * as the applied protocol here; the row states the default connection mode. */
+const PROTOCOL_VALUE = "Smart";
+const PROTOCOL_OUTCOME = "Auto-selects the best protocol for your connection";
+const PROTOCOL_TOOLTIP =
+  "A VPN protocol determines how data moves between a VPN server and your device.";
 
 /** Auto Connect on this path is a single on/off toggle — the chip always
  * reads `"On"`. Unlike Protocol (and unlike this same setting's earlier,
@@ -118,10 +108,7 @@ const VALUE_CLAIMS: Record<JtbdId, FreeMinimalClaim> = {
  * this path are now static/generic rather than tone-voiced, so there's
  * nothing left here for a tone to vary.
  *
- * Protocol keeps the shared merge behaviour for its VALUE — `mergeFreeSettings`
- * still resolves the per-intent value conflict ("strictest wins") — but its
- * outcome sentence now comes from `PROTOCOL_OUTCOME` keyed by that resolved
- * value, not from the earliest-selected contributor's tone-voiced sentence.
+ * Protocol is always Smart with a static outcome (see `PROTOCOL_OUTCOME`).
  * Auto Connect is likewise intent-constant (see `AUTO_CONNECT_OUTCOME`'s
  * own doc).
  *
@@ -133,14 +120,12 @@ const VALUE_CLAIMS: Record<JtbdId, FreeMinimalClaim> = {
  * compresses pacing once the row count gets large, so a long list at 6
  * intents doesn't run the intro any longer than the screen's ~12s budget. */
 export function buildFreeMinimalContent(selected: JtbdId[]): FreeMinimalContent {
-  const protocol = mergeFreeSettings(selected).find((f) => f.settingsName === "Protocol")!;
-
   const settings: FreeMinimalSetting[] = [
     {
-      settingsName: protocol.settingsName,
-      value: protocol.value,
-      outcome: PROTOCOL_OUTCOME[protocol.value] ?? protocol.outcome,
-      tooltip: protocol.tooltip ?? "",
+      settingsName: "Protocol",
+      value: PROTOCOL_VALUE,
+      outcome: PROTOCOL_OUTCOME,
+      tooltip: PROTOCOL_TOOLTIP,
       narration: "Selecting protocol…",
     },
     {

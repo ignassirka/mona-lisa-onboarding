@@ -8,21 +8,13 @@ import UpsellCtaBlock from "./lib/UpsellCtaBlock";
 import UpsellSubtitle from "./lib/UpsellSubtitle";
 import InfoTooltip from "./lib/InfoTooltip";
 import StreamingLogos from "./lib/StreamingLogos";
+import { USP_ICONS } from "./lib/UpsellTrustRow";
 import { UPSELL_VERSIONS_COPY } from "../../lib/upsellVersionsCopy";
 import { UPSELL_VERSION_TIMING } from "./timing";
 import checkmarkUrl from "../../assets/checkmark-circle-filled.svg";
-import uspOpenSource from "../../assets/usp-open-source.svg";
-import uspSwissBased from "../../assets/usp-swiss-based.svg";
-import uspNoLogs from "../../assets/usp-no-logs.svg";
 import type { UpsellVersionProps } from "./types";
 
 export const VALUE_STACK_VERSION = "value-stack";
-
-const USP_ICONS: Record<string, string> = {
-  "usp-open-source": uspOpenSource,
-  "usp-swiss-based": uspSwissBased,
-  "usp-no-logs": uspNoLogs,
-};
 
 const containerVariants: Variants = {
   hidden: { opacity: 0 },

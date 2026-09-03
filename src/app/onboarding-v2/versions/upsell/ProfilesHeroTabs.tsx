@@ -1,17 +1,14 @@
 import { useState } from "react";
-import * as Tooltip from "@radix-ui/react-tooltip";
 import { AnimatePresence, motion, type Variants } from "motion/react";
+import ProfileIconTile from "../../tuned-result/concepts/profiles-carousel-v2/ProfileIconTile";
 import { useReducedMotion } from "../lib/useReducedMotion";
-import { useUpsellContent } from "./useUpsellContent";
 import { useUpsellProfiles } from "./profiles/useUpsellProfiles";
 import { useTrackUpsellView } from "./lib/useTrackUpsellView";
 import UpsellBackButton from "./lib/UpsellBackButton";
 import UpsellCtaBlock from "./lib/UpsellCtaBlock";
-import UpsellSubtitle from "./lib/UpsellSubtitle";
-import StreamingLogos from "./lib/StreamingLogos";
 import UpsellProfileCard, { UPSELL_CARD_TALL_H, UPSELL_CARD_W } from "./profiles/UpsellProfileCard";
-import UpsellBenefitRow from "./profiles/UpsellBenefitRow";
-import { JTBD_ICONS } from "../lib/jtbdIcons";
+import UpsellStaticFeatureRow, { PROFILES_HERO_TABS_FEATURE_COUNT } from "./profiles/UpsellStaticFeatureRow";
+import UpsellHeroMark from "./profiles/UpsellHeroMark";
 import { UPSELL_VERSIONS_COPY } from "../../lib/upsellVersionsCopy";
 import { UPSELL_VERSION_TIMING } from "./timing";
 import type { UpsellVersionProps } from "./types";
@@ -19,6 +16,11 @@ import type { UpsellVersionProps } from "./types";
 export const PROFILES_HERO_TABS_VERSION = "profiles-hero-tabs";
 
 const C = UPSELL_VERSIONS_COPY.profilesCombined;
+
+/** Wider than `UPSELL_CARD_W` (280) so a 6–7 pick tab strip fits in at
+ * most three rows beneath the card — the card stays 280; the tab row gains
+ * a little extra room without the panel reading as an empty margin beside it. */
+const PANEL_W = 360;
 
 const containerVariants: Variants = {
   hidden: { opacity: 0 },
@@ -35,8 +37,12 @@ const itemVariants: Variants = {
 
 /** Combined upsell — "Hero card & tabs".
  *
- * One profile at full height as the screen's dominant object, the rest as a tab
- * strip beneath it, and the ranked Plus features in a column beside it.
+ * Static Plus features on the LEFT, one profile at full height as the
+ * screen's dominant object on the RIGHT, with a tab strip beneath it to switch
+ * between the rest. (Swapped from this layout's first version, which put the
+ * hero on the left — reading order then put the personal object before the
+ * offer it's illustrating; features-first matches every other layout in this
+ * family, none of which lead with the profile column on the left.)
  *
  * The reason this layout exists rather than showing all the profiles at once:
  * every "show them all" arrangement degrades at one end of the selection range
@@ -47,16 +53,23 @@ const itemVariants: Variants = {
  * which is a strip, not a crowd. Focus is the second reason: one card at full
  * size is a more desirable object than three at 60%.
  *
- * The features keep their bordered `"card"` register here, because the profile
- * and the features occupy separate columns rather than stacking — nothing is
- * competing for the same vertical run, so there's no need to demote them.
+ * **The tabs sit below the card, not above it.** Reading order goes
+ * count-and-claim → the hero object → the switcher beneath it, so a person
+ * sees the profile first and picks another from the strip under what they're
+ * already looking at. A one-line intro (`tabsIntro`) stays above the card
+ * stating the count, the Plus unlock, and the personalization claim once —
+ * `You'll also be able to use n personalized profile(s) with Plus features,
+ * built around what you do online`.
  *
- * The 3D product render is deliberately absent. This layout already has a large
- * personal hero, and adding the generic one beside it would put two competing
- * heroes on one screen. The band and paired layouts keep it, where the top edge
- * is free. */
+ * The features on the left are a **static** four-item list (countries,
+ * speeds, devices, NetShield) with illustration assets — not the intent-ranked benefits
+ * other layouts pull from `useUpsellContent`. No borders, fills, or tooltips:
+ * the profile hero on the right already carries the visual weight.
+ *
+ * The 3D product render sits above the left-column headline — same mark and
+ * width as `profiles-band` — rather than beside the profile card, so the offer
+ * column carries a product anchor without competing with the profile hero. */
 export default function ProfilesHeroTabs({ jtbdKey, selectionMode = "single", selectedJtbds, onUpgrade, onContinueFree, onBack }: UpsellVersionProps) {
-  const { isStreaming, subtitle, benefits, everythingElse } = useUpsellContent(jtbdKey, selectionMode, selectedJtbds);
   const { profiles } = useUpsellProfiles(jtbdKey, selectionMode, selectedJtbds);
   const selectionCount = selectedJtbds?.length ?? 1;
   const reduced = useReducedMotion();
@@ -70,26 +83,64 @@ export default function ProfilesHeroTabs({ jtbdKey, selectionMode = "single", se
   const activeProfile = profiles[Math.min(active, profiles.length - 1)];
 
   return (
-    <div className="absolute inset-0 z-[1000] flex items-center justify-center overflow-y-auto bg-[#16141c] px-[40px] py-[44px]">
+    <div className="absolute inset-0 z-[1000] flex justify-center bg-[#16141c] px-[40px] py-[44px]">
       <UpsellBackButton version={PROFILES_HERO_TABS_VERSION} jtbdKey={jtbdKey} selectionMode={selectionMode} selectionCount={selectionCount} onBack={onBack} />
 
-      <Tooltip.Provider delayDuration={200}>
-        <motion.div
+      <motion.div
           initial={reduced ? undefined : "hidden"}
           animate={reduced ? undefined : "show"}
           variants={containerVariants}
-          className="flex w-full max-w-[900px] items-center gap-[40px]"
+          className="flex w-full max-w-[940px] items-stretch gap-[32px]"
         >
-          {/* LEFT — the hero profile and its tab strip */}
-          <motion.div variants={itemVariants} className="flex shrink-0 flex-col gap-[12px]" style={{ width: UPSELL_CARD_W }}>
+          {/* LEFT — the conversion rail, vertically centred in the app view. */}
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col justify-center gap-[14px] overflow-y-auto">
+            <UpsellHeroMark width={136} variants={itemVariants} />
+
+            <motion.div variants={itemVariants}>
+              <h1
+                className="font-['Segoe_UI_Variable',sans-serif] text-[24px] font-semibold leading-[30px] text-white"
+                style={{ fontVariationSettings: "'opsz' 24" }}
+              >
+                {UPSELL_VERSIONS_COPY.headline}
+              </h1>
+            </motion.div>
+
+            <div className="my-[16px] flex flex-col gap-[12px]">
+              {Array.from({ length: PROFILES_HERO_TABS_FEATURE_COUNT }, (_, i) => (
+                <UpsellStaticFeatureRow key={`static-feature-${i}`} index={i} variants={itemVariants} />
+              ))}
+            </div>
+
+            <UpsellCtaBlock
+              version={PROFILES_HERO_TABS_VERSION}
+              jtbdKey={jtbdKey}
+              selectionMode={selectionMode}
+              selectionCount={selectionCount}
+              onUpgrade={onUpgrade}
+              onContinueFree={onContinueFree}
+              showPricingSubline={false}
+              continueLabel="Continue with free"
+              variants={itemVariants}
+            />
+          </div>
+
+          <div className="w-px shrink-0 bg-[rgba(255,255,255,0.12)]" aria-hidden="true" />
+
+          {/* RIGHT — count-and-claim, the hero profile, then the tab strip
+              beneath it — object first, switcher second; centred vertically. */}
+          <motion.div variants={itemVariants} className="flex min-h-0 shrink-0 flex-col justify-center gap-[10px] overflow-y-auto" style={{ width: PANEL_W }}>
+            <p className="text-pretty font-['Segoe_UI_Variable',sans-serif] text-[13px] leading-[18px] text-[rgba(255,255,255,0.65)]">
+              {C.tabsIntro(profiles.length)}
+            </p>
+
             {activeProfile && (
               // `mode="wait"` would leave a hole the height of the card while
               // the outgoing one leaves; the cards are stacked in a fixed-height
               // box instead so the swap is a crossfade in place.
-              <div className="relative" style={{ height: UPSELL_CARD_TALL_H }}>
+              <div className="relative" style={{ width: UPSELL_CARD_W, height: UPSELL_CARD_TALL_H }}>
                 <AnimatePresence initial={false}>
                   <motion.div
-                    key={activeProfile.jtbd}
+                    key={activeProfile.id}
                     className="absolute inset-0"
                     initial={reduced ? undefined : { opacity: 0, scale: 0.98 }}
                     animate={reduced ? undefined : { opacity: 1, scale: 1 }}
@@ -106,26 +157,21 @@ export default function ProfilesHeroTabs({ jtbdKey, selectionMode = "single", se
             {profiles.length > 1 && (
               <div role="tablist" aria-label={C.tabsLabel} className="flex flex-wrap gap-[6px]">
                 {profiles.map((profile, i) => {
-                  const selected = profile.jtbd === activeProfile?.jtbd;
+                  const selected = profile.id === activeProfile?.id;
                   return (
                     <button
-                      key={profile.jtbd}
+                      key={profile.id}
                       type="button"
                       role="tab"
                       aria-selected={selected}
                       onClick={() => setActive(i)}
                       className={`flex items-center gap-[5px] rounded-[8px] border px-[8px] py-[5px] font-['Segoe_UI_Variable',sans-serif] text-[12px] font-semibold leading-[16px] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-white/40 ${
                         selected
-                          ? "border-[rgba(147,116,255,0.55)] bg-[rgba(109,74,255,0.18)] text-white"
-                          : "border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.03)] text-[rgba(255,255,255,0.65)] hover:border-[rgba(255,255,255,0.22)] hover:text-white"
+                          ? "border-white bg-white/12 text-white"
+                          : "border-[rgba(255,255,255,0.12)] bg-transparent text-[rgba(255,255,255,0.65)] hover:bg-white/10 hover:text-white"
                       }`}
                     >
-                      {/* The picker's own badge asset, scaled on its native
-                          2:3 ratio rather than reused via `ProfileIconTile` —
-                          that component is fixed at 36×54 for a card, and
-                          clipping it to tab size would show a corner of the
-                          badge instead of the badge. */}
-                      <img src={JTBD_ICONS[profile.jtbd]} alt="" aria-hidden="true" className="h-[14px] w-[21px] shrink-0 object-contain" />
+                      <ProfileIconTile profileId={profile.id} className="h-[18px] w-[27px]" />
                       {profile.name}
                     </button>
                   );
@@ -133,50 +179,7 @@ export default function ProfilesHeroTabs({ jtbdKey, selectionMode = "single", se
               </div>
             )}
           </motion.div>
-
-          {/* RIGHT — the conversion rail */}
-          <div className="flex min-w-0 flex-1 flex-col gap-[14px]">
-            <motion.div variants={itemVariants} className="flex flex-col gap-[4px]">
-              <h1
-                className="font-['Segoe_UI_Variable',sans-serif] text-[24px] font-semibold leading-[30px] text-white"
-                style={{ fontVariationSettings: "'opsz' 24" }}
-              >
-                {UPSELL_VERSIONS_COPY.headline}
-              </h1>
-              <UpsellSubtitle
-                subtitle={subtitle}
-                className="font-['Segoe_UI_Variable',sans-serif] text-[14px] leading-[19px] text-[rgba(255,255,255,0.7)]"
-              />
-            </motion.div>
-
-            {isStreaming && <StreamingLogos variants={itemVariants} />}
-
-            <div className="flex flex-col gap-[8px]">
-              {benefits.map((benefit, i) => (
-                <UpsellBenefitRow key={`benefit-${i}`} benefit={benefit} variants={itemVariants} />
-              ))}
-            </div>
-
-            <motion.p
-              variants={itemVariants}
-              className="font-['Segoe_UI_Variable',sans-serif] text-[12px] leading-[16px] text-[rgba(255,255,255,0.5)]"
-              style={{ fontFeatureSettings: '"rclt" 0' }}
-            >
-              {everythingElse}
-            </motion.p>
-
-            <UpsellCtaBlock
-              version={PROFILES_HERO_TABS_VERSION}
-              jtbdKey={jtbdKey}
-              selectionMode={selectionMode}
-              selectionCount={selectionCount}
-              onUpgrade={onUpgrade}
-              onContinueFree={onContinueFree}
-              variants={itemVariants}
-            />
-          </div>
         </motion.div>
-      </Tooltip.Provider>
     </div>
   );
 }

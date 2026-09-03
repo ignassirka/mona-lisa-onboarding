@@ -1,12 +1,12 @@
 import { motion } from "motion/react";
 import { JTBD_ICONS } from "../../../versions/lib/jtbdIcons";
-import type { JtbdId } from "../../../lib/jtbdData";
+import type { ProfileId } from "../../../lib/jtbdData";
 import type { TunedProfile } from "../../../lib/jtbdProfiles";
 
 interface ProfileTabsProps {
   profiles: TunedProfile[];
-  activeJtbd: JtbdId;
-  onSelect: (jtbd: JtbdId) => void;
+  activeProfileId: ProfileId;
+  onSelect: (profileId: ProfileId) => void;
   /** Ties each tab to the panel it controls, for assistive tech. */
   panelId: string;
   reduced: boolean;
@@ -24,7 +24,7 @@ const SCROLL_THRESHOLD = 4;
  *
  * The active pill travels between tabs via a shared `layoutId` rather than
  * fading in place, so the eye follows the selection instead of re-finding it. */
-export default function ProfileTabs({ profiles, activeJtbd, onSelect, panelId, reduced, label }: ProfileTabsProps) {
+export default function ProfileTabs({ profiles, activeProfileId, onSelect, panelId, reduced, label }: ProfileTabsProps) {
   const scrolls = profiles.length > SCROLL_THRESHOLD;
 
   return (
@@ -34,16 +34,16 @@ export default function ProfileTabs({ profiles, activeJtbd, onSelect, panelId, r
       className={`flex w-full items-stretch gap-[4px] ${scrolls ? "overflow-x-auto pb-[4px]" : ""}`}
     >
       {profiles.map((profile) => {
-        const active = profile.jtbd === activeJtbd;
+        const active = profile.id === activeProfileId;
         return (
           <button
-            key={profile.jtbd}
+            key={profile.id}
             type="button"
             role="tab"
-            id={`${panelId}-tab-${profile.jtbd}`}
+            id={`${panelId}-tab-${profile.id}`}
             aria-selected={active}
             aria-controls={panelId}
-            onClick={() => onSelect(profile.jtbd)}
+            onClick={() => onSelect(profile.id)}
             className={`relative flex min-w-0 items-center justify-center gap-[8px] rounded-[8px] px-[14px] pb-[9px] pt-[8px] outline-none transition-colors duration-150 focus-visible:ring-1 focus-visible:ring-white/40 ${
               scrolls ? "shrink-0" : "flex-1"
             } ${active ? "" : "hover:bg-[rgba(255,255,255,0.05)]"}`}

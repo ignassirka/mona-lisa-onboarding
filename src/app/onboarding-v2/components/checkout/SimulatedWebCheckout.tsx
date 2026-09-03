@@ -10,6 +10,9 @@ import ProfilesHeroTabs from "../../versions/upsell/ProfilesHeroTabs";
 import ProfilesBand from "../../versions/upsell/ProfilesBand";
 import ProfilesPaired from "../../versions/upsell/ProfilesPaired";
 import ProfilesFan from "../../versions/upsell/ProfilesFan";
+import FeaturesLedBand from "../../versions/upsell/FeaturesLedBand";
+import FeaturesLedPeek from "../../versions/upsell/FeaturesLedPeek";
+import FeaturesLedInline from "../../versions/upsell/FeaturesLedInline";
 import BrowserWindowChrome from "./BrowserWindowChrome";
 import CheckoutPage from "./CheckoutPage";
 import CheckoutSuccess from "./CheckoutSuccess";
@@ -47,7 +50,7 @@ export default function SimulatedWebCheckout({
   jtbdKey,
   selectionMode = "single",
   selectedJtbds,
-  upsellVariant = "profiles-fan",
+  upsellVariant = "profiles-hero-tabs",
   billingCountry,
   onReturnToApp,
 }: SimulatedWebCheckoutProps) {
@@ -122,6 +125,15 @@ export default function SimulatedWebCheckout({
         )}
         {upsellVariant === "profiles-fan" && (
           <ProfilesFan jtbdKey={jtbdKey} selectionMode={selectionMode} selectedJtbds={selectedJtbds} onUpgrade={noop} onContinueFree={noop} onBack={noop} />
+        )}
+        {upsellVariant === "features-led-band" && (
+          <FeaturesLedBand jtbdKey={jtbdKey} selectionMode={selectionMode} selectedJtbds={selectedJtbds} onUpgrade={noop} onContinueFree={noop} onBack={noop} />
+        )}
+        {upsellVariant === "features-led-peek" && (
+          <FeaturesLedPeek jtbdKey={jtbdKey} selectionMode={selectionMode} selectedJtbds={selectedJtbds} onUpgrade={noop} onContinueFree={noop} onBack={noop} />
+        )}
+        {upsellVariant === "features-led-inline" && (
+          <FeaturesLedInline jtbdKey={jtbdKey} selectionMode={selectionMode} selectedJtbds={selectedJtbds} onUpgrade={noop} onContinueFree={noop} onBack={noop} />
         )}
       </div>
 

@@ -108,7 +108,7 @@ export default function ProfilesBand({ jtbdKey, selectionMode = "single", select
           <motion.div variants={itemVariants}>
             <CarouselTrack reduced={reduced} label={C.groupLabel}>
               {profiles.map((profile) => (
-                <UpsellProfileCard key={profile.jtbd} profile={profile} height={CARD_H} showChips={false} className="snap-start" />
+                <UpsellProfileCard key={profile.id} profile={profile} height={CARD_H} showChips={false} className="snap-start" />
               ))}
             </CarouselTrack>
           </motion.div>

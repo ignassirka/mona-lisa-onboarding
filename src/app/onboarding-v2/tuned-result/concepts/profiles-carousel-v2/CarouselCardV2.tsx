@@ -94,11 +94,11 @@ export default function CarouselCardV2({ profile, reduced }: CarouselCardV2Props
   const [focused, setFocused] = useState(false);
   // Per-card, and deliberately not lifted: each card is its own destination,
   // and one card's country has no business retargeting the other five.
-  const [country, setCountry] = useState<string | null>(PROFILE_COUNTRY_DEFAULT[profile.jtbd]);
+  const [country, setCountry] = useState<string | null>(PROFILE_COUNTRY_DEFAULT[profile.id]);
   const open = hovered || focused;
 
-  const benefits = PROFILE_BENEFITS[profile.jtbd];
-  const chips = profileChips(profile.jtbd);
+  const benefits = PROFILE_BENEFITS[profile.id];
+  const chips = profileChips(profile.id);
   const disclosure = reduced ? { duration: 0.15 } : { duration: sec(CT.carouselHoverMs), ease: EASE_OUT };
 
   return (
@@ -116,7 +116,7 @@ export default function CarouselCardV2({ profile, reduced }: CarouselCardV2Props
       }}
     >
       <motion.img
-        src={PROFILE_CARD_PHOTO[profile.jtbd]}
+        src={PROFILE_CARD_PHOTO[profile.id]}
         alt=""
         className="absolute inset-0 size-full object-cover"
         animate={{ scale: open && !reduced ? 1.05 : 1 }}
@@ -153,7 +153,7 @@ export default function CarouselCardV2({ profile, reduced }: CarouselCardV2Props
           onPointerEnter={() => setHovered(true)}
           onPointerLeave={() => setHovered(false)}
         >
-          <ProfileIconTile jtbd={profile.jtbd} />
+          <ProfileIconTile profileId={profile.id} />
 
           <p
             className="mt-[10px] truncate font-['Segoe_UI_Variable',sans-serif] text-[26px] font-semibold leading-[32px] text-white"
@@ -181,7 +181,7 @@ export default function CarouselCardV2({ profile, reduced }: CarouselCardV2Props
                       card's rows out of alignment with its neighbours' — see
                       `hoverSubtitle`'s length constraint. */}
                   <p className="truncate font-['Segoe_UI_Variable',sans-serif] text-[13px] leading-[18px] text-[rgba(255,255,255,0.72)]">
-                    {C2.hoverSubtitle[profile.jtbd]}
+                    {C2.hoverSubtitle[profile.id]}
                   </p>
 
                   {/* Only Streaming has a set of named services this profile

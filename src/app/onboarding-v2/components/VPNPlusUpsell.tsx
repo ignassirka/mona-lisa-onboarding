@@ -14,6 +14,7 @@ import { mergePaidFeatures, rankPaidFeatures, capList } from "../lib/jtbdMerge";
 import type { JTBDKey } from "../lib/jtbdTuningResult";
 import type { SelectionMode } from "../lib/jtbdData";
 import heroUrl from "../assets/upsell-hero.jpg";
+import { UPSELL_VERSIONS_COPY } from "../lib/upsellVersionsCopy";
 import sparkleUrl from "../assets/upsell-sparkle.svg";
 import logoNetflix from "../assets/streaming-netflix.png";
 import logoBbc from "../assets/streaming-bbc.png";
@@ -196,7 +197,7 @@ export default function VPNPlusUpsell({
                 className="font-['Segoe_UI_Variable',sans-serif] text-[24px] font-semibold leading-[30px] text-white"
                 style={{ fontVariationSettings: "'opsz' 24" }}
               >
-                What VPN Plus unlocks for you
+                {UPSELL_VERSIONS_COPY.headline}
               </h1>
               <p className="font-['Segoe_UI_Variable',sans-serif] text-[14px] leading-[19px] text-[rgba(255,255,255,0.7)]">
                 {isMultipleActive ? (

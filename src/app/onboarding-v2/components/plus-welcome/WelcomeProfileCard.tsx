@@ -31,7 +31,7 @@ interface WelcomeProfileCardProps {
  * same card the user saw while tuning (artwork, icon tile, name, chips), but
  * with a welcoming unlocked treatment instead of the upsell's locked rim. */
 export default function WelcomeProfileCard({ profile, variants, className = "" }: WelcomeProfileCardProps) {
-  const chips = profileChips(profile.jtbd);
+  const chips = profileChips(profile.id);
 
   return (
     <motion.div
@@ -39,11 +39,11 @@ export default function WelcomeProfileCard({ profile, variants, className = "" }
       className={`relative shrink-0 overflow-hidden rounded-[16px] bg-[#0b0912] ${className}`}
       style={{ width: WELCOME_PROFILE_CARD_W, height: WELCOME_PROFILE_CARD_H, boxShadow: `${RIM}, ${GLOW}` }}
     >
-      <img src={PROFILE_CARD_PHOTO[profile.jtbd]} alt="" className="absolute inset-0 size-full object-cover" />
+      <img src={PROFILE_CARD_PHOTO[profile.id]} alt="" className="absolute inset-0 size-full object-cover" />
       <div className="absolute inset-0 bg-gradient-to-b from-[rgba(8,6,14,0.92)] via-[rgba(8,6,14,0.25)] to-[rgba(8,6,14,0.5)]" />
 
       <div className="absolute inset-0 flex flex-col px-[16px] pt-[16px] pb-[14px]">
-        <ProfileIconTile jtbd={profile.jtbd} />
+        <ProfileIconTile profileId={profile.id} />
 
         <p
           className="mt-[8px] min-w-0 truncate font-['Segoe_UI_Variable',sans-serif] text-[26px] font-semibold leading-[32px] text-white"
@@ -53,7 +53,7 @@ export default function WelcomeProfileCard({ profile, variants, className = "" }
         </p>
 
         <p className="mt-[6px] truncate font-['Segoe_UI_Variable',sans-serif] text-[13px] leading-[18px] text-[rgba(255,255,255,0.72)]">
-          {C2.hoverSubtitle[profile.jtbd]}
+          {C2.hoverSubtitle[profile.id]}
         </p>
 
         {chips.length > 0 && (

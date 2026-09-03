@@ -87,8 +87,8 @@ export default function UpsellProfileCard({
   const [focused, setFocused] = useState(false);
   const open = hovered || focused;
 
-  const chips = showChips ? profileChips(profile.jtbd) : [];
-  const benefits = PROFILE_BENEFITS[profile.jtbd];
+  const chips = showChips ? profileChips(profile.id) : [];
+  const benefits = PROFILE_BENEFITS[profile.id];
   const disclosure = reduced ? { duration: 0.15 } : { duration: sec(CT.carouselHoverMs), ease: EASE_OUT };
 
   return (
@@ -104,7 +104,7 @@ export default function UpsellProfileCard({
       }}
     >
       <motion.img
-        src={PROFILE_CARD_PHOTO[profile.jtbd]}
+        src={PROFILE_CARD_PHOTO[profile.id]}
         alt=""
         className="absolute inset-0 size-full object-cover"
         animate={{ scale: open && !reduced ? 1.05 : 1 }}
@@ -123,7 +123,7 @@ export default function UpsellProfileCard({
       />
 
       <div className="absolute inset-0 flex flex-col px-[16px] pt-[16px] pb-[14px]">
-        <ProfileIconTile jtbd={profile.jtbd} />
+        <ProfileIconTile profileId={profile.id} />
 
         <p
           className={`mt-[8px] min-w-0 truncate font-['Segoe_UI_Variable',sans-serif] font-semibold text-white ${
@@ -151,7 +151,7 @@ export default function UpsellProfileCard({
                 transition={disclosure}
               >
                 <p className="truncate font-['Segoe_UI_Variable',sans-serif] text-[13px] leading-[18px] text-[rgba(255,255,255,0.72)]">
-                  {C2.hoverSubtitle[profile.jtbd]}
+                  {C2.hoverSubtitle[profile.id]}
                 </p>
 
                 {profile.jtbd === "streaming" ? <StreamingLogos compact className="mt-[6px]" /> : null}

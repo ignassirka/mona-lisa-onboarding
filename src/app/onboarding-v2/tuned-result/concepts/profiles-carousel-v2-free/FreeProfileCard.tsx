@@ -67,7 +67,7 @@ export default function FreeProfileCard({
    *  `carouselFreshnessStaggerMs`. */
   sweepDelayMs?: number;
 }) {
-  const chips = profileChips(profile.jtbd);
+  const chips = profileChips(profile.id);
 
   return (
     <div
@@ -79,14 +79,14 @@ export default function FreeProfileCard({
           opacity is what makes this read as "this card is unavailable"
           instead of as six independently faded pieces of text. */}
       <div className="absolute inset-0" style={{ opacity: DISABLED_OPACITY }}>
-        <img src={PROFILE_CARD_PHOTO[profile.jtbd]} alt="" className="absolute inset-0 size-full object-cover" />
+        <img src={PROFILE_CARD_PHOTO[profile.id]} alt="" className="absolute inset-0 size-full object-cover" />
 
         {/* Same top-weighted scrim as v2's card: this artwork is bright, and
             the icon and name sit over its lightest region. */}
         <div className="absolute inset-0 bg-gradient-to-b from-[rgba(8,6,14,0.92)] via-[rgba(8,6,14,0.25)] to-[rgba(8,6,14,0.5)]" />
 
         <div className="absolute inset-0 flex flex-col px-[16px] pt-[16px]">
-          <ProfileIconTile jtbd={profile.jtbd} />
+          <ProfileIconTile profileId={profile.id} />
 
           <p
             className="mt-[8px] truncate font-['Segoe_UI_Variable',sans-serif] text-[26px] font-semibold leading-[32px] text-white"

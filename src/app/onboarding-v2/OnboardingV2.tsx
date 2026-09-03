@@ -28,6 +28,9 @@ import ProfilesHeroTabs from "./versions/upsell/ProfilesHeroTabs";
 import ProfilesBand from "./versions/upsell/ProfilesBand";
 import ProfilesPaired from "./versions/upsell/ProfilesPaired";
 import ProfilesFan from "./versions/upsell/ProfilesFan";
+import FeaturesLedBand from "./versions/upsell/FeaturesLedBand";
+import FeaturesLedPeek from "./versions/upsell/FeaturesLedPeek";
+import FeaturesLedInline from "./versions/upsell/FeaturesLedInline";
 import SimulatedWebCheckout from "./components/checkout/SimulatedWebCheckout";
 import LoaderScreen from "./components/LoaderScreen";
 import PlusWelcomeState from "./components/PlusWelcomeState";
@@ -285,26 +288,19 @@ export type UpsellVariant =
   | "profiles-hero-tabs"
   | "profiles-band"
   | "profiles-paired"
-  | "profiles-fan";
+  | "profiles-fan"
+  | "features-led-band"
+  | "features-led-peek"
+  | "features-led-inline";
 
 export const UPSELL_VERSIONS: { value: UpsellVariant; label: string }[] = [
-  // Prototype default — see `App.tsx` `upsellVariant` initial state.
-  { value: "profiles-fan", label: "Profiles + features — Fanned deck" },
-  { value: "default", label: "Default — Split hero" },
-  { value: "comparison-table", label: "Feature comparison table" },
-  { value: "value-stack", label: "Value-stack checklist" },
-  { value: "card-grid", label: "Benefit card grid" },
-  { value: "plan-selector", label: "Plan-selector toggle" },
-  { value: "hero-spotlight", label: "Single hero-benefit spotlight" },
-  // The other three "profiles + features" layouts — the same ranked feature
-  // engine as every version above, combined with the profile cards from the
-  // tuning screen's "Profiles carousel v2". They differ in arrangement and in
-  // how each one handles the fact that a profile's chips and a feature row can
-  // state the same thing twice; see docs/features/onboarding-v2.md → "Combined
-  // profiles + features upsell".
-  { value: "profiles-hero-tabs", label: "Profiles + features — Hero card & tabs" },
-  { value: "profiles-band", label: "Profiles + features — Carousel band" },
-  { value: "profiles-paired", label: "Profiles + features — Paired rows" },
+  // Prototype dropdown — four active variations; see `UpsellVariant` for the
+  // full union (other layouts remain wired in the render switch but hidden
+  // here). Default — see `App.tsx` `upsellVariant` initial state.
+  { value: "profiles-hero-tabs", label: "Profiles tabs" },
+  { value: "profiles-fan", label: "Profiles carousel" },
+  { value: "features-led-band", label: "Profile bullet point" },
+  { value: "default", label: "No profiles" },
 ];
 
 /** The "Personalized JTBD tuning" stage's own content-CONCEPT choice —
@@ -535,7 +531,7 @@ export default function OnboardingV2({
   variant = "hybrid",
   resultLayout = "stacked",
   tuningConcept = "default",
-  upsellVariant = "profiles-fan",
+  upsellVariant = "profiles-hero-tabs",
   tone = "straightforward",
   selectionMode = "single",
   onStageChange,
@@ -1381,6 +1377,36 @@ export default function OnboardingV2({
               )}
               {upsellVariant === "profiles-fan" && (
                 <ProfilesFan
+                  jtbdKey={effectiveJtbdKey}
+                  selectionMode={selectionMode}
+                  selectedJtbds={selectedJtbds}
+                  onUpgrade={() => setPhase("web-checkout")}
+                  onContinueFree={() => handleExit(effectiveSelectedJtbds, "free")}
+                  onBack={() => setPhase("tuned")}
+                />
+              )}
+              {upsellVariant === "features-led-band" && (
+                <FeaturesLedBand
+                  jtbdKey={effectiveJtbdKey}
+                  selectionMode={selectionMode}
+                  selectedJtbds={selectedJtbds}
+                  onUpgrade={() => setPhase("web-checkout")}
+                  onContinueFree={() => handleExit(effectiveSelectedJtbds, "free")}
+                  onBack={() => setPhase("tuned")}
+                />
+              )}
+              {upsellVariant === "features-led-peek" && (
+                <FeaturesLedPeek
+                  jtbdKey={effectiveJtbdKey}
+                  selectionMode={selectionMode}
+                  selectedJtbds={selectedJtbds}
+                  onUpgrade={() => setPhase("web-checkout")}
+                  onContinueFree={() => handleExit(effectiveSelectedJtbds, "free")}
+                  onBack={() => setPhase("tuned")}
+                />
+              )}
+              {upsellVariant === "features-led-inline" && (
+                <FeaturesLedInline
                   jtbdKey={effectiveJtbdKey}
                   selectionMode={selectionMode}
                   selectedJtbds={selectedJtbds}

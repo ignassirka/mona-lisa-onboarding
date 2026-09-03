@@ -1,4 +1,4 @@
-import type { JtbdId } from "../lib/jtbdData";
+import type { ProfileId } from "../lib/jtbdData";
 
 /** Structural-only copy for the alternative "tuning" concepts
  * (`tuned-result/concepts/*`). The intent-driven title/subtitle/summary
@@ -145,13 +145,14 @@ export const TUNING_CONCEPTS_COPY = {
      * six lists nobody can compare. "Tuned for" rather than a longer opener
      * is what buys the content its 24 characters. */
     hoverSubtitle: {
-      privacy: "Tuned for the strictest protection",
+      "privacy-daily": "Tuned for everyday privacy",
+      "privacy-advanced": "Tuned for the strictest protection",
       streaming: "Tuned for your favourite shows",
       downloading: "Tuned for protected transfers",
       gaming: "Tuned for fast, responsive play",
-      travel: "Tuned for Wi-Fi you don't control",
+      travel: "Tuned for Wi-Fi you don't trust",
       bypass: "Tuned for networks that block VPNs",
-    } as Record<JtbdId, string>,
+    } as Record<ProfileId, string>,
     /** Names the hover disclosure for assistive tech, which otherwise gets a
      * bare list appearing out of nowhere. */
     settingsLabel: "What this profile does for you",

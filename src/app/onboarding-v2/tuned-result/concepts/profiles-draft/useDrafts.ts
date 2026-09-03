@@ -7,7 +7,8 @@ import {
   type ProfileSetting,
   type TunedProfile,
 } from "../../../lib/jtbdProfiles";
-import type { JtbdId } from "../../../lib/jtbdData";
+import type { JtbdId, ProfileId } from "../../../lib/jtbdData";
+import { PROFILES_FOR_JTBD } from "../../../lib/jtbdData";
 
 export interface DraftProfile {
   /** Stable across edits — source intents joined, so a combination's id is
@@ -50,7 +51,11 @@ interface UseDraftsResult {
 
 function draftFromProfile(profile: TunedProfile, baselineSettings: ProfileSetting[]): DraftProfile {
   return {
-    id: profile.jtbd,
+    // `profile.id`, not `profile.jtbd` — `privacy` alone can seed two rows
+    // (Daily/Advanced privacy), which would collide on the same row id
+    // otherwise. `jtbds` below stays `profile.jtbd`: it feeds
+    // `mergeFreeSettings`, which is scoped to real intents, not profiles.
+    id: profile.id,
     jtbds: [profile.jtbd],
     name: profile.name,
     included: true,
@@ -178,7 +183,17 @@ export function useDrafts(
       update((ds) => {
         const target = ds.find((d) => d.id === id);
         if (!target || !target.combined) return ds;
-        const restored = target.jtbds.map((j) => draftFromProfile(JTBD_PROFILES[j], baselineSettings));
+        // `PROFILES_FOR_JTBD` expands each source intent back to its
+        // profile(s) — 1:1 for five intents, both privacy profiles for
+        // `privacy`. Splitting a combination that mixed BOTH privacy
+        // profiles in with other picks would restore Daily and Advanced
+        // twice each rather than once; this concept is prototype-only and
+        // not currently reachable (see `VISIBLE_TUNING_CONCEPTS_BY_PLAN`),
+        // so that edge case is left as a known limitation rather than
+        // threading a second, profile-scoped id through this whole model.
+        const restored = target.jtbds.flatMap((j: JtbdId) =>
+          PROFILES_FOR_JTBD[j].map((profileId: ProfileId) => draftFromProfile(JTBD_PROFILES[profileId], baselineSettings)),
+        );
         const index = ds.findIndex((d) => d.id === id);
         return [...ds.slice(0, index), ...restored, ...ds.slice(index + 1)];
       });
