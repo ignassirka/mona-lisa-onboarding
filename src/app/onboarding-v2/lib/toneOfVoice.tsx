@@ -264,18 +264,8 @@ export const CONNECTION_COPY: Record<ToneOfVoice, ConnectionCopy> = {
       connectingHeadline: <>Connecting to the VPN&hellip;</>,
       protectedHeadline: <>Your online identity is now fully {teal("protected")}!</>,
       protectedSub: ispCopy({
-        known: () => (
-          <>
-            Websites and services now see an encrypted VPN connection instead of yours, making it much harder to profile you or link your
-            activity back to you.
-          </>
-        ),
-        unknown: (
-          <>
-            Websites and services now see an encrypted VPN connection instead of yours, making it much harder to profile you or link your
-            activity back to you.
-          </>
-        ),
+        known: () => <>Websites see an encrypted VPN connection, not yours. Profiling you gets much harder.</>,
+        unknown: <>Websites see an encrypted VPN connection, not yours. Profiling you gets much harder.</>,
       }),
       ctaProtect: "Protect my online identity",
     },

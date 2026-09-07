@@ -212,8 +212,18 @@ function createTooltipContent(name: string, layer: MapLayerOption): string {
 
 // ─── Dark map style ──────────────────────────────────────────────────────────
 
-const TILE_URL =
-  "https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png";
+// CARTO retired free anonymous access to raster basemap tiles (March 2025) —
+// unauthenticated requests are served with a diagonal "API KEY REQUIRED"
+// watermark. A free key from https://carto.com/basemaps/apikey/ removes it;
+// set VITE_CARTO_API_KEY in `.env` (see `.env.example`). Falls back to the
+// unauthenticated (watermarked) URL if the env var isn't set, so local setup
+// without a key still renders a map rather than failing outright. Kept as its
+// own copy (not imported from onboarding-v2/lib/mapKit.ts) — v1 stays
+// self-contained per the project's stated architecture.
+const CARTO_API_KEY = import.meta.env.VITE_CARTO_API_KEY as string | undefined;
+const TILE_URL = CARTO_API_KEY
+  ? `https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png?key=${CARTO_API_KEY}`
+  : "https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png";
 const TILE_ATTRIBUTION =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>';
 

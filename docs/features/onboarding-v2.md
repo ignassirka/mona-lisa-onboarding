@@ -243,7 +243,7 @@ Inserted between the upsell CTA and the existing checkout loader, simulating "le
 
 | File | Purpose |
 |------|---------|
-| `lib/mapKit.ts` | Tile URL, pin HTML factory + CSS, pin status colors (adapted from v1) |
+| `lib/mapKit.ts` | Tile URL (CARTO `dark_nolabels`, keyed via `VITE_CARTO_API_KEY` — see "Map tiles" below), pin HTML factory + CSS, pin status colors (adapted from v1) |
 | `lib/useProgressiveMask.ts` | Progressive asterisk redaction hook (adapted from v1) |
 | `lib/useIpDetection.ts` | Live IP geolocation + fallback |
 | `lib/jtbdData.ts` | JTBD options + country context matrix + `JTBD_WINK_COPY` (grid picker's per-JTBD wink line) + `JTBD_CONTINUE_LABEL`/`JTBD_CONTINUE_LABEL_DEFAULT` (grid picker's dynamic Continue label) |
@@ -281,10 +281,23 @@ The upsell hero (`upsell-hero.jpg`, 661×1024) is the user-provided 3D ▽+ Prot
 
 ## Reused from v1
 
-- Leaflet dark tile layer (`dark_nolabels` CARTO) and imperative map setup
+- Leaflet dark tile layer (`dark_nolabels` CARTO, keyed via `VITE_CARTO_API_KEY`) and imperative map setup — see "Map tiles" below
 - Pulsating pin SVG (radial-ring + dot) and pin status colors (`#F7607B` / `#8882A0` / `#2CFFCC`)
 - `StatusGradient` component (imported directly) for the coral/slate/teal top gradient crossfade
 - Progressive asterisk scramble logic
+
+### Map tiles
+
+CARTO's raster basemaps (`basemaps.cartocdn.com/dark_nolabels`) now require a free API key — unauthenticated requests are served with a diagonal **"API KEY REQUIRED"** watermark. Both maps read the same env var:
+
+| File | Role |
+|------|------|
+| `src/app/onboarding-v2/lib/mapKit.ts` | `TILE_URL` for `OnboardingMapV2` (onboarding v2 connection stage) |
+| `src/app/components/WorldMap.tsx` | Duplicate `TILE_URL` for v1 / main app (kept self-contained per architecture) |
+
+**Setup:** copy `.env.example` → `.env`, paste a key from [carto.com/basemaps/apikey](https://carto.com/basemaps/apikey/) into `VITE_CARTO_API_KEY`, restart the dev server. If the var is unset, both files fall back to the unauthenticated URL (watermarked but still renders). `.env` is git-ignored; `.env.example` is tracked with an empty placeholder.
+
+**Deploy:** set `VITE_CARTO_API_KEY` in the hosting environment (e.g. Vercel project env vars) before build — Vite inlines it at compile time.
 
 ## New in v2
 
@@ -345,7 +358,7 @@ Shared version helpers (`versions/lib/`): `useReducedMotion`, `scramble.ts` (`us
 
 The only measurement involved is the chip's own height (`chipRef` + `ResizeObserver`, `useLayoutEffect`) — constant across acts (same padding/row height whether loading, showing the real IP, or the resolved VPN identity) but measured rather than assumed, so the math is exact. Everything else (`pinCenterOffset`, `chipTopOffset`, `headerBottomOffset`, `footerTopOffset`) is derived from that one number plus `PIN_CHIP_GAP`/`GROUP_GAP`/`TARGETING_RETICLE_SIZE` (the last exported from `TargetingReticle.tsx`) and expressed as CSS `calc(50% + Npx)` offsets — no root-height tracking needed, since percentages already resolve against the container. `pinCenterOffset` is reported through `onPinOffsetChange`, which `OnboardingV2` feeds into `OnboardingMapV2.focusOffsetY` so the shared map's pin lands exactly where the reticle math expects.
 
-**Tone of voice:** Hybrid is fully wired into the same axis as v1/v2/v4/v4-split (see "Tone of voice" below) rather than having its own dedicated, tone-agnostic copy. `CONNECTION_COPY[tone]` gained a third shape, `hybrid` (`HybridCopy`: `exposedHeadline`/`exposedSub`/`connectingHeadline`/`protectedHeadline`/`protectedSub`/`ctaProtect` — the map-spotlight-shaped half of the layout), alongside the existing `mapSpotlight` and `browsing`. The 3 activity cards' `visibleLabel`/`redactingLabel`/`sealedLabel` are **not** duplicated into `hybrid` — Hybrid reads those straight from `browsing` per tone, since the cards are the literal same reused `ActivityEntry` component. Card main-line text comes from `data/hybridActivityEntries.ts` (tone-invariant category copy). `straightforward.hybrid` preserves Hybrid's original headline/CTA verbatim, but its `exposedSub`/`protectedSub` are `[UPDATED]` — no longer ISP-aware (the old copy leaned on "your provider ('BT') and others along the way"; the new copy makes its point from the IP address / VPN connection alone, so `ispCopy()`'s `known`/`unknown` branches collapse to the same text): `exposedSub` = "Your IP address can reveal more about your online activity than you might think.", `protectedSub` = "Websites and services now see an encrypted VPN connection instead of yours, making it much harder to profile you or link your activity back to you." The other three tones are fresh Hybrid-specific wording in the same voice as their `mapSpotlight` counterparts (not copy-pasted, to avoid two tones showing identical text within Hybrid itself).
+**Tone of voice:** Hybrid is fully wired into the same axis as v1/v2/v4/v4-split (see "Tone of voice" below) rather than having its own dedicated, tone-agnostic copy. `CONNECTION_COPY[tone]` gained a third shape, `hybrid` (`HybridCopy`: `exposedHeadline`/`exposedSub`/`connectingHeadline`/`protectedHeadline`/`protectedSub`/`ctaProtect` — the map-spotlight-shaped half of the layout), alongside the existing `mapSpotlight` and `browsing`. The 3 activity cards' `visibleLabel`/`redactingLabel`/`sealedLabel` are **not** duplicated into `hybrid` — Hybrid reads those straight from `browsing` per tone, since the cards are the literal same reused `ActivityEntry` component. Card main-line text comes from `data/hybridActivityEntries.ts` (tone-invariant category copy). `straightforward.hybrid` preserves Hybrid's original headline/CTA verbatim, but its `exposedSub`/`protectedSub` are `[UPDATED]` — no longer ISP-aware (the old copy leaned on "your provider ('BT') and others along the way"; the new copy makes its point from the IP address / VPN connection alone, so `ispCopy()`'s `known`/`unknown` branches collapse to the same text): `exposedSub` = "Your IP address can reveal more about your online activity than you might think.", `protectedSub` = "Websites see an encrypted VPN connection, not yours. Profiling you gets much harder." `[UPDATED]` — shortened for punchier delivery; meaning unchanged. The other three tones are fresh Hybrid-specific wording in the same voice as their `mapSpotlight` counterparts (not copy-pasted, to avoid two tones showing identical text within Hybrid itself).
 
 **Known gaps, inherited from the source versions (not introduced by Hybrid):** no real connect service and no existing timeout/retry UI pattern exist anywhere in the repo to reuse — the simulated connect is a fixed ~3.2s `setTimeout`, so `HYBRID_TIMING.connectTimeoutMs` (15s) is a defensive hold-with-shimmer safeguard that can't currently fire, with no "Retry" action wired (there's no real failure to retry from). Neither `OnboardingMapV2` nor any existing version has reduced-motion handling for the map/flyTo itself; Hybrid's `prefers-reduced-motion` variant covers everything it controls (chip scramble, card typewriter, icon/title crossfades — via the shared `useReducedMotion`) but inherits the map's un-reduced flyTo, same as v1/v2 do today.
 

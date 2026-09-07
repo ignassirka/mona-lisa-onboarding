@@ -18,6 +18,12 @@ Living source of truth for the Mona Lisa VPN onboarding application.
 | `StatusGradient` | `src/imports/StatusGradient.tsx` | Top-of-viewport gradient that reflects VPN status color |
 | `ConnectionDetails` | `src/imports/ConnectionDetails.tsx` | Bottom bar showing IP, country, provider, VPN status |
 | `WorldMap` | `src/app/components/WorldMap.tsx` | Leaflet-based dark map with country markers and user pin |
+
+### Environment
+
+| Variable | Purpose |
+|----------|---------|
+| `VITE_CARTO_API_KEY` | Free CARTO basemap key ([request](https://carto.com/basemaps/apikey/)) — removes the "API KEY REQUIRED" watermark on dark map tiles in `WorldMap.tsx` and onboarding's `OnboardingMapV2` (via `lib/mapKit.ts`). Set in `.env` locally (see `.env.example`); required in CI/deploy env before `vite build`. |
 | `windows-wallpaper.png` | `src/app/assets/windows-wallpaper.png` | The native Windows 11 default desktop wallpaper — used as the `background-image` on every "desktop" backdrop behind an app/onboarding window: `App.tsx`'s `.vpn-app-outer` (main app) and pre-start screen, and `OnboardingV2.tsx`'s outer wrapper. Shown identically regardless of the app's own light/dark theme (a real desktop wallpaper doesn't change with an app's theme) — replaces the previous flat dark/light theme colors on these specific backdrop elements only; the app window/onboarding window itself still themes normally. |
 | `FlowOverview` | `src/app/components/FlowOverview.tsx` | Prototype-only, informational "Flow overview" screen — a diagram of the 4 onboarding stages, each with a real screenshot, a Goal, and a How sentence (see "Prototype: Flow overview" in `onboarding-v2.md`). Takes only `onBack`; doesn't read or duplicate any prototype variation state. Its 4 screenshots live in `src/app/assets/flow-overview/`. |
 | `PrdOverview` | `src/app/components/PrdOverview.tsx` | Prototype-only, informational "PRD overview" screen — a stakeholder-glance diagram of the onboarding PRD's figures/principles/flow/risks (see "Prototype: PRD overview" in `onboarding-v2.md`). `FlowOverview`'s sibling: same nav/tokens/entrance. |
